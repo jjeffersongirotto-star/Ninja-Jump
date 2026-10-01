@@ -9,7 +9,7 @@
 <meta http-equiv="Pragma" content="no-cache">
 <title>Ninja Jump</title>
 <link rel="icon" href="data:,">
-<noscript><style>#nojsMsg{display:block!important}.subtitle,#recordsBox,#playBtn,#goStats{display:none!important}</style></noscript>
+<noscript><style>#nojsMsg{display:block!important}.subtitle,#recordsBox,#menuBtns,#goStats,#walletBox{display:none!important}</style></noscript>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -186,6 +186,67 @@
     transition: transform .1s, box-shadow .1s;
     -webkit-tap-highlight-color: transparent;
   }
+  .btn-sec {
+    background: linear-gradient(180deg, #4a5578, #2d3550);
+    box-shadow: 0 6px 0 #161b2c, 0 10px 24px rgba(20,30,70,.35);
+    font-size: 15px;
+    padding: 12px 32px;
+  }
+  .btn-sec:active { box-shadow: 0 2px 0 #161b2c, 0 4px 12px rgba(20,30,70,.3); }
+  .screen { display: flex; flex-direction: column; align-items: center; }
+  .screen.hidden { display: none; }
+  .menu-btns { display: flex; flex-direction: column; align-items: stretch; min-width: 220px; }
+  .menu-btns .btn { margin-bottom: 16px; }
+  .wallet {
+    font-size: 17px; font-weight: 800; color: #ffd700;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,215,0,.3);
+    border-radius: 999px; padding: 6px 16px; margin-bottom: 20px;
+  }
+  .chars { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; max-width: 360px; }
+  .char {
+    pointer-events: auto; position: relative; width: 104px; margin: 0 5px 12px; padding: 8px 4px 10px;
+    border-radius: 16px; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.07);
+    color: #fff; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .char.sel { border-color: #ffd700; background: rgba(255,215,0,.12); box-shadow: 0 0 14px rgba(255,215,0,.3); }
+  .char canvas { display: block; margin: 0 auto; width: 84px; height: 84px; }
+  .char.locked canvas { filter: brightness(.42) saturate(.7); }
+  .char .lock { position: absolute; top: 36px; left: 0; right: 0; font-size: 26px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  .char .nm { font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .char .st { font-size: 12px; font-weight: 800; margin-top: 3px; color: rgba(255,255,255,.6); }
+  .char.locked .st { color: #ffd700; }
+  .char.sel .st { color: #4dff88; }
+  .chars-msg { min-height: 20px; font-size: 13px; font-weight: 700; color: #ff9c8a; margin-bottom: 14px; }
+  .panel {
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 16px;
+    padding: 14px 20px; margin-bottom: 24px; min-width: 260px;
+  }
+  .opt-row { display: flex; justify-content: space-between; align-items: center; color: #fff; font-size: 17px; font-weight: 700; }
+  .toggle {
+    pointer-events: auto; display: flex; align-items: center; border: none; cursor: pointer; font: inherit;
+    font-size: 14px; font-weight: 800; color: #fff; background: rgba(255,255,255,.12); border-radius: 999px;
+    padding: 4px 12px 4px 4px; margin-left: 20px; -webkit-tap-highlight-color: transparent;
+  }
+  .toggle b { display: block; width: 40px; height: 24px; border-radius: 12px; background: #555b70; position: relative; margin-right: 10px; transition: background .15s; }
+  .toggle b::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: left .15s; }
+  .toggle[aria-checked="true"] b { background: #34c46a; }
+  .toggle[aria-checked="true"] b::after { left: 19px; }
+  .hud-right { display: flex; align-items: flex-start; }
+  .pause-btn {
+    pointer-events: auto; width: 34px; height: 34px; margin-left: 8px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,12,35,.26); border: 1px solid rgba(255,255,255,.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.15); -webkit-tap-highlight-color: transparent;
+  }
+  .pause-btn i { display: block; width: 4px; height: 13px; margin: 0 2px; border-radius: 2px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+  #countdown {
+    position: absolute; top: 0; right: 0; bottom: 0; left: 0; display: none; align-items: center; justify-content: center;
+    font-size: 110px; font-weight: 900; color: #fff; text-shadow: 0 6px 0 rgba(0,0,0,.25), 0 0 30px rgba(0,0,0,.5);
+    background: rgba(8,8,20,.25);
+  }
+  #countdown.active { display: flex; }
+  #countdown span { animation: cd .9s ease-out both; }
+  @keyframes cd { 0% { transform: scale(1.6); opacity: 0; } 25% { opacity: 1; } 100% { transform: scale(.9); opacity: .85; } }
   .btn:active {
     transform: translateY(4px);
     box-shadow: 0 2px 0 #7a1010, 0 4px 12px rgba(255,50,50,.3);
@@ -233,8 +294,9 @@
   .notice .err-detail { margin-top: 10px; font-size: 11px; color: rgba(255,255,255,.4); word-break: break-word; }
   html.nojs body, html.game-failed body { background: linear-gradient(180deg, #5EC8F0 0%, #A8E6FF 55%, #C8F0D0 100%); }
   html.nojs #nojsMsg, html.game-failed #errMsg { display: block; }
-  html.nojs .subtitle, html.nojs #recordsBox, html.nojs #playBtn, html.nojs #goStats,
-  html.game-failed .subtitle, html.game-failed #recordsBox, html.game-failed #playBtn, html.game-failed #goStats { display: none !important; }
+  html.nojs .subtitle, html.nojs #recordsBox, html.nojs #menuBtns, html.nojs #goStats, html.nojs #walletBox,
+  html.game-failed .subtitle, html.game-failed #recordsBox, html.game-failed #menuBtns, html.game-failed #goStats,
+  html.game-failed #walletBox, html.game-failed #scrChars, html.game-failed #scrOptions, html.game-failed #scrPause { display: none !important; }
 </style>
 </head>
 <body>
@@ -245,8 +307,12 @@
   <div id="streak"><i></i><i></i><i></i><i></i><i></i></div>
   <div id="hud">
     <div class="hud-side" id="themeName"></div>
-    <div class="hud-side" style="text-align:right" id="coinsHud">🪙 0</div>
+    <div class="hud-right">
+      <div class="hud-side" style="text-align:right" id="coinsHud">🪙 0</div>
+      <button class="pause-btn" id="pauseBtn" aria-label="Pausar"><i></i><i></i></button>
+    </div>
   </div>
+  <div id="countdown"></div>
   <div id="overlay">
     <div class="title">Ninja Jump</div>
     <div class="notice" id="nojsMsg">
@@ -258,18 +324,47 @@
       <p>Abra este arquivo no <b>Chrome</b>: toque nos <b>três pontinhos</b> (⋮) e escolha <b>Abrir no Chrome</b> ou <b>Abrir com navegador</b>.</p>
       <div class="err-detail" id="errDetail"></div>
     </div>
-    <div class="subtitle" id="overlaySub">Arraste o dedo para criar um elástico. Quanto menor a linha, mais alto o salto!</div>
-    <div class="records" id="recordsBox">
-      <h3>Recordes</h3>
-      <div class="rec-row"><span>Melhor altura</span><span class="val" id="bestM">0 m</span></div>
-      <div class="rec-row"><span>Melhores moedas</span><span class="val" id="bestC">0</span></div>
+    <div class="screen" id="scrMain">
+      <div class="subtitle" id="overlaySub">Arraste o dedo para criar um elástico. Quanto menor a linha, mais alto o salto!</div>
+      <div class="records" id="recordsBox">
+        <h3>Recordes</h3>
+        <div class="rec-row"><span>Melhor altura</span><span class="val" id="bestM">0 m</span></div>
+        <div class="rec-row"><span>Melhores moedas</span><span class="val" id="bestC">0</span></div>
+      </div>
+      <div id="goStats" style="display:none">
+        <div class="go-stats">Altura<div class="big" id="goMeters">0 m</div></div>
+        <div class="go-stats" style="margin-bottom:20px">Moedas: <strong id="goCoins">0</strong></div>
+        <div class="new-record" id="newRec" style="display:none">🎉 Novo recorde!</div>
+      </div>
+      <div class="wallet" id="walletBox">🪙 <span id="walletVal">0</span></div>
+      <div class="menu-btns" id="menuBtns">
+        <button class="btn" id="playBtn">Jogar</button>
+        <button class="btn btn-sec" id="charsBtn">Personagens</button>
+        <button class="btn btn-sec" id="optionsBtn">Opções</button>
+      </div>
     </div>
-    <div id="goStats" style="display:none">
-      <div class="go-stats">Altura<div class="big" id="goMeters">0 m</div></div>
-      <div class="go-stats" style="margin-bottom:20px">Moedas: <strong id="goCoins">0</strong></div>
-      <div class="new-record" id="newRec" style="display:none">🎉 Novo recorde!</div>
+    <div class="screen hidden" id="scrChars">
+      <div class="wallet">🪙 <span id="walletVal2">0</span></div>
+      <div class="chars" id="charsList"></div>
+      <div class="chars-msg" id="charsMsg"></div>
+      <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>
-    <button class="btn" id="playBtn">Jogar</button>
+    <div class="screen hidden" id="scrOptions">
+      <div class="panel">
+        <div class="opt-row">
+          <span>Áudio</span>
+          <button class="toggle" id="soundToggle" role="switch" aria-checked="true"><b></b><span id="soundLabel">Ligado</span></button>
+        </div>
+      </div>
+      <button class="btn btn-sec" data-back="1">Voltar</button>
+    </div>
+    <div class="screen hidden" id="scrPause">
+      <div class="menu-btns">
+        <button class="btn" id="resumeBtn">Continuar</button>
+        <button class="btn btn-sec" id="pauseOptionsBtn">Opções</button>
+        <button class="btn btn-sec" id="quitBtn">Sair</button>
+      </div>
+    </div>
   </div>
 </div>
 <script>
@@ -342,15 +437,21 @@
   const LS_COINS = 'ninjaJump_bestCoins';
   const LS_OLD_METERS = 'ninjaElastico_bestMeters';
   const LS_OLD_COINS = 'ninjaElastico_bestCoins';
+  const LS_WALLET = 'ninjaJump_wallet';      // coins collected over all runs (spent on characters)
+  const LS_SKINS = 'ninjaJump_skinsOwned';   // comma-separated owned character ids
+  const LS_SKIN = 'ninjaJump_skin';          // selected character id
+  const LS_SOUND = 'ninjaJump_sound';        // '0' = audio off
 
   const canvas = document.getElementById('game');
-  const ctx = (function () {
+  // `let`: the character previews temporarily point it at their own small canvases
+  let ctx = (function () {
     try { return canvas.getContext('2d'); } catch (e) { logErr('getContext', e); return null; }
   })();
   if (!ctx) { fatal('canvas 2D indisponível'); return; }
   // ellipse() is missing on some old WebViews: same shape via a scaled arc
+  const CtxProto = window.CanvasRenderingContext2D && window.CanvasRenderingContext2D.prototype;
   if (typeof ctx.ellipse !== 'function') {
-    ctx.ellipse = function (x, y, rx, ry, rot, a0, a1, ccw) {
+    (CtxProto && typeof CtxProto.ellipse !== 'function' ? CtxProto : ctx).ellipse = function (x, y, rx, ry, rot, a0, a1, ccw) {
       this.save();
       this.translate(x, y);
       this.rotate(rot || 0);
@@ -380,9 +481,19 @@
   const recordsBox = document.getElementById('recordsBox');
   const streakEl = document.getElementById('streak');
   const streakPips = streakEl ? streakEl.getElementsByTagName('i') : [];
+  const titleEl = document.querySelector('.title');
+  const walletVal = document.getElementById('walletVal');
+  const walletVal2 = document.getElementById('walletVal2');
+  const charsList = document.getElementById('charsList');
+  const charsMsg = document.getElementById('charsMsg');
+  const soundToggle = document.getElementById('soundToggle');
+  const soundLabel = document.getElementById('soundLabel');
+  const countdownEl = document.getElementById('countdown');
+  const SCREENS = { main: 'scrMain', chars: 'scrChars', options: 'scrOptions', pause: 'scrPause' };
 
   // --- Audio ---
   let audioCtx = null;
+  let soundOn = true;
   function ensureAudio() {
     if (!audioCtx) {
       try {
@@ -398,7 +509,7 @@
     } catch (e) {}
   }
   function beep(freq, dur, type, vol) {
-    if (!audioCtx) return;
+    if (!audioCtx || !soundOn) return;
     try {
       const o = audioCtx.createOscillator();
       const g = audioCtx.createGain ? audioCtx.createGain() : audioCtx.createGainNode();
@@ -584,21 +695,33 @@
   const GRAVITY_BASE = 0.36;
   const NINJA_R = 16;
   const ELASTIC_MIN = 36;
-  const ELASTIC_MAX = 240;
   const BASE_IMPULSE = 19.5;
-  // Long elastics: power never drops below this fraction of the max (kicks in above ~120 px),
-  // so even a long line is enough to catch a fall instead of being almost useless.
-  const LONG_ELASTIC_FLOOR = 0.3;
+  // Max drawn length: one third of the screen width (never below a usable minimum on tiny screens).
+  // The finger can keep dragging, but the line stops growing at this length.
+  const ELASTIC_MAX_FRAC = 1 / 3;
+  const ELASTIC_MAX_MIN_PX = 90;
+  function elasticMaxLen() { return Math.max(ELASTIC_MAX_MIN_PX, W * ELASTIC_MAX_FRAC); }
+  // Power curve over the allowed range (t = 0 shortest .. 1 longest): the longest line gives
+  // LONG_ELASTIC_POWER of the max, sizes in between ramp smoothly (more than the old 1/len curve),
+  // and the very shortest lines get a small extra bonus on top (MIN_ELASTIC_BONUS).
+  const LONG_ELASTIC_POWER = 0.42;
+  const ELASTIC_CURVE = 1.4;
+  const MIN_ELASTIC_BONUS = 0.08;
+  function elasticT(rawLen) {
+    const maxLen = elasticMaxLen();
+    return Math.max(0, Math.min(1, (rawLen - ELASTIC_MIN) / (maxLen - ELASTIC_MIN)));
+  }
   function elasticPower(rawLen) {
-    const len = Math.max(ELASTIC_MIN, Math.min(ELASTIC_MAX, rawLen));
-    return Math.max(ELASTIC_MIN / len, LONG_ELASTIC_FLOOR);
+    const t = elasticT(rawLen);
+    const base = LONG_ELASTIC_POWER + (1 - LONG_ELASTIC_POWER) * Math.pow(1 - t, ELASTIC_CURVE);
+    return base * (1 + MIN_ELASTIC_BONUS * (1 - smoothstep(0, 0.12, t)));
   }
   // Super jump: SUPER_STREAK short elastics in a row -> the last of them launches a super jump.
-  // "Short" = drawn length <= SHORT_ELASTIC_MAX px, i.e. >= 45% on the % indicator (36/80).
-  const SHORT_ELASTIC_MAX = 80;
+  // "Short" = the shortest SHORT_ELASTIC_T of the allowed range (about 64%+ on the % indicator).
+  const SHORT_ELASTIC_T = 0.4;
   const SUPER_STREAK = 5;
-  const SUPER_JUMP_MULT = 1.5;               // x the normal impulse of that same elastic
-  const SUPER_JUMP_MIN = BASE_IMPULSE * 1.1; // floor so every super jump feels big
+  const SUPER_JUMP_MULT = 1.7;               // x the normal impulse of that same elastic
+  const SUPER_JUMP_MIN = BASE_IMPULSE * 1.35; // floor so every super jump feels big
   const SUPER_SPIN_TURNS_PER_SEC = 3.5;      // spin speed at launch; slows to 0 at the top
   // Wall kick (visual only): min horizontal speed into a wall, and pose duration in frames
   const WALL_KICK_MIN_SPEED = 0.8;
@@ -648,6 +771,14 @@
     // gravity x `gravity` right after the hit, blending back to normal over `frames`; fall speed capped at
     // `maxFall` px/frame during that window. Normal gravity is unchanged otherwise.
     bumpFloat: { frames: 40, gravity: 0.7, maxFall: 9.5 },
+    // Head bonks (hitting a solid from below): each bonk in a row pushes him down harder (1st light,
+    // 2nd stronger, 3rd+ strongest) so he can't stay stuck under a platform. The count resets after a
+    // jump with no bonk, or after `resetFrames` without bonking.
+    bonk: { pushDown: [1.2, 3.4, 6.2], resetFrames: 240 },
+    // Falling onto a platform from above: it turns intangible (he drops straight through). It becomes
+    // solid again when a new elastic is drawn with him fully below it. If he is still inside it when an
+    // elastic is drawn or touched, the elastic snaps in the middle (`snapFrames` animation).
+    ghostPlatform: { alpha: 0.35, snapFrames: 20, margin: 4 },
     // Head stomp: landing on a flyer/UFO from above (moving down faster than `minDown`, contact within
     // ~60 degrees of straight down: upward contact component >= `zone`). Blue: defeated, +`coins`, rebound
     // `blueImpulse`. Red: NOT defeated, just rebound `redImpulse` and he survives. Spikes/saws: always fatal.
@@ -673,8 +804,18 @@
   let rings = [];        // shockwave rings (super jump)
   let floaters = [];     // '+1' coin pop after a stomp
   let groundY = 0, originY = 0; // world y of the ground top / of meter 0 (fixed per run)
-  const debugStats = { bounces: 0, supers: 0, wallKicks: 0, superFrame: -1, last: null, hits: {}, deaths: 0, deathBy: null, shieldBreaks: 0,
-    stomps: { blue: 0, red: 0 }, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0 };
+  // Per-run counters (reset at the start of every run by resetDebugStats)
+  function freshDebugStats() {
+    return { bounces: 0, supers: 0, wallKicks: 0, superFrame: -1, last: null, hits: {}, deaths: 0, deathBy: null, shieldBreaks: 0,
+      stomps: { blue: 0, red: 0 }, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0,
+      bonks: 0, ghostPlatforms: 0, snaps: 0 };
+  }
+  const debugStats = freshDebugStats();
+  function resetDebugStats() {
+    const f = freshDebugStats();
+    for (const k in debugStats) if (!(k in f)) delete debugStats[k];
+    for (const k in f) debugStats[k] = f[k];
+  }
 
   // Parallax scenery seeds (stable)
   let hillsFar = [], hillsNear = [], mountains = [], trees = [], cloudLayer = [], planets = [];
@@ -818,8 +959,10 @@
       spinning: 0,
       superSpin: false, spinAngle: 0, spinRate0: 0, spinV0: 1,
       dead: false, deathSpin: 0,
-      floatT: 0, ghost: 0, still: 0, stillX: W / 2, stillY: groundY - NINJA_R, embedded: 0
+      floatT: 0, ghost: 0, still: 0, stillX: W / 2, stillY: groundY - NINJA_R, embedded: 0,
+      bonks: 0, bonkedSinceLaunch: false, bonkT: 0
     };
+    resetDebugStats();
     camera = { y: 0 };
     elastic = null;
     drawing = null;
@@ -1165,9 +1308,14 @@
     for (let i = 1; i <= steps; i++) {
       const t = i / steps, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
       for (const hz of hzNear) {
-        if (hz.cool > 0) continue;
+        if (hz.cool > 0 || hz.ghost) continue;
         if (!hz.fatal && ninja.ghost > 0) continue;
         if (!hazardContact(hz, px, py)) continue;
+        if (!onBand && hz.type === 'platform' && ninja.vy >= 0 && ly + NINJA_R <= hz.y - hz.h / 2 + 2) {
+          // falling onto a platform from above: it turns intangible and he drops straight through
+          ghostPlatform(hz);
+          continue;
+        }
         if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
         if (hz.fatal) { hitFatal(hz); return; }
         if (onBand) continue;
@@ -1258,7 +1406,7 @@
     let inside = false;
     if (!pinned) {
       for (const hz of hazards) {
-        if (hz.alive && !hz.dying && !hz.fatal && hazardContact(hz, ninja.x, ninja.y)) { inside = true; break; }
+        if (hz.alive && !hz.dying && !hz.fatal && !hz.ghost && hazardContact(hz, ninja.x, ninja.y)) { inside = true; break; }
       }
     }
     ninja.embedded = inside ? ninja.embedded + 1 : 0;
@@ -1272,7 +1420,7 @@
   }
   function unstick() {
     for (const hz of hazards) {
-      if (hz.alive && !hz.dying && !hz.fatal && hazardContact(hz, ninja.x, ninja.y)) {
+      if (hz.alive && !hz.dying && !hz.fatal && !hz.ghost && hazardContact(hz, ninja.x, ninja.y)) {
         const p = pushOut(hz, ninja.x, ninja.y);
         ninja.x = p.x; ninja.y = p.y;
       }
@@ -1315,8 +1463,17 @@
     const fresh = frame - hz.lastTouch > 10;
     hz.lastTouch = frame;
     if (side === 'bottom') {
-      // hit from below: upward momentum is gone, small bounce down (player can draw a new elastic)
-      ninja.vy = Math.max(1.2, Math.abs(ninja.vy) * 0.12);
+      // hit from below: upward momentum is gone, pushed down (player can draw a new elastic).
+      // Bonks in a row push harder each time so he never stays stuck under it.
+      const BK = HAZARDS.bonk;
+      if (fresh) {
+        ninja.bonks = Math.min(ninja.bonks + 1, BK.pushDown.length);
+        ninja.bonkedSinceLaunch = true;
+        ninja.bonkT = 0;
+        debugStats.bonks++;
+      }
+      const push = BK.pushDown[Math.max(0, ninja.bonks - 1)];
+      ninja.vy = Math.max(push, Math.abs(ninja.vy) * 0.12);
       ninja.vx *= 0.5;
       if (hz.shape !== 'rect') ninja.vx += (lx - hz.x) * 0.08;
     } else if (side === 'top') {
@@ -1344,6 +1501,46 @@
       shake = Math.max(shake, side === 'top' ? 2 : 5);
       beep(side === 'top' ? 260 : 170, 0.08, 'triangle', 0.08);
     }
+  }
+
+  function ghostPlatform(hz) {
+    if (hz.ghost) return;
+    hz.ghost = true;
+    debugStats.ghostPlatforms++;
+    burst(ninja.x, ninja.y + NINJA_R, '#cfe6ff', 6, 1.6);
+    beep(240, 0.07, 'sine', 0.05);
+  }
+  // Is he (with a small margin) still inside this intangible platform?
+  function insideGhost(hz) {
+    const m = HAZARDS.ghostPlatform.margin;
+    return Math.abs(ninja.x - hz.x) < hz.w / 2 + NINJA_R + m && Math.abs(ninja.y - hz.y) < hz.h / 2 + NINJA_R + m;
+  }
+  function insideAnyGhost() {
+    for (const hz of hazards) if (hz.alive && hz.ghost && insideGhost(hz)) return true;
+    return false;
+  }
+  // A new elastic was drawn: intangible platforms he is fully below become solid again.
+  // Returns false if he is still inside one (the elastic must snap).
+  function settleGhostPlatforms() {
+    if (insideAnyGhost()) return false;
+    for (const hz of hazards) {
+      if (hz.alive && hz.ghost && ninja.y - NINJA_R > hz.y + hz.h / 2) hz.ghost = false;
+    }
+    return true;
+  }
+  // Elastic breaks in the middle (both halves whip back to the pegs), then disappears
+  function snapElastic(e) {
+    e.phase = 'snapped';
+    e.used = true;
+    e.snapT = 0;
+    e.sag = 0;
+    debugStats.snaps++;
+    const mx = (e.x1 + e.x2) / 2, my = (e.y1 + e.y2) / 2;
+    const col = (atmosCache || atmosphereAt(0)).elastic;
+    burst(mx, my, col, 10, 3);
+    burst(mx, my, '#ffffff', 5, 2);
+    beep(520, 0.05, 'square', 0.05);
+    beep(180, 0.12, 'triangle', 0.06);
   }
 
   function hitFatal(hz) {
@@ -1402,7 +1599,7 @@
     drawing.y2 = drawing.sy2 + cam;
   }
   function startDraw(x, y) {
-    if (state !== 'playing' || (ninja && ninja.dead)) return;
+    if (state !== 'playing' || paused || (ninja && ninja.dead)) return;
     drawing = {
       sx1: x, sy1: y, sx2: x, sy2: y,
       x1: x, y1: y + camera.y, x2: x, y2: y + camera.y
@@ -1410,6 +1607,9 @@
   }
   function moveDraw(x, y) {
     if (!drawing) return;
+    // Cap the length: the line stops growing past the max, following the finger's direction
+    const dx = x - drawing.sx1, dy = y - drawing.sy1, len = Math.hypot(dx, dy), maxLen = elasticMaxLen();
+    if (len > maxLen) { x = drawing.sx1 + dx / len * maxLen; y = drawing.sy1 + dy / len * maxLen; }
     drawing.sx2 = x;
     drawing.sy2 = y;
     syncDrawingWorld();
@@ -1427,6 +1627,8 @@
         phase: 'ready', sag: 0, hitT: 0.5,
         impactSpeed: 0, stretchFrames: 0, maxSag: 0
       };
+      // Still inside an intangible platform: no room for an elastic, it snaps
+      if (!settleGhostPlatforms()) snapElastic(elastic);
     }
     drawing = null;
   }
@@ -1504,7 +1706,7 @@
 
   function update(dt) {
     frame++;
-    if (state !== 'playing') return;
+    if (state !== 'playing' || paused) return;
     if (drawing) syncDrawingWorld();
 
     const meters = worldToMeters(ninja.y);
@@ -1534,6 +1736,7 @@
       ninja.vy = 0;
     }
     if (ninja.spinning > 0) ninja.spinning -= 0.05;
+    if (ninja.bonks > 0 && ++ninja.bonkT > HAZARDS.bonk.resetFrames) { ninja.bonks = 0; ninja.bonkT = 0; }
 
     if (ninja.x < NINJA_R) {
       const into = -ninja.vx;
@@ -1623,7 +1826,9 @@
       if (elastic.phase === 'ready' && !elastic.used && bounceCooldown <= 0) {
         const hit = pathHitsElastic(prevX, prevY, ninja.x, ninja.y, elastic, hitPad);
         const approaching = (ninja.vx * nx + ninja.vy * ny) < -0.25 || ninja.vy > 0.6;
-        if (hit && approaching) {
+        if (hit && approaching && insideAnyGhost()) {
+          snapElastic(elastic);
+        } else if (hit && approaching) {
           elastic.phase = 'stretching';
           elastic.hitT = hit.t;
           elastic.impactSpeed = Math.hypot(ninja.vx, ninja.vy);
@@ -1656,7 +1861,7 @@
           const rawLen = elasticLength(elastic);
           let strength = BASE_IMPULSE * diff.impulseBonus * elasticPower(rawLen);
           // Short-elastic streak: the SUPER_STREAK-th short bounce in a row is a super jump
-          const isShort = rawLen <= SHORT_ELASTIC_MAX;
+          const isShort = elasticT(rawLen) <= SHORT_ELASTIC_T;
           shortStreak = isShort ? shortStreak + 1 : 0;
           const isSuper = isShort && shortStreak >= SUPER_STREAK;
           if (isSuper) {
@@ -1669,6 +1874,8 @@
           ninja.vx = nx * (strength + boost * 0.45);
           ninja.vy = ny * (strength + boost);
           ninja.facing = ninja.vx >= 0 ? 1 : -1;
+          if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
+          ninja.bonkedSinceLaunch = false;
           debugStats.bounces++;
           debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak };
           if (isSuper) {
@@ -1709,7 +1916,9 @@
 
       elastic.age++;
       if (elastic.wobble > 0) elastic.wobble *= 0.9;
-      if (elastic.used && elastic.clearIn > 0 && --elastic.clearIn === 0) elastic = null;
+      if (elastic.phase === 'snapped') {
+        if (++elastic.snapT >= HAZARDS.ghostPlatform.snapFrames) elastic = null;
+      } else if (elastic.used && elastic.clearIn > 0 && --elastic.clearIn === 0) elastic = null;
       else if (!elastic.used && elastic.phase === 'ready' && elastic.age > 700) elastic = null;
     }
 
@@ -1799,14 +2008,24 @@
     if (n > 0) streakEl.classList.add('active'); else streakEl.classList.remove('active');
   }
 
-  function gameOver() {
-    state = 'gameover';
+  // End of a run (game over or "Sair"): save records and bank the coins
+  function endRun() {
     shortStreak = 0;
     updateStreakHud();
-    const isNew = saveRecords(bestHeight, runCoins);
+    stopCountdown();
+    paused = false;
+    drawing = null;
+    addWallet(runCoins);
     metersEl.classList.remove('active');
     progressEl.classList.remove('active');
     hud.classList.remove('active');
+    return saveRecords(bestHeight, runCoins);
+  }
+
+  function gameOver() {
+    state = 'gameover';
+    const isNew = endRun();
+    showScreen('main');
     goStats.style.display = 'block';
     recordsBox.style.display = 'block';
     overlaySub.style.display = 'none';
@@ -1814,8 +2033,7 @@
     goCoins.textContent = String(runCoins);
     newRec.style.display = isNew ? 'block' : 'none';
     playBtn.textContent = 'Jogar de novo';
-    document.querySelector('.title').textContent = 'Fim de jogo';
-    overlay.classList.remove('hidden');
+    titleEl.textContent = 'Fim de jogo';
     beep(150, 0.2, 'sawtooth', 0.08);
     beep(100, 0.3, 'square', 0.06);
   }
@@ -1828,17 +2046,194 @@
     resetHudCache();
     lastThemeName = '';
     updateStreakHud();
-    overlay.classList.add('hidden');
+    paused = false;
+    stopCountdown();
+    showScreen(null);
     metersEl.classList.add('active');
     progressEl.classList.add('active');
     hud.classList.add('active');
-    document.querySelector('.title').textContent = 'Ninja Jump';
+    resetMainMenu();
+    beep(523, 0.08, 'sine', 0.08);
+    beep(784, 0.1, 'sine', 0.06);
+  }
+
+  function resetMainMenu() {
+    titleEl.textContent = 'Ninja Jump';
     goStats.style.display = 'none';
     overlaySub.style.display = 'block';
     recordsBox.style.display = 'block';
     playBtn.textContent = 'Jogar';
-    beep(523, 0.08, 'sine', 0.08);
-    beep(784, 0.1, 'sine', 0.06);
+  }
+
+  // --- Screens (overlay panels): main menu / game over, characters, options, pause ---
+  let screen = 'main';
+  let optionsBack = 'main';   // where "Voltar" in Opções returns to (main menu or pause)
+  function showScreen(name) {
+    screen = name;
+    for (const k in SCREENS) {
+      const el = document.getElementById(SCREENS[k]);
+      if (el) { if (k === name) el.classList.remove('hidden'); else el.classList.add('hidden'); }
+    }
+    if (!name) { overlay.classList.add('hidden'); return; }
+    overlay.classList.remove('hidden');
+    if (name === 'main') titleEl.textContent = state === 'gameover' ? 'Fim de jogo' : 'Ninja Jump';
+    else titleEl.textContent = name === 'chars' ? 'Personagens' : (name === 'options' ? 'Opções' : 'Pausado');
+    if (name === 'main' || name === 'chars') refreshWallet();
+    if (name === 'chars') renderChars();
+    if (name === 'options') refreshSoundUi();
+  }
+  function goBack() {
+    if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
+    else showScreen('main');
+  }
+
+  // --- Wallet & characters ---
+  function getWallet() { return Math.max(0, parseInt(store.get(LS_WALLET) || '0', 10) || 0); }
+  function addWallet(n) { if (n > 0) store.set(LS_WALLET, String(getWallet() + n)); refreshWallet(); }
+  function refreshWallet() {
+    const w = String(getWallet());
+    if (walletVal) walletVal.textContent = w;
+    if (walletVal2) walletVal2.textContent = w;
+  }
+  function ownedSkins() {
+    const list = (store.get(LS_SKINS) || '').split(',');
+    const out = {};
+    for (const sk of SKINS) if (sk.price === 0 || list.indexOf(sk.id) >= 0) out[sk.id] = true;
+    return out;
+  }
+  function skinById(id) { for (const sk of SKINS) if (sk.id === id) return sk; return null; }
+  function loadSkin() {
+    const sk = skinById(store.get(LS_SKIN) || '');
+    skin = sk && ownedSkins()[sk.id] ? sk : SKINS[0];
+  }
+  let pendingBuy = null;
+  function onCharTap(sk) {
+    const owned = ownedSkins();
+    if (owned[sk.id]) {
+      skin = sk;
+      store.set(LS_SKIN, sk.id);
+      pendingBuy = null;
+      charsMsg.textContent = '';
+      beep(660, 0.06, 'sine', 0.06);
+    } else if (getWallet() < sk.price) {
+      pendingBuy = null;
+      charsMsg.textContent = 'Faltam ' + (sk.price - getWallet()) + ' moedas para liberar';
+      beep(160, 0.1, 'square', 0.05);
+    } else if (pendingBuy !== sk.id) {
+      pendingBuy = sk.id;
+      charsMsg.textContent = 'Toque de novo para comprar por ' + sk.price + ' 🪙';
+    } else {
+      pendingBuy = null;
+      store.set(LS_WALLET, String(getWallet() - sk.price));
+      const list = (store.get(LS_SKINS) || '').split(',').filter(Boolean);
+      list.push(sk.id);
+      store.set(LS_SKINS, list.join(','));
+      skin = sk;
+      store.set(LS_SKIN, sk.id);
+      charsMsg.textContent = sk.name + ' liberado!';
+      beep(880, 0.08, 'sine', 0.07);
+      beep(1320, 0.12, 'triangle', 0.05);
+    }
+    refreshWallet();
+    renderChars();
+  }
+  function renderChars() {
+    if (!charsList) return;
+    const owned = ownedSkins();
+    charsList.innerHTML = '';
+    for (const sk of SKINS) {
+      const b = document.createElement('button');
+      b.className = 'char' + (owned[sk.id] ? '' : ' locked') + (sk === skin ? ' sel' : '');
+      const cv = document.createElement('canvas');
+      b.appendChild(cv);
+      if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
+      const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = sk.name; b.appendChild(nm);
+      const st = document.createElement('div'); st.className = 'st';
+      st.textContent = sk === skin ? 'Selecionado' : (owned[sk.id] ? 'Selecionar' : (pendingBuy === sk.id ? 'Comprar?' : '🪙 ' + sk.price));
+      b.appendChild(st);
+      b.addEventListener('click', function (e) { e.stopPropagation(); onCharTap(sk); }, false);
+      charsList.appendChild(b);
+      try { drawSkinPreview(cv, sk); } catch (err) { logErr('preview', err); }
+    }
+  }
+  // Draw a character standing still on a small canvas (swaps the global ctx/ninja/skin, then restores)
+  function drawSkinPreview(cv, sk) {
+    const size = 84, r = Math.min(window.devicePixelRatio || 1, 2.5);
+    cv.width = Math.round(size * r); cv.height = Math.round(size * r);
+    const c = cv.getContext('2d');
+    if (!c) return;
+    const saved = { ctx: ctx, ninja: ninja, skin: skin, elastic: elastic, stretch: stretch };
+    const pose = {};
+    for (const k in ninjaPose) pose[k] = ninjaPose[k];
+    try {
+      ctx = c; skin = sk; elastic = null; stretch = 0;
+      ninja = { x: 0, y: 0, vx: 0, vy: 0, facing: 1, spinning: 0 };
+      ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0;
+      c.setTransform(r * 2, 0, 0, r * 2, 0, 0);
+      drawNinjaSprite(size / 4, size / 4 - 1);
+    } finally {
+      ctx = saved.ctx; ninja = saved.ninja; skin = saved.skin; elastic = saved.elastic; stretch = saved.stretch;
+      for (const k in pose) ninjaPose[k] = pose[k];
+    }
+  }
+
+  // --- Options (audio) ---
+  function loadSound() { soundOn = store.get(LS_SOUND) !== '0'; }
+  function refreshSoundUi() {
+    if (!soundToggle) return;
+    soundToggle.setAttribute('aria-checked', soundOn ? 'true' : 'false');
+    soundLabel.textContent = soundOn ? 'Ligado' : 'Desligado';
+  }
+  function toggleSound() {
+    soundOn = !soundOn;
+    store.set(LS_SOUND, soundOn ? '1' : '0');
+    refreshSoundUi();
+    ensureAudio();
+    beep(660, 0.06, 'sine', 0.06);
+  }
+
+  // --- Pause: the world freezes; "Continuar" resumes after a 3-second countdown ---
+  let paused = false;
+  let countdownTimer = null;
+  function pauseGame() {
+    if (state !== 'playing' || (ninja && ninja.dead)) return;
+    stopCountdown();
+    paused = true;
+    drawing = null;
+    mouseDown = false;
+    touchId = null;
+    showScreen('pause');
+  }
+  function stopCountdown() {
+    if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
+    if (countdownEl) { countdownEl.classList.remove('active'); countdownEl.innerHTML = ''; }
+  }
+  function resumeWithCountdown() {
+    if (state !== 'playing') return;
+    showScreen(null);
+    let n = 3;
+    function tick() {
+      if (n <= 0) { stopCountdown(); paused = false; return; }
+      countdownEl.innerHTML = '<span>' + n + '</span>';
+      countdownEl.classList.add('active');
+      beep(n === 1 ? 880 : 660, 0.08, 'sine', 0.06);
+      n--;
+      countdownTimer = setTimeout(tick, 1000);
+    }
+    tick();
+  }
+  function quitToMenu() {
+    if (state !== 'playing') return;
+    endRun();
+    state = 'menu';
+    ninja = { x: W / 2, y: H * 0.38, vx: 0, vy: 0, facing: 1, spinning: 0 };
+    camera = { y: 0 };
+    elastic = null;
+    hazards = []; coins = []; particles = []; rings = []; floaters = [];
+    groundY = 0;
+    shake = 0;
+    resetMainMenu();
+    showScreen('main');
   }
 
   // --- Background drawing (parallax layers) ---
@@ -2198,7 +2593,37 @@
     else ctx.lineTo(x2, y2);
   }
 
+  // Snapped elastic: two halves whip back from the break point to their pegs and fade out
+  function drawSnappedElastic(e) {
+    const cam = camera.y;
+    const col = (atmosCache || atmosphereAt(0)).elastic;
+    const k = Math.min(1, e.snapT / HAZARDS.ghostPlatform.snapFrames);
+    const ease = 1 - (1 - k) * (1 - k);
+    const { nx, ny } = elasticUpNormal(e);
+    const mx = (e.x1 + e.x2) / 2, my = (e.y1 + e.y2) / 2 - cam;
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.globalAlpha = 1 - smoothstep(0.45, 1, k);
+    for (let i = 0; i < 2; i++) {
+      const ax = i ? e.x2 : e.x1, ay = (i ? e.y2 : e.y1) - cam;
+      const ex = lerp(mx, ax, ease), ey = lerp(my, ay, ease);
+      const whip = Math.sin(k * Math.PI) * 12 * (i ? -1 : 1);
+      const cx = (ax + ex) / 2 - nx * whip, cy = (ay + ey) / 2 - ny * whip;
+      ctx.strokeStyle = shadeHex(col, -0.4);
+      ctx.lineWidth = 5;
+      elasticPath(ax, ay, ex, ey, cx, cy, true);
+      ctx.stroke();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+      ctx.fillStyle = '#e6eaf2';
+      ctx.beginPath(); ctx.arc(ax, ay, 4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawElastic(e, isDrawing) {
+    if (e.phase === 'snapped') { drawSnappedElastic(e); return; }
     const cam = camera.y;
     const at = atmosCache || atmosphereAt(0);
     const x1 = e.x1, y1 = e.y1 - cam;
@@ -2261,9 +2686,32 @@
 
   // --- Ninja sprite (Bomberman-style white ninja, shaded for a 3D look) ---
   // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
-  const NINJA_OUT = '#1b1b26';
   const NINJA_MAX_ARM = Math.PI / 3; // 60° hard limit
-  const NINJA_RIM = 'rgba(160,215,255,0.95)'; // cool rim light on the shadow side
+  // Characters (skins): same sprite, different palette. `price` in coins (0 = owned from the start).
+  const SKINS = [
+    { id: 'white', name: 'Ninja Branco', price: 0,
+      out: '#1b1b26', rim: 'rgba(160,215,255,0.95)',
+      body: ['#ffffff', '#e9edf3', '#a4adbf'], head: ['#ffffff', '#eef1f6', '#bfc6d4', '#939cb0'],
+      limb: '#f4f5f8', limbBack: '#d9dce4', foot: '#e3e6ee', footBack: '#cfd3dc', hand: '#e3e6ee',
+      limbShade: 'rgba(110,120,150,0.45)', limbHi: 'rgba(255,255,255,0.85)', spec: 'rgba(255,255,255,0.95)',
+      band: '#15151c', bandGrad: ['#3d4052', '#17171f', '#07070b'], visor: ['#363c55', '#0e1018'], eye: '#ffffff',
+      occl: 'rgba(40,45,75,0.2)' },
+    { id: 'black', name: 'Ninja Sombra', price: 500,
+      out: '#05050a', rim: 'rgba(150,170,220,0.75)',
+      body: ['#6b7080', '#383b46', '#17181e'], head: ['#737888', '#454956', '#272a33', '#141519'],
+      limb: '#3c3f4a', limbBack: '#2b2d36', foot: '#34363f', footBack: '#25272f', hand: '#3c3f4a',
+      limbShade: 'rgba(0,0,0,0.45)', limbHi: 'rgba(255,255,255,0.3)', spec: 'rgba(255,255,255,0.5)',
+      band: '#0a0a0e', bandGrad: ['#4a4d5c', '#1c1d24', '#050507'], visor: ['#7c86a3', '#3a4157'], eye: '#ffffff',
+      occl: 'rgba(0,0,0,0.3)' },
+    { id: 'red', name: 'Ninja Rubro', price: 500,
+      out: '#1a0a0c', rim: 'rgba(255,190,170,0.9)',
+      body: ['#ff9a90', '#e3282e', '#8c0f15'], head: ['#ffa69d', '#ea3a40', '#b81c23', '#7a0b11'],
+      limb: '#2c2c35', limbBack: '#202028', foot: '#26262e', footBack: '#1b1b22', hand: '#2c2c35',
+      limbShade: 'rgba(0,0,0,0.45)', limbHi: 'rgba(255,255,255,0.32)', spec: 'rgba(255,255,255,0.85)',
+      band: '#111116', bandGrad: ['#3d4052', '#17171f', '#07070b'], visor: ['#363c55', '#0e1018'], eye: '#ffffff',
+      occl: 'rgba(60,0,0,0.25)' }
+  ];
+  let skin = SKINS[0];
   const NINJA_LEG_LEN = 13;                  // thigh + shin, used by the wall-kick leg
   const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0 };
   let ninjaLightX = -1; // local x direction toward the light (world top-left), set per draw
@@ -2313,7 +2761,7 @@
   }
 
   function ninjaLimb(x1, y1, x2, y2, x3, y3, w) {
-    ninjaLimbC(x1, y1, x2, y2, x3, y3, w, '#f4f5f8');
+    ninjaLimbC(x1, y1, x2, y2, x3, y3, w, skin.limb);
   }
 
   function limbPath(x1, y1, x2, y2, x3, y3) {
@@ -2326,7 +2774,7 @@
   function ninjaLimbC(x1, y1, x2, y2, x3, y3, w, col) {
     // Outline pass, base pass, then a thin highlight toward the light (rounded 3D limb)
     limbPath(x1, y1, x2, y2, x3, y3);
-    ctx.strokeStyle = NINJA_OUT;
+    ctx.strokeStyle = skin.out;
     ctx.lineWidth = w + 3;
     ctx.stroke();
     ctx.strokeStyle = col;
@@ -2334,23 +2782,23 @@
     ctx.stroke();
     const ox = ninjaLightX * w * 0.2, oy = -w * 0.2;
     limbPath(x1 - ox, y1 - oy, x2 - ox, y2 - oy, x3 - ox, y3 - oy); // core shadow
-    ctx.strokeStyle = 'rgba(110,120,150,0.45)';
+    ctx.strokeStyle = skin.limbShade;
     ctx.lineWidth = w * 0.4;
     ctx.stroke();
     limbPath(x1 + ox, y1 + oy, x2 + ox, y2 + oy, x3 + ox, y3 + oy);
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.strokeStyle = skin.limbHi;
     ctx.lineWidth = w * 0.36;
     ctx.stroke();
   }
 
   function ninjaFoot(fx, fy, rx, ry, rot, col) {
     ctx.fillStyle = col;
-    ctx.strokeStyle = NINJA_OUT;
+    ctx.strokeStyle = skin.out;
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.ellipse(fx, fy, rx, ry, rot, 0, Math.PI * 2);
     ctx.fill(); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.fillStyle = skin.limbHi;
     ctx.beginPath();
     ctx.ellipse(fx + ninjaLightX * rx * 0.3, fy - ry * 0.35, rx * 0.45, ry * 0.3, rot, 0, Math.PI * 2);
     ctx.fill();
@@ -2405,6 +2853,9 @@
 
   function drawNinja(x, y) {
     updateNinjaPose();
+    drawNinjaSprite(x, y);
+  }
+  function drawNinjaSprite(x, y) {
     const p = ninjaPose;
     const c = p.crouch;
     const onBand = state === 'playing' && elastic && elastic.phase === 'stretching';
@@ -2465,7 +2916,7 @@
 
     // Headband tails (behind everything)
     const knotX = -9.5, knotY = headY - 4;
-    ctx.fillStyle = '#15151c';
+    ctx.fillStyle = skin.band;
     ctx.strokeStyle = 'rgba(255,255,255,0.45)'; // light rim so tails read on night/space
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -2496,28 +2947,28 @@
     const kickFront = !!kick && kick.side * facing > 0;
     const backG = legGeom(-2.2, legTop, kneeFwd * 0.85, kneeY + 0.6, ankleBack, footY, 0.2, kick, !!kick && !kickFront, rot, facing);
     const frontG = legGeom(2.2, legTop, kneeFwd, kneeY, ankleBack, footY, 1.0, kick, kickFront, rot, facing);
-    drawLeg(backG, 4.4, '#d9dce4', '#cfd3dc', 3.3, 2.5);
+    drawLeg(backG, 4.4, skin.limbBack, skin.footBack, 3.3, 2.5);
     const frontInFront = c > 0.12 || (kickFront && kick.w > 0.05);
-    if (!frontInFront) drawLeg(frontG, 4.6, '#f4f5f8', '#e3e6ee', 3.4, 2.5);
+    if (!frontInFront) drawLeg(frontG, 4.6, skin.limb, skin.foot, 3.4, 2.5);
 
     // Body: radial shading lit from the top-left (world), rim light on the shadow side
     ctx.save();
     ctx.scale(facing, 1); // back to world orientation for lighting (shape is symmetric)
     const bg = ctx.createRadialGradient(-3, bodyY - 3.5, 0.5, 0, bodyY, 9);
-    bg.addColorStop(0, '#ffffff');
-    bg.addColorStop(0.45, '#e9edf3');
-    bg.addColorStop(1, '#a4adbf');
+    bg.addColorStop(0, skin.body[0]);
+    bg.addColorStop(0.45, skin.body[1]);
+    bg.addColorStop(1, skin.body[2]);
     ctx.fillStyle = bg;
     ctx.beginPath();
     ctx.ellipse(0, bodyY, 8.2, 7.4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = NINJA_RIM;
+    ctx.strokeStyle = skin.rim;
     ctx.lineWidth = 1.2;
     ctx.beginPath();
     ctx.ellipse(0, bodyY, 7.1, 6.3, 0, -Math.PI * 0.15, Math.PI * 0.45);
     ctx.stroke();
     ctx.restore();
-    ctx.strokeStyle = NINJA_OUT;
+    ctx.strokeStyle = skin.out;
     ctx.lineWidth = 1.6;
     ctx.beginPath();
     ctx.ellipse(0, bodyY, 8.2, 7.4, 0, 0, Math.PI * 2);
@@ -2529,12 +2980,12 @@
     ctx.beginPath();
     ctx.ellipse(0, bodyY, 8.2, 7.4, 0, 0, Math.PI * 2);
     ctx.clip();
-    ctx.fillStyle = '#15151c';
+    ctx.fillStyle = skin.band;
     ctx.fillRect(-9, beltY - 1.7, 18, 3.4);
     ctx.fillStyle = 'rgba(255,255,255,0.16)';
     ctx.fillRect(-9, beltY - 1.7, 18, 0.9);
     ctx.restore();
-    ctx.fillStyle = '#15151c';
+    ctx.fillStyle = skin.band;
     ctx.beginPath();
     ctx.moveTo(-6, beltY);
     ctx.lineTo(-9 - spd * 0.2, beltY + 3.5 + wave * 0.4);
@@ -2549,7 +3000,7 @@
     ctx.arc(-6.8, beltY - 0.6, 0.6, 0, Math.PI * 2);
     ctx.fill();
 
-    if (frontInFront) drawLeg(frontG, 4.6, '#f4f5f8', '#e3e6ee', 3.4, 2.5);
+    if (frontInFront) drawLeg(frontG, 4.6, skin.limb, skin.foot, 3.4, 2.5);
 
     // Arms: rotate outward symmetrically with crouch, 0..60° (hard clamp); open a bit for balance on a wall kick
     let armA = Math.max(c * NINJA_MAX_ARM, p.relax * (Math.PI / 12), kick ? kick.w * 0.55 : 0);
@@ -2561,20 +3012,20 @@
     ninjaLimb(shX, shY, (shX + rhx) * 0.5, (shY + rhy) * 0.5, rhx, rhy, 4.2);
     for (let i = -1; i <= 1; i += 2) {
       const hx = rhx * i;
-      ctx.fillStyle = '#e3e6ee';
-      ctx.strokeStyle = NINJA_OUT;
+      ctx.fillStyle = skin.hand;
+      ctx.strokeStyle = skin.out;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(hx, rhy, 3.1, 0, Math.PI * 2);
       ctx.fill(); ctx.stroke();
-      ctx.fillStyle = 'rgba(255,255,255,0.95)';
+      ctx.fillStyle = skin.spec;
       ctx.beginPath();
       ctx.arc(hx + ninjaLightX * 0.9, rhy - 0.9, 1.2, 0, Math.PI * 2);
       ctx.fill();
     }
 
     // Soft occlusion where the head sits on the body
-    ctx.fillStyle = 'rgba(40,45,75,0.2)';
+    ctx.fillStyle = skin.occl;
     ctx.beginPath();
     ctx.ellipse(0, headY + hr - 0.3, 7.5, 2.6, 0, 0, Math.PI * 2);
     ctx.fill();
@@ -2583,25 +3034,25 @@
     ctx.save();
     ctx.scale(facing, 1);
     const hg = ctx.createRadialGradient(-4.6, headY - 5.6, 1, -0.5, headY - 0.5, hr + 1.5);
-    hg.addColorStop(0, '#ffffff');
-    hg.addColorStop(0.35, '#eef1f6');
-    hg.addColorStop(0.75, '#bfc6d4');
-    hg.addColorStop(1, '#939cb0');
+    hg.addColorStop(0, skin.head[0]);
+    hg.addColorStop(0.35, skin.head[1]);
+    hg.addColorStop(0.75, skin.head[2]);
+    hg.addColorStop(1, skin.head[3]);
     ctx.fillStyle = hg;
     ctx.beginPath();
     ctx.arc(0, headY, hr, 0, Math.PI * 2);
     ctx.fill();
-    ctx.strokeStyle = NINJA_RIM;
+    ctx.strokeStyle = skin.rim;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.arc(0, headY, hr - 1.4, -Math.PI * 0.1, Math.PI * 0.5);
     ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fillStyle = skin.spec;
     ctx.beginPath();
     ctx.ellipse(-4, headY - 6.8, 3.2, 1.8, -0.5, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
-    ctx.strokeStyle = NINJA_OUT;
+    ctx.strokeStyle = skin.out;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
     ctx.arc(0, headY, hr, 0, Math.PI * 2);
@@ -2613,9 +3064,9 @@
     ctx.arc(0, headY, hr - 0.4, 0, Math.PI * 2);
     ctx.clip();
     const hbg = ctx.createLinearGradient(0, headY - 9.5, 0, headY - 2.5);
-    hbg.addColorStop(0, '#3d4052');
-    hbg.addColorStop(0.45, '#17171f');
-    hbg.addColorStop(1, '#07070b');
+    hbg.addColorStop(0, skin.bandGrad[0]);
+    hbg.addColorStop(0.45, skin.bandGrad[1]);
+    hbg.addColorStop(1, skin.bandGrad[2]);
     ctx.fillStyle = hbg;
     ctx.beginPath();
     ctx.moveTo(-hr, headY - 7);
@@ -2632,7 +3083,7 @@
     ctx.stroke();
     ctx.restore();
     // knot
-    ctx.fillStyle = '#15151c';
+    ctx.fillStyle = skin.band;
     ctx.beginPath();
     ctx.arc(knotX + 0.3, knotY, 2.3, 0, Math.PI * 2);
     ctx.fill();
@@ -2644,8 +3095,8 @@
     // Face visor (glossy dark rounded slot) with eyes, shifted toward facing side
     const vxc = 2.2, vyc = headY + 2.2;
     const vg = ctx.createLinearGradient(0, vyc - 3.6, 0, vyc + 3.8);
-    vg.addColorStop(0, '#363c55');
-    vg.addColorStop(1, '#0e1018');
+    vg.addColorStop(0, skin.visor[0]);
+    vg.addColorStop(1, skin.visor[1]);
     ctx.fillStyle = vg;
     roundRect(vxc - 7.2, vyc - 3.6, 14.4, 7.4, 3.7);
     ctx.fill();
@@ -2655,7 +3106,7 @@
     ctx.moveTo(vxc - 5, vyc - 2.5);
     ctx.lineTo(vxc + 4.6, vyc - 2.5);
     ctx.stroke();
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = skin.eye;
     const blink = (frame % 220) < 6 ? 0.25 : 1;
     ctx.beginPath();
     ctx.ellipse(vxc - 3, vyc, 1.5, 2.3 * blink, 0, 0, Math.PI * 2);
@@ -2690,9 +3141,12 @@
       const sc = 1 + (1 - k) * 0.5;
       ctx.scale(sc, sc * (0.45 + 0.55 * k));
       ctx.translate(-hz.x, -sy);
+    } else if (hz.ghost) { // intangible platform: see-through
+      ctx.save();
+      ctx.globalAlpha = HAZARDS.ghostPlatform.alpha;
     }
     drawHazardBody(hz, sy);
-    if (hz.dying > 0) ctx.restore();
+    if (hz.dying > 0 || hz.ghost) ctx.restore();
   }
   function drawHazardBody(hz, sy) {
     if (hz.type === 'platform') drawPlatform(hz, sy);
@@ -3481,6 +3935,28 @@
     playBtn.addEventListener('click', onPlayTap, false);
     playBtn.addEventListener('touchend', onPlayTap, ACTIVE);
   }
+  function onBtn(id, fn) {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('click', function (e) { e.stopPropagation(); ensureAudio(); fn(); }, false);
+  }
+  function bindMenus() {
+    onBtn('charsBtn', function () { pendingBuy = null; charsMsg.textContent = ''; showScreen('chars'); });
+    onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });
+    onBtn('pauseOptionsBtn', function () { optionsBack = 'pause'; showScreen('options'); });
+    onBtn('resumeBtn', resumeWithCountdown);
+    onBtn('quitBtn', quitToMenu);
+    onBtn('soundToggle', toggleSound);
+    onBtn('pauseBtn', function () {
+      if (paused && countdownTimer) pauseGame(); // pressed again during the countdown: back to the pause menu
+      else if (!paused) pauseGame();
+    });
+    const backs = document.querySelectorAll('[data-back]');
+    for (let i = 0; i < backs.length; i++) backs[i].addEventListener('click', function (e) { e.stopPropagation(); goBack(); }, false);
+    // Leaving the app/tab mid-run pauses it
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden && state === 'playing' && !(paused && !countdownTimer)) pauseGame();
+    }, false);
+  }
 
   function bindResize() {
     window.addEventListener('resize', resize);
@@ -3492,6 +3968,8 @@
     try { fn(); return true; } catch (err) { logErr(name, err); return false; }
   }
   step('play button', bindPlayButton);
+  step('menus', bindMenus);
+  step('settings', function () { loadSound(); loadSkin(); refreshWallet(); });
   step('input', bindInput);
   step('page guards', bindPageGuards);
   step('resize listeners', bindResize);
