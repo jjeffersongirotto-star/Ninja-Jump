@@ -1,22 +1,79 @@
 // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
+// Responsive / scalable layout (same game on phones, tablets and computers):
+// - Play column: a portrait phone uses the whole screen; wider screens (tablet in landscape, computer)
+//   get a centered portrait column at most PLAY_MAX_ASPECT wide, with the sides painted in the scenery colors.
+// - Scale: the game's logical height is kept between UI_MIN_H and UI_MAX_H; outside that range the whole
+//   game AND the menus/HUD are scaled up or down, so a tall monitor shows the same game as a phone, just bigger.
+//   W and H are always the LOGICAL size; `dpr` includes the scale (canvas pixels stay = screen pixels).
+const PLAY_MAX_ASPECT = 0.66;
+const UI_MIN_H = 560, UI_MAX_H = 900;
+let uiScale = 1, colLeft = 0, colWidth = 0;
 let resizeRetries = 0;
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const devDpr = Math.min(window.devicePixelRatio || 1, 2.5);
   const de = document.documentElement || {};
   // Some WebViews report 0 before first layout: fall back to other sizes and retry
-  W = window.innerWidth || de.clientWidth || (window.screen && window.screen.width) || 0;
-  H = window.innerHeight || de.clientHeight || (window.screen && window.screen.height) || 0;
+  const vw = window.innerWidth || de.clientWidth || (window.screen && window.screen.width) || 0;
+  const vh = window.innerHeight || de.clientHeight || (window.screen && window.screen.height) || 0;
   if ((!window.innerWidth || !window.innerHeight) && resizeRetries < 20) {
     resizeRetries++;
     setTimeout(resize, 100);
   }
-  canvas.width = Math.floor(W * dpr);
-  canvas.height = Math.floor(H * dpr);
-  canvas.style.width = W + 'px';
-  canvas.style.height = H + 'px';
+  colWidth = Math.min(vw, Math.round(vh * PLAY_MAX_ASPECT)) || vw;
+  colLeft = Math.max(0, Math.floor((vw - colWidth) / 2));
+  uiScale = vh > UI_MAX_H ? vh / UI_MAX_H : (vh > 0 && vh < UI_MIN_H ? vh / UI_MIN_H : 1);
+  W = Math.round(colWidth / uiScale);
+  H = Math.round(vh / uiScale);
+  dpr = devDpr * uiScale;
+  canvas.width = Math.floor(colWidth * devDpr);
+  canvas.height = Math.floor(vh * devDpr);
+  canvas.style.width = colWidth + 'px';
+  canvas.style.height = vh + 'px';
+  canvas.style.left = colLeft + 'px';
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  layoutUi();
+  sideKey = '';
+  refreshRotateHint();
   if (hillsFar.length === 0 && W > 0) seedScenery();
   try { buildCoinSprite(); } catch (e) { coinSprite = null; }
+}
+
+// The HTML layer (HUD, menus) follows the play column and the same scale
+const uiEl = document.getElementById('ui');
+function layoutUi() {
+  if (!uiEl) return;
+  const st = uiEl.style;
+  st.left = colLeft + 'px';
+  st.right = 'auto';
+  st.bottom = 'auto';
+  st.width = W + 'px';
+  st.height = H + 'px';
+  const tf = uiScale === 1 ? '' : 'scale(' + uiScale + ')';
+  st.transform = tf;
+  st.webkitTransform = tf;
+}
+// Sides of the play column (wide screens): a darker version of the current sky
+let sideKey = '';
+function paintSides(at) {
+  if (colWidth >= (window.innerWidth || colWidth) || !at) return;
+  const key = at.sky.join(',');
+  if (key === sideKey) return;
+  sideKey = key;
+  try {
+    document.body.style.background = 'linear-gradient(180deg, ' + shadeHex(at.sky[0], -0.55) + ', ' +
+      shadeHex(at.sky[1], -0.6) + ' 60%, ' + shadeHex(at.sky[2], -0.65) + ')';
+  } catch (e) {}
+}
+// Phone held sideways (short landscape screen): ask to turn it upright and pause the run
+const rotateEl = document.getElementById('rotateHint');
+function refreshRotateHint() {
+  if (!rotateEl) return;
+  const vw = window.innerWidth || 0, vh = window.innerHeight || 0;
+  const sideways = vw > vh && vh < 500 && isTouchDevice();
+  if (sideways) {
+    rotateEl.classList.add('active');
+    if (state === 'playing' && !paused) pauseGame();
+  } else rotateEl.classList.remove('active');
 }
 
 function seedScenery() {

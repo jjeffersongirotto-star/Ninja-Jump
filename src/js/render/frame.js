@@ -12,6 +12,7 @@ function render() {
   }
 
   drawBackground(state === 'playing' || state === 'gameover' ? meters : 30);
+  paintSides(atmosCache);
 
   if (state === 'menu') {
     drawNinja(W / 2, H * 0.38 + Math.sin(frame * 0.04) * 10);

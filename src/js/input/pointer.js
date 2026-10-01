@@ -4,9 +4,10 @@ function pointerToCanvas(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   const rw = r.width || 1;
   const rh = r.height || 1;
+  // clamped to the play area (on a wide screen the mouse can be over the sides of the column)
   return {
-    x: (clientX - r.left) * (W / rw),
-    y: (clientY - r.top) * (H / rh)
+    x: Math.max(0, Math.min(W, (clientX - r.left) * (W / rw))),
+    y: Math.max(0, Math.min(H, (clientY - r.top) * (H / rh)))
   };
 }
 function applyPointer(e) {
@@ -21,12 +22,24 @@ function applyPointer(e) {
 }
 function onPointerDown(e) {
   if (state !== 'playing') return;
+  noteInputType(e.pointerType);
+  if (e.pointerType === 'mouse' && e.button === 2 && drawing) { e.preventDefault(); drawing = null; return; } // right click cancels
   if (e.pointerType === 'mouse' && e.button !== 0) return;
   e.preventDefault();
   ensureAudio();
-  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   const p = pointerToCanvas(e.clientX, e.clientY);
+  if (drawing && drawing.clickMode) { // computer controls: second click places the line
+    moveDraw(p.x, p.y);
+    endDraw();
+    return;
+  }
+  try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   startDraw(p.x, p.y);
+}
+// Computer controls: a click without dragging starts "click mode" (the line follows the mouse until the next click)
+function startsClickMode(e) {
+  if (!drawing || controlMode !== 'mouse' || e.pointerType !== 'mouse' || e.type === 'pointercancel') return false;
+  return Math.hypot(drawing.sx2 - drawing.sx1, drawing.sy2 - drawing.sy1) < 12;
 }
 function onPointerMove(e) {
   if (state !== 'playing' || !drawing) return;
@@ -36,6 +49,12 @@ function onPointerMove(e) {
 function onPointerUp(e) {
   if (state !== 'playing') return;
   e.preventDefault();
+  if (drawing && drawing.clickMode) return;
+  if (startsClickMode(e)) {
+    drawing.clickMode = true;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    return;
+  }
   if (drawing) {
     const p = pointerToCanvas(e.clientX, e.clientY);
     moveDraw(p.x, p.y);
@@ -119,6 +138,17 @@ function bindInput() {
     canvas.addEventListener('pointermove', onPointerMove, ACTIVE);
     canvas.addEventListener('pointerup', onPointerUp, ACTIVE);
     canvas.addEventListener('pointercancel', onPointerUp, ACTIVE);
+    canvas.addEventListener('contextmenu', function (e) { if (state === 'playing') e.preventDefault(); }, false);
+    // Click mode: keep following the mouse over the sides of the column / the HUD, and let the
+    // second click land anywhere outside the canvas too (except on buttons, e.g. pause)
+    window.addEventListener('pointermove', function (e) {
+      if (state === 'playing' && drawing && drawing.clickMode && e.target !== canvas) applyPointer(e);
+    }, false);
+    window.addEventListener('pointerdown', function (e) {
+      if (state !== 'playing' || !drawing || !drawing.clickMode || e.target === canvas) return;
+      if (e.target && e.target.closest && e.target.closest('button')) return;
+      onPointerDown(e);
+    }, true);
   } else {
     canvas.addEventListener('touchstart', onTouchStart, ACTIVE);
     canvas.addEventListener('touchmove', onTouchMove, ACTIVE);

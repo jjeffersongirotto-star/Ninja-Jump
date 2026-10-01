@@ -6,6 +6,7 @@ step('play button', bindPlayButton);
 step('menus', bindMenus);
 step('settings', function () { loadSound(); loadSkin(); refreshWallet(); });
 step('app', bindApp);
+step('controls', bindControls);
 step('input', bindInput);
 step('page guards', bindPageGuards);
 step('resize listeners', bindResize);

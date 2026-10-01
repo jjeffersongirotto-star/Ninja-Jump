@@ -32,6 +32,12 @@ function bindMenus() {
   onBtn('resumeBtn', resumeWithCountdown);
   onBtn('quitBtn', quitToMenu);
   onBtn('soundToggle', toggleSound);
+  onBtn('audioBtn', function () { showScreen('audio'); });
+  onBtn('controlsBtn', function () { showScreen('controls'); });
+  onBtn('ctlAuto', toggleControlsAuto);
+  onBtn('ctlSwitch', function () { pickControls(controlMode === 'touch' ? 'mouse' : 'touch'); });
+  onBtn('ctlTouch', function () { pickControls('touch'); });
+  onBtn('ctlMouse', function () { pickControls('mouse'); });
   onBtn('pauseBtn', function () {
     if (paused && countdownTimer) pauseGame(); // pressed again during the countdown: back to the pause menu
     else if (!paused) pauseGame();

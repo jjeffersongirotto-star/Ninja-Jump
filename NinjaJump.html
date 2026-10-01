@@ -27,10 +27,23 @@
   }
   #game {
     display: block;
+    position: fixed;
+    top: 0; left: 0;
     width: 100%;
     height: 100%;
     touch-action: none;
+    box-shadow: 0 0 40px rgba(0,0,0,.45);
   }
+  #ui { transform-origin: 0 0; -webkit-transform-origin: 0 0; }
+  #rotateHint {
+    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; display: none;
+    flex-direction: column; align-items: center; justify-content: center; text-align: center;
+    background: #0a0a12; color: #fff; font-size: 18px; font-weight: 800; padding: 24px;
+  }
+  #rotateHint.active { display: flex; }
+  #rotateHint i { font-style: normal; font-size: 54px; margin-bottom: 14px; display: block; animation: rot 1.6s ease-in-out infinite; }
+  #rotateHint small { display: block; margin-top: 8px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.65); }
+  @keyframes rot { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
   #ui {
     position: fixed;
     top: 0; right: 0; bottom: 0; left: 0; /* = inset: 0 (old WebViews don't know inset) */
@@ -246,6 +259,33 @@
   .toggle[aria-checked="true"] b { background: #34c46a; }
   .toggle[aria-checked="true"] b::after { left: 19px; }
   .hud-right { display: flex; align-items: flex-start; }
+  /* Controls screen: [Touch]  (switch)  [Computer], with "Automático" centered above */
+  .ctl-panel { width: 100%; max-width: 340px; min-width: 0; padding: 16px 12px; }
+  .ctl-auto { display: flex; justify-content: center; align-items: center; color: #fff; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+  .ctl-auto .toggle { margin-left: 12px; }
+  .ctl-row { display: flex; align-items: center; justify-content: center; }
+  .ctl-opt {
+    pointer-events: auto; flex: 1 1 0; max-width: 118px; min-width: 0; padding: 10px 4px; border-radius: 14px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); color: rgba(255,255,255,.6);
+    font: inherit; -webkit-tap-highlight-color: transparent; transition: border-color .15s, background .15s, color .15s;
+  }
+  .ctl-opt i { display: block; font-style: normal; font-size: 26px; margin-bottom: 4px; }
+  .ctl-opt span { display: block; font-size: 12px; font-weight: 800; line-height: 1.2; }
+  .ctl-opt small { display: block; font-size: 11px; font-weight: 600; margin-top: 2px; opacity: .8; }
+  .ctl-opt.on { border-color: #ffd700; background: rgba(255,215,0,.12); color: #fff; box-shadow: 0 0 12px rgba(255,215,0,.25); }
+  .ctl-switch {
+    pointer-events: auto; flex: 0 0 auto; width: 62px; height: 32px; margin: 0 10px; border-radius: 16px; border: none; cursor: pointer;
+    background: #555b70; position: relative; -webkit-tap-highlight-color: transparent;
+  }
+  .ctl-switch b {
+    position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #ffd700;
+    box-shadow: 0 2px 6px rgba(0,0,0,.4); transition: left .2s ease;
+  }
+  .ctl-switch.right b { left: 34px; }
+  .ctl-row.auto .ctl-opt, .ctl-row.auto .ctl-switch { opacity: .55; cursor: default; }
+  .ctl-desc { min-height: 36px; margin-top: 14px; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.75); }
+  .ctl-desc b { color: #ffd700; }
+  #game.mouse-mode { cursor: crosshair; }
   .pause-btn {
     pointer-events: auto; width: 34px; height: 34px; margin-left: 8px; border-radius: 50%; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
@@ -310,11 +350,13 @@
   html.nojs #nojsMsg, html.game-failed #errMsg { display: block; }
   html.nojs .subtitle, html.nojs #recordsBox, html.nojs #menuBtns, html.nojs #goStats, html.nojs #walletBox,
   html.game-failed .subtitle, html.game-failed #recordsBox, html.game-failed #menuBtns, html.game-failed #goStats,
-  html.game-failed #walletBox, html.game-failed #scrChars, html.game-failed #scrOptions, html.game-failed #scrPause { display: none !important; }
+  html.game-failed #walletBox, html.game-failed #scrChars, html.game-failed #scrOptions, html.game-failed #scrPause,
+  html.game-failed #scrAudio, html.game-failed #scrControls { display: none !important; }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="rotateHint"><i>📱</i>Gire o celular para a vertical<small>O jogo foi feito para a tela em pé</small></div>
 <div id="ui">
   <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
   <div id="progress"><div id="progressBar"></div></div>
@@ -366,11 +408,33 @@
       <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>
     <div class="screen hidden" id="scrOptions">
+      <div class="menu-btns">
+        <button class="btn btn-sec" id="audioBtn">🔊 Áudio</button>
+        <button class="btn btn-sec" id="controlsBtn">🎮 Controles</button>
+        <button class="btn btn-sec" data-back="1">Voltar</button>
+      </div>
+    </div>
+    <div class="screen hidden" id="scrAudio">
       <div class="panel">
         <div class="opt-row">
           <span>Áudio</span>
           <button class="toggle" id="soundToggle" role="switch" aria-checked="true"><b></b><span id="soundLabel">Ligado</span></button>
         </div>
+      </div>
+      <button class="btn btn-sec" data-back="1">Voltar</button>
+    </div>
+    <div class="screen hidden" id="scrControls">
+      <div class="panel ctl-panel">
+        <div class="ctl-auto">
+          <span>Automático</span>
+          <button class="toggle" id="ctlAuto" role="switch" aria-checked="true"><b></b><span id="ctlAutoLabel">Ligado</span></button>
+        </div>
+        <div class="ctl-row" id="ctlRow">
+          <button class="ctl-opt" id="ctlTouch"><i>📱</i><span>Dispositivos móveis</span><small>Touch</small></button>
+          <button class="ctl-switch" id="ctlSwitch" role="switch" aria-label="Trocar controle"><b></b></button>
+          <button class="ctl-opt" id="ctlMouse"><i>🖱️</i><span>Computador</span><small>Mouse</small></button>
+        </div>
+        <div class="ctl-desc" id="ctlDesc"></div>
       </div>
       <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>
@@ -506,7 +570,9 @@
   const soundToggle = document.getElementById('soundToggle');
   const soundLabel = document.getElementById('soundLabel');
   const countdownEl = document.getElementById('countdown');
-  const SCREENS = { main: 'scrMain', chars: 'scrChars', options: 'scrOptions', pause: 'scrPause' };
+  const SCREENS = { main: 'scrMain', chars: 'scrChars', options: 'scrOptions', audio: 'scrAudio', controls: 'scrControls', pause: 'scrPause' };
+  const SCREEN_TITLES = { chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado' };
+  const LS_CONTROLS = 'ninjaJump_controls';  // 'auto' | 'touch' | 'mouse'
 
   // --- Audio ---
   let audioCtx = null;
@@ -880,24 +946,81 @@
   }
 
   // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
+  // Responsive / scalable layout (same game on phones, tablets and computers):
+  // - Play column: a portrait phone uses the whole screen; wider screens (tablet in landscape, computer)
+  //   get a centered portrait column at most PLAY_MAX_ASPECT wide, with the sides painted in the scenery colors.
+  // - Scale: the game's logical height is kept between UI_MIN_H and UI_MAX_H; outside that range the whole
+  //   game AND the menus/HUD are scaled up or down, so a tall monitor shows the same game as a phone, just bigger.
+  //   W and H are always the LOGICAL size; `dpr` includes the scale (canvas pixels stay = screen pixels).
+  const PLAY_MAX_ASPECT = 0.66;
+  const UI_MIN_H = 560, UI_MAX_H = 900;
+  let uiScale = 1, colLeft = 0, colWidth = 0;
   let resizeRetries = 0;
   function resize() {
-    dpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const devDpr = Math.min(window.devicePixelRatio || 1, 2.5);
     const de = document.documentElement || {};
     // Some WebViews report 0 before first layout: fall back to other sizes and retry
-    W = window.innerWidth || de.clientWidth || (window.screen && window.screen.width) || 0;
-    H = window.innerHeight || de.clientHeight || (window.screen && window.screen.height) || 0;
+    const vw = window.innerWidth || de.clientWidth || (window.screen && window.screen.width) || 0;
+    const vh = window.innerHeight || de.clientHeight || (window.screen && window.screen.height) || 0;
     if ((!window.innerWidth || !window.innerHeight) && resizeRetries < 20) {
       resizeRetries++;
       setTimeout(resize, 100);
     }
-    canvas.width = Math.floor(W * dpr);
-    canvas.height = Math.floor(H * dpr);
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
+    colWidth = Math.min(vw, Math.round(vh * PLAY_MAX_ASPECT)) || vw;
+    colLeft = Math.max(0, Math.floor((vw - colWidth) / 2));
+    uiScale = vh > UI_MAX_H ? vh / UI_MAX_H : (vh > 0 && vh < UI_MIN_H ? vh / UI_MIN_H : 1);
+    W = Math.round(colWidth / uiScale);
+    H = Math.round(vh / uiScale);
+    dpr = devDpr * uiScale;
+    canvas.width = Math.floor(colWidth * devDpr);
+    canvas.height = Math.floor(vh * devDpr);
+    canvas.style.width = colWidth + 'px';
+    canvas.style.height = vh + 'px';
+    canvas.style.left = colLeft + 'px';
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    layoutUi();
+    sideKey = '';
+    refreshRotateHint();
     if (hillsFar.length === 0 && W > 0) seedScenery();
     try { buildCoinSprite(); } catch (e) { coinSprite = null; }
+  }
+
+  // The HTML layer (HUD, menus) follows the play column and the same scale
+  const uiEl = document.getElementById('ui');
+  function layoutUi() {
+    if (!uiEl) return;
+    const st = uiEl.style;
+    st.left = colLeft + 'px';
+    st.right = 'auto';
+    st.bottom = 'auto';
+    st.width = W + 'px';
+    st.height = H + 'px';
+    const tf = uiScale === 1 ? '' : 'scale(' + uiScale + ')';
+    st.transform = tf;
+    st.webkitTransform = tf;
+  }
+  // Sides of the play column (wide screens): a darker version of the current sky
+  let sideKey = '';
+  function paintSides(at) {
+    if (colWidth >= (window.innerWidth || colWidth) || !at) return;
+    const key = at.sky.join(',');
+    if (key === sideKey) return;
+    sideKey = key;
+    try {
+      document.body.style.background = 'linear-gradient(180deg, ' + shadeHex(at.sky[0], -0.55) + ', ' +
+        shadeHex(at.sky[1], -0.6) + ' 60%, ' + shadeHex(at.sky[2], -0.65) + ')';
+    } catch (e) {}
+  }
+  // Phone held sideways (short landscape screen): ask to turn it upright and pause the run
+  const rotateEl = document.getElementById('rotateHint');
+  function refreshRotateHint() {
+    if (!rotateEl) return;
+    const vw = window.innerWidth || 0, vh = window.innerHeight || 0;
+    const sideways = vw > vh && vh < 500 && isTouchDevice();
+    if (sideways) {
+      rotateEl.classList.add('active');
+      if (state === 'playing' && !paused) pauseGame();
+    } else rotateEl.classList.remove('active');
   }
 
   function seedScenery() {
@@ -2098,13 +2221,15 @@
     if (!name) { overlay.classList.add('hidden'); return; }
     overlay.classList.remove('hidden');
     if (name === 'main') titleEl.textContent = state === 'gameover' ? 'Fim de jogo' : 'Ninja Jump';
-    else titleEl.textContent = name === 'chars' ? 'Personagens' : (name === 'options' ? 'Opções' : 'Pausado');
+    else titleEl.textContent = SCREEN_TITLES[name] || '';
     if (name === 'main' || name === 'chars') refreshWallet();
     if (name === 'chars') renderChars();
-    if (name === 'options') refreshSoundUi();
+    if (name === 'audio') refreshSoundUi();
+    if (name === 'controls') refreshControlsUi();
   }
   function goBack() {
-    if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
+    if (screen === 'audio' || screen === 'controls') showScreen('options');
+    else if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
     else showScreen('main');
   }
 
@@ -3746,6 +3871,7 @@
     }
 
     drawBackground(state === 'playing' || state === 'gameover' ? meters : 30);
+    paintSides(atmosCache);
 
     if (state === 'menu') {
       drawNinja(W / 2, H * 0.38 + Math.sin(frame * 0.04) * 10);
@@ -3799,15 +3925,120 @@
     requestFrame(loop);
   }
 
+  // --- Controls: "Dispositivos móveis" (touch) or "Computador" (mouse), chosen automatically or by hand ---
+  // touch: press, drag and release to draw the elastic (finger or mouse).
+  // mouse: the same drag works, and also click -> move the mouse -> click again (left button);
+  //        right click or Esc cancels the line being drawn. Esc / P pause the game.
+  // Automático: picks touch or mouse from the device, and follows the input actually being used.
+  let controlsAuto = true;
+  let controlMode = 'touch';
+
+  function isTouchDevice() {
+    try {
+      if (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) return true;
+      if (window.matchMedia && window.matchMedia('(pointer: fine)').matches) return false;
+    } catch (e) {}
+    return !!(('ontouchstart' in window) || (navigator.maxTouchPoints > 0));
+  }
+  function detectedControls() { return isTouchDevice() ? 'touch' : 'mouse'; }
+
+  function loadControls() {
+    const v = store.get(LS_CONTROLS);
+    controlsAuto = !(v === 'touch' || v === 'mouse');
+    setControlMode(controlsAuto ? detectedControls() : v);
+  }
+  function saveControls() { store.set(LS_CONTROLS, controlsAuto ? 'auto' : controlMode); }
+
+  function setControlMode(mode) {
+    if (mode !== 'touch' && mode !== 'mouse') return;
+    const changed = mode !== controlMode;
+    controlMode = mode;
+    if (mode === 'touch' && drawing && drawing.clickMode) drawing = null;
+    try { if (mode === 'mouse') canvas.classList.add('mouse-mode'); else canvas.classList.remove('mouse-mode'); } catch (e) {}
+    if (overlaySub) {
+      overlaySub.textContent = mode === 'mouse'
+        ? 'Clique e arraste com o botão esquerdo (ou clique, mova e clique de novo) para criar um elástico. Quanto menor a linha, mais alto o salto!'
+        : 'Arraste o dedo para criar um elástico. Quanto menor a linha, mais alto o salto!';
+    }
+    if (changed && screen === 'controls') refreshControlsUi();
+  }
+  // Automático: follow the kind of input actually used (a touch on a laptop screen, a mouse on a tablet...)
+  function noteInputType(pointerType) {
+    if (!controlsAuto) return;
+    if (pointerType === 'mouse') setControlMode('mouse');
+    else if (pointerType === 'touch' || pointerType === 'pen') setControlMode('touch');
+  }
+
+  const CONTROL_DESC = {
+    touch: '<b>Touch:</b> arraste o dedo na tela para desenhar o elástico.',
+    mouse: '<b>Mouse:</b> clique com o botão esquerdo e arraste, ou clique, mova o mouse e clique de novo. <b>Esc</b> pausa.'
+  };
+  function refreshControlsUi() {
+    const auto = document.getElementById('ctlAuto');
+    if (!auto) return;
+    auto.setAttribute('aria-checked', controlsAuto ? 'true' : 'false');
+    document.getElementById('ctlAutoLabel').textContent = controlsAuto ? 'Ligado' : 'Desligado';
+    const row = document.getElementById('ctlRow');
+    if (controlsAuto) row.classList.add('auto'); else row.classList.remove('auto');
+    const sw = document.getElementById('ctlSwitch');
+    if (controlMode === 'mouse') sw.classList.add('right'); else sw.classList.remove('right');
+    sw.setAttribute('aria-checked', controlMode === 'mouse' ? 'true' : 'false');
+    const t = document.getElementById('ctlTouch'), m = document.getElementById('ctlMouse');
+    if (controlMode === 'touch') { t.classList.add('on'); m.classList.remove('on'); } else { m.classList.add('on'); t.classList.remove('on'); }
+    document.getElementById('ctlDesc').innerHTML = CONTROL_DESC[controlMode] +
+      (controlsAuto ? '<br>Escolhido automaticamente pelo aparelho.' : '');
+  }
+  function toggleControlsAuto() {
+    controlsAuto = !controlsAuto;
+    if (controlsAuto) setControlMode(detectedControls());
+    saveControls();
+    refreshControlsUi();
+    beep(660, 0.06, 'sine', 0.06);
+  }
+  function pickControls(mode) {
+    if (controlsAuto) { // automatic: manual choice is locked, nudge toward the switch above
+      const desc = document.getElementById('ctlDesc');
+      if (desc) desc.innerHTML = CONTROL_DESC[controlMode] + '<br>Desligue o <b>Automático</b> para escolher.';
+      beep(160, 0.08, 'square', 0.04);
+      return;
+    }
+    setControlMode(mode);
+    saveControls();
+    refreshControlsUi();
+    beep(660, 0.06, 'sine', 0.06);
+  }
+
+  // Keyboard (computer): Esc / P pause, Esc cancels a line being drawn, Esc / Enter on the pause menu resume
+  function onKeyDown(e) {
+    const k = e.key;
+    if (k !== 'Escape' && k !== 'p' && k !== 'P' && k !== 'Enter') return;
+    if (state !== 'playing') return;
+    if (k === 'Escape' && drawing) { drawing = null; return; }
+    if (!paused && k !== 'Enter') { pauseGame(); return; }
+    if (paused && !countdownTimer && screen === 'pause' && (k === 'Escape' || k === 'Enter')) { e.preventDefault(); resumeWithCountdown(); }
+  }
+  function bindControls() {
+    loadControls();
+    document.addEventListener('keydown', onKeyDown, false);
+    if (window.PointerEvent) window.addEventListener('pointerdown', function (e) { noteInputType(e.pointerType); }, true);
+    try { // device changes (e.g. a tablet's keyboard/mouse attached): re-detect when automatic
+      const mq = window.matchMedia && window.matchMedia('(pointer: coarse)');
+      const onChange = function () { if (controlsAuto) setControlMode(detectedControls()); };
+      if (mq && mq.addEventListener) mq.addEventListener('change', onChange);
+      else if (mq && mq.addListener) mq.addListener(onChange);
+    } catch (e) {}
+  }
+
   // --- Input ---
   // Map client coords → canvas logical pixels (handles safe-area / browser chrome offset)
   function pointerToCanvas(clientX, clientY) {
     const r = canvas.getBoundingClientRect();
     const rw = r.width || 1;
     const rh = r.height || 1;
+    // clamped to the play area (on a wide screen the mouse can be over the sides of the column)
     return {
-      x: (clientX - r.left) * (W / rw),
-      y: (clientY - r.top) * (H / rh)
+      x: Math.max(0, Math.min(W, (clientX - r.left) * (W / rw))),
+      y: Math.max(0, Math.min(H, (clientY - r.top) * (H / rh)))
     };
   }
   function applyPointer(e) {
@@ -3822,12 +4053,24 @@
   }
   function onPointerDown(e) {
     if (state !== 'playing') return;
+    noteInputType(e.pointerType);
+    if (e.pointerType === 'mouse' && e.button === 2 && drawing) { e.preventDefault(); drawing = null; return; } // right click cancels
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     e.preventDefault();
     ensureAudio();
-    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     const p = pointerToCanvas(e.clientX, e.clientY);
+    if (drawing && drawing.clickMode) { // computer controls: second click places the line
+      moveDraw(p.x, p.y);
+      endDraw();
+      return;
+    }
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     startDraw(p.x, p.y);
+  }
+  // Computer controls: a click without dragging starts "click mode" (the line follows the mouse until the next click)
+  function startsClickMode(e) {
+    if (!drawing || controlMode !== 'mouse' || e.pointerType !== 'mouse' || e.type === 'pointercancel') return false;
+    return Math.hypot(drawing.sx2 - drawing.sx1, drawing.sy2 - drawing.sy1) < 12;
   }
   function onPointerMove(e) {
     if (state !== 'playing' || !drawing) return;
@@ -3837,6 +4080,12 @@
   function onPointerUp(e) {
     if (state !== 'playing') return;
     e.preventDefault();
+    if (drawing && drawing.clickMode) return;
+    if (startsClickMode(e)) {
+      drawing.clickMode = true;
+      try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+      return;
+    }
     if (drawing) {
       const p = pointerToCanvas(e.clientX, e.clientY);
       moveDraw(p.x, p.y);
@@ -3920,6 +4169,17 @@
       canvas.addEventListener('pointermove', onPointerMove, ACTIVE);
       canvas.addEventListener('pointerup', onPointerUp, ACTIVE);
       canvas.addEventListener('pointercancel', onPointerUp, ACTIVE);
+      canvas.addEventListener('contextmenu', function (e) { if (state === 'playing') e.preventDefault(); }, false);
+      // Click mode: keep following the mouse over the sides of the column / the HUD, and let the
+      // second click land anywhere outside the canvas too (except on buttons, e.g. pause)
+      window.addEventListener('pointermove', function (e) {
+        if (state === 'playing' && drawing && drawing.clickMode && e.target !== canvas) applyPointer(e);
+      }, false);
+      window.addEventListener('pointerdown', function (e) {
+        if (state !== 'playing' || !drawing || !drawing.clickMode || e.target === canvas) return;
+        if (e.target && e.target.closest && e.target.closest('button')) return;
+        onPointerDown(e);
+      }, true);
     } else {
       canvas.addEventListener('touchstart', onTouchStart, ACTIVE);
       canvas.addEventListener('touchmove', onTouchMove, ACTIVE);
@@ -3972,6 +4232,12 @@
     onBtn('resumeBtn', resumeWithCountdown);
     onBtn('quitBtn', quitToMenu);
     onBtn('soundToggle', toggleSound);
+    onBtn('audioBtn', function () { showScreen('audio'); });
+    onBtn('controlsBtn', function () { showScreen('controls'); });
+    onBtn('ctlAuto', toggleControlsAuto);
+    onBtn('ctlSwitch', function () { pickControls(controlMode === 'touch' ? 'mouse' : 'touch'); });
+    onBtn('ctlTouch', function () { pickControls('touch'); });
+    onBtn('ctlMouse', function () { pickControls('mouse'); });
     onBtn('pauseBtn', function () {
       if (paused && countdownTimer) pauseGame(); // pressed again during the countdown: back to the pause menu
       else if (!paused) pauseGame();
@@ -4052,6 +4318,7 @@
   step('menus', bindMenus);
   step('settings', function () { loadSound(); loadSkin(); refreshWallet(); });
   step('app', bindApp);
+  step('controls', bindControls);
   step('input', bindInput);
   step('page guards', bindPageGuards);
   step('resize listeners', bindResize);

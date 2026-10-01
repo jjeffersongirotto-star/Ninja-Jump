@@ -11,10 +11,23 @@ html, body {
 }
 #game {
   display: block;
+  position: fixed;
+  top: 0; left: 0;
   width: 100%;
   height: 100%;
   touch-action: none;
+  box-shadow: 0 0 40px rgba(0,0,0,.45);
 }
+#ui { transform-origin: 0 0; -webkit-transform-origin: 0 0; }
+#rotateHint {
+  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; display: none;
+  flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  background: #0a0a12; color: #fff; font-size: 18px; font-weight: 800; padding: 24px;
+}
+#rotateHint.active { display: flex; }
+#rotateHint i { font-style: normal; font-size: 54px; margin-bottom: 14px; display: block; animation: rot 1.6s ease-in-out infinite; }
+#rotateHint small { display: block; margin-top: 8px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.65); }
+@keyframes rot { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
 #ui {
   position: fixed;
   top: 0; right: 0; bottom: 0; left: 0; /* = inset: 0 (old WebViews don't know inset) */
@@ -230,6 +243,33 @@ html, body {
 .toggle[aria-checked="true"] b { background: #34c46a; }
 .toggle[aria-checked="true"] b::after { left: 19px; }
 .hud-right { display: flex; align-items: flex-start; }
+/* Controls screen: [Touch]  (switch)  [Computer], with "Automático" centered above */
+.ctl-panel { width: 100%; max-width: 340px; min-width: 0; padding: 16px 12px; }
+.ctl-auto { display: flex; justify-content: center; align-items: center; color: #fff; font-size: 16px; font-weight: 700; margin-bottom: 16px; }
+.ctl-auto .toggle { margin-left: 12px; }
+.ctl-row { display: flex; align-items: center; justify-content: center; }
+.ctl-opt {
+  pointer-events: auto; flex: 1 1 0; max-width: 118px; min-width: 0; padding: 10px 4px; border-radius: 14px; cursor: pointer;
+  border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.06); color: rgba(255,255,255,.6);
+  font: inherit; -webkit-tap-highlight-color: transparent; transition: border-color .15s, background .15s, color .15s;
+}
+.ctl-opt i { display: block; font-style: normal; font-size: 26px; margin-bottom: 4px; }
+.ctl-opt span { display: block; font-size: 12px; font-weight: 800; line-height: 1.2; }
+.ctl-opt small { display: block; font-size: 11px; font-weight: 600; margin-top: 2px; opacity: .8; }
+.ctl-opt.on { border-color: #ffd700; background: rgba(255,215,0,.12); color: #fff; box-shadow: 0 0 12px rgba(255,215,0,.25); }
+.ctl-switch {
+  pointer-events: auto; flex: 0 0 auto; width: 62px; height: 32px; margin: 0 10px; border-radius: 16px; border: none; cursor: pointer;
+  background: #555b70; position: relative; -webkit-tap-highlight-color: transparent;
+}
+.ctl-switch b {
+  position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #ffd700;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4); transition: left .2s ease;
+}
+.ctl-switch.right b { left: 34px; }
+.ctl-row.auto .ctl-opt, .ctl-row.auto .ctl-switch { opacity: .55; cursor: default; }
+.ctl-desc { min-height: 36px; margin-top: 14px; font-size: 13px; line-height: 1.4; color: rgba(255,255,255,.75); }
+.ctl-desc b { color: #ffd700; }
+#game.mouse-mode { cursor: crosshair; }
 .pause-btn {
   pointer-events: auto; width: 34px; height: 34px; margin-left: 8px; border-radius: 50%; cursor: pointer;
   display: flex; align-items: center; justify-content: center;
@@ -294,4 +334,5 @@ html.nojs body, html.game-failed body { background: linear-gradient(180deg, #5EC
 html.nojs #nojsMsg, html.game-failed #errMsg { display: block; }
 html.nojs .subtitle, html.nojs #recordsBox, html.nojs #menuBtns, html.nojs #goStats, html.nojs #walletBox,
 html.game-failed .subtitle, html.game-failed #recordsBox, html.game-failed #menuBtns, html.game-failed #goStats,
-html.game-failed #walletBox, html.game-failed #scrChars, html.game-failed #scrOptions, html.game-failed #scrPause { display: none !important; }
+html.game-failed #walletBox, html.game-failed #scrChars, html.game-failed #scrOptions, html.game-failed #scrPause,
+html.game-failed #scrAudio, html.game-failed #scrControls { display: none !important; }
