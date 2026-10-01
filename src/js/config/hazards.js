@@ -33,7 +33,10 @@ const HAZARDS = {
   moveRange: [35, 95],           // px half-sweep of moving flyers (movingFlyers -> max)
   ufoRange: [40, 110],           // px half-sweep of UFO drift (aliens -> max)
   coinChance: 0.65,              // chance a hazard row gets a coin line in/near its gap
-  shieldOnSuperJump: true,       // fatal hazards can't kill during a super-jump ascent (fairness)
+  shieldOnSuperJump: true,       // spikes/saws can't kill during a super jump: smashed instead (fairness)
+  // During a super jump: platforms are intangible, blue flyers/UFOs are defeated (+stomp.coins),
+  // red ones are knocked aside at `knockSpeed` px/frame (slowing down) and can't touch him for `knockCool` frames.
+  superJump: { knockSpeed: 9, knockCool: 30 },
   // After a non-fatal bump the fall is a little gentler for a moment (more time to draw a new elastic):
   // gravity x `gravity` right after the hit, blending back to normal over `frames`; fall speed capped at
   // `maxFall` px/frame during that window. Normal gravity is unchanged otherwise.
