@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="nojs">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<title>Ninja Jump</title>
+<link rel="icon" href="data:,">
+<noscript><style>#nojsMsg{display:block!important}.subtitle,#recordsBox,#menuBtns,#goStats,#walletBox{display:none!important}</style></noscript>
+<!-- build:css -->
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
+  <div id="progress"><div id="progressBar"></div></div>
+  <div id="streak"><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="hud">
+    <div class="hud-side" id="themeName"></div>
+    <div class="hud-right">
+      <div class="hud-side" style="text-align:right" id="coinsHud">🪙 0</div>
+      <button class="pause-btn" id="pauseBtn" aria-label="Pausar"><i></i><i></i></button>
+    </div>
+  </div>
+  <div id="countdown"></div>
+  <div id="overlay">
+    <div class="title">Ninja Jump</div>
+    <div class="notice" id="nojsMsg">
+      <h3>⚠️ Este visualizador não roda o jogo</h3>
+      <p>Abra este arquivo no <b>Chrome</b>: toque nos <b>três pontinhos</b> (⋮) e escolha <b>Abrir no Chrome</b> ou <b>Abrir com navegador</b>.</p>
+    </div>
+    <div class="notice" id="errMsg">
+      <h3>😕 O jogo não conseguiu iniciar aqui</h3>
+      <p>Abra este arquivo no <b>Chrome</b>: toque nos <b>três pontinhos</b> (⋮) e escolha <b>Abrir no Chrome</b> ou <b>Abrir com navegador</b>.</p>
+      <div class="err-detail" id="errDetail"></div>
+    </div>
+    <div class="screen" id="scrMain">
+      <div class="subtitle" id="overlaySub">Arraste o dedo para criar um elástico. Quanto menor a linha, mais alto o salto!</div>
+      <div class="records" id="recordsBox">
+        <h3>Recordes</h3>
+        <div class="rec-row"><span>Melhor altura</span><span class="val" id="bestM">0 m</span></div>
+        <div class="rec-row"><span>Melhores moedas</span><span class="val" id="bestC">0</span></div>
+      </div>
+      <div id="goStats" style="display:none">
+        <div class="go-stats">Altura<div class="big" id="goMeters">0 m</div></div>
+        <div class="go-stats" style="margin-bottom:20px">Moedas: <strong id="goCoins">0</strong></div>
+        <div class="new-record" id="newRec" style="display:none">🎉 Novo recorde!</div>
+      </div>
+      <div class="wallet" id="walletBox">🪙 <span id="walletVal">0</span></div>
+      <div class="menu-btns" id="menuBtns">
+        <button class="btn" id="playBtn">Jogar</button>
+        <button class="btn btn-sec" id="charsBtn">Personagens</button>
+        <button class="btn btn-sec" id="optionsBtn">Opções</button>
+      </div>
+    </div>
+    <div class="screen hidden" id="scrChars">
+      <div class="wallet">🪙 <span id="walletVal2">0</span></div>
+      <div class="chars" id="charsList"></div>
+      <div class="chars-msg" id="charsMsg"></div>
+      <button class="btn btn-sec" data-back="1">Voltar</button>
+    </div>
+    <div class="screen hidden" id="scrOptions">
+      <div class="panel">
+        <div class="opt-row">
+          <span>Áudio</span>
+          <button class="toggle" id="soundToggle" role="switch" aria-checked="true"><b></b><span id="soundLabel">Ligado</span></button>
+        </div>
+      </div>
+      <button class="btn btn-sec" data-back="1">Voltar</button>
+    </div>
+    <div class="screen hidden" id="scrPause">
+      <div class="menu-btns">
+        <button class="btn" id="resumeBtn">Continuar</button>
+        <button class="btn btn-sec" id="pauseOptionsBtn">Opções</button>
+        <button class="btn btn-sec" id="quitBtn">Sair</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- build:boot -->
+<!-- build:game -->
+</body>
+</html>
