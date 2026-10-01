@@ -10,13 +10,15 @@ function showScreen(name) {
   if (!name) { overlay.classList.add('hidden'); return; }
   overlay.classList.remove('hidden');
   if (name === 'main') titleEl.textContent = state === 'gameover' ? 'Fim de jogo' : 'Ninja Jump';
-  else titleEl.textContent = name === 'chars' ? 'Personagens' : (name === 'options' ? 'Opções' : 'Pausado');
+  else titleEl.textContent = SCREEN_TITLES[name] || '';
   if (name === 'main' || name === 'chars') refreshWallet();
   if (name === 'chars') renderChars();
-  if (name === 'options') refreshSoundUi();
+  if (name === 'audio') refreshSoundUi();
+  if (name === 'controls') refreshControlsUi();
 }
 function goBack() {
-  if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
+  if (screen === 'audio' || screen === 'controls') showScreen('options');
+  else if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
   else showScreen('main');
 }
 

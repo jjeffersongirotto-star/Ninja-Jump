@@ -17,6 +17,7 @@
 </head>
 <body>
 <canvas id="game"></canvas>
+<div id="rotateHint"><i>📱</i>Gire o celular para a vertical<small>O jogo foi feito para a tela em pé</small></div>
 <div id="ui">
   <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
   <div id="progress"><div id="progressBar"></div></div>
@@ -68,11 +69,33 @@
       <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>
     <div class="screen hidden" id="scrOptions">
+      <div class="menu-btns">
+        <button class="btn btn-sec" id="audioBtn">🔊 Áudio</button>
+        <button class="btn btn-sec" id="controlsBtn">🎮 Controles</button>
+        <button class="btn btn-sec" data-back="1">Voltar</button>
+      </div>
+    </div>
+    <div class="screen hidden" id="scrAudio">
       <div class="panel">
         <div class="opt-row">
           <span>Áudio</span>
           <button class="toggle" id="soundToggle" role="switch" aria-checked="true"><b></b><span id="soundLabel">Ligado</span></button>
         </div>
+      </div>
+      <button class="btn btn-sec" data-back="1">Voltar</button>
+    </div>
+    <div class="screen hidden" id="scrControls">
+      <div class="panel ctl-panel">
+        <div class="ctl-auto">
+          <span>Automático</span>
+          <button class="toggle" id="ctlAuto" role="switch" aria-checked="true"><b></b><span id="ctlAutoLabel">Ligado</span></button>
+        </div>
+        <div class="ctl-row" id="ctlRow">
+          <button class="ctl-opt" id="ctlTouch"><i>📱</i><span>Dispositivos móveis</span><small>Touch</small></button>
+          <button class="ctl-switch" id="ctlSwitch" role="switch" aria-label="Trocar controle"><b></b></button>
+          <button class="ctl-opt" id="ctlMouse"><i>🖱️</i><span>Computador</span><small>Mouse</small></button>
+        </div>
+        <div class="ctl-desc" id="ctlDesc"></div>
       </div>
       <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>

@@ -55,4 +55,6 @@ const charsMsg = document.getElementById('charsMsg');
 const soundToggle = document.getElementById('soundToggle');
 const soundLabel = document.getElementById('soundLabel');
 const countdownEl = document.getElementById('countdown');
-const SCREENS = { main: 'scrMain', chars: 'scrChars', options: 'scrOptions', pause: 'scrPause' };
+const SCREENS = { main: 'scrMain', chars: 'scrChars', options: 'scrOptions', audio: 'scrAudio', controls: 'scrControls', pause: 'scrPause' };
+const SCREEN_TITLES = { chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado' };
+const LS_CONTROLS = 'ninjaJump_controls';  // 'auto' | 'touch' | 'mouse'

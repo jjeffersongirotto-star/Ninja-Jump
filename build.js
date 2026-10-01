@@ -42,6 +42,7 @@ const GAME_FILES = [
   'render/hazards.js',          // hazard sprites
   'render/coins-effects.js',    // coins, ground, floaters, particles
   'render/frame.js',            // render() + fixed-timestep game loop
+  'input/controls.js',          // control mode: touch / computer (mouse) / automatic, keyboard shortcuts
   'input/pointer.js',           // touch / pointer / mouse input
   'ui/buttons.js',              // button and page bindings
   'core/app.js',                // installable app (PWA): offline service worker + "Instalar app" button
