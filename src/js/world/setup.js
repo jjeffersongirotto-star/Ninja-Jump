@@ -8,9 +8,18 @@
 const PLAY_MAX_ASPECT = 0.66;
 const UI_MIN_H = 560, UI_MAX_H = 900;
 let uiScale = 1, colLeft = 0, colWidth = 0;
+// Adaptive quality (keeps 60 FPS on weak phones): while playing, if frames keep arriving slower than
+// QUALITY_SLOW_MS on average, the canvas resolution drops one step (sharpness first, smoothness wins).
+// Never below 1 canvas pixel per CSS pixel; starts again from full quality when the page reloads.
+const QUALITY_STEPS = [1, 0.8, 0.64, 0.5];
+const QUALITY_SLOW_MS = 18.2;        // ~55 FPS
+const QUALITY_VERY_SLOW_MS = 22;     // ~45 FPS
+const QUALITY_WINDOW = 90;           // frames per measurement window (1.5 s at 60 FPS)
+let qualityLevel = 0;
 let resizeRetries = 0;
 function resize() {
-  const devDpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const rawDpr = Math.min(window.devicePixelRatio || 1, 2.5);
+  const devDpr = Math.max(Math.min(rawDpr, 1), rawDpr * QUALITY_STEPS[qualityLevel]); // adaptive quality
   const de = document.documentElement || {};
   // Some WebViews report 0 before first layout: fall back to other sizes and retry
   const vw = window.innerWidth || de.clientWidth || (window.screen && window.screen.width) || 0;
