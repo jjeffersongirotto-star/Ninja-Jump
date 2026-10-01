@@ -44,6 +44,7 @@ const GAME_FILES = [
   'render/frame.js',            // render() + fixed-timestep game loop
   'input/pointer.js',           // touch / pointer / mouse input
   'ui/buttons.js',              // button and page bindings
+  'core/app.js',                // installable app (PWA): offline service worker + "Instalar app" button
   'main.js'                     // startup
 ];
 
