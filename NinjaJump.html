@@ -433,6 +433,7 @@
   } catch (e) {}
   const ACTIVE = passiveSupported ? { passive: false } : false;
 
+  // --- Storage keys, canvas and DOM element references ---
   const LS_METERS = 'ninjaJump_bestMeters';
   const LS_COINS = 'ninjaJump_bestCoins';
   const LS_OLD_METERS = 'ninjaElastico_bestMeters';
@@ -731,6 +732,7 @@
   // The ground only exists at the bottom of the world, while it is still on screen (the camera never comes back down).
   const GROUND_FRAC = 0.9;       // ground top at this fraction of the screen height when the run starts
   const GROUND_HOP_VY = 8.6;     // idle hop speed (about 115 px high)
+
   // --- Hazards & difficulty progression: ALL tuning lives here ---
   // Stage thresholds are in meters. Each stage adds something new; earlier types keep
   // appearing later (mixed). Every hazard row always keeps a free gap of at least
@@ -788,6 +790,7 @@
     antiStuck: { frames: 20, minMove: 3, embedFrames: 3, ghostFrames: 18 }
   };
 
+  // --- Game state (shared by every file) ---
   let state = 'menu';
   let ninja, camera, elastic, drawing;
   let hazards = [], coins = [], particles = [];
@@ -820,6 +823,7 @@
   // Parallax scenery seeds (stable)
   let hillsFar = [], hillsNear = [], mountains = [], trees = [], cloudLayer = [], planets = [];
 
+  // --- Storage and records ---
   // Safe storage: some viewers (WhatsApp, file managers) block localStorage and would crash the game
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
@@ -859,6 +863,7 @@
     return isNew;
   }
 
+  // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
   let resizeRetries = 0;
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2.5);
@@ -1223,7 +1228,6 @@
     sp.m += step;
     return row;
   }
-
 
   // --- Hazards in the world ---
   function makeHazard(it, wy) {
@@ -1978,6 +1982,7 @@
     updateHud(meters);
   }
 
+  // --- HUD, game over and start of a run ---
   // HUD: touch the DOM only when a value actually changes (it used to be rewritten every frame)
   const hudShown = { meters: -1, coins: -1, width: '', bg: '' };
   function resetHudCache() { hudShown.meters = -1; hudShown.coins = -1; hudShown.width = ''; hudShown.bg = ''; }
@@ -2586,6 +2591,7 @@
     ctx.fill();
   }
 
+  // --- Elastic drawing ---
   function elasticPath(x1, y1, x2, y2, cpx, cpy, curved) {
     ctx.beginPath();
     ctx.moveTo(x1, y1);
@@ -2684,9 +2690,6 @@
     ctx.restore();
   }
 
-  // --- Ninja sprite (Bomberman-style white ninja, shaded for a 3D look) ---
-  // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
-  const NINJA_MAX_ARM = Math.PI / 3; // 60° hard limit
   // Characters (skins): same sprite, different palette. `price` in coins (0 = owned from the start).
   const SKINS = [
     { id: 'white', name: 'Ninja Branco', price: 0,
@@ -2712,6 +2715,10 @@
       occl: 'rgba(60,0,0,0.25)' }
   ];
   let skin = SKINS[0];
+
+  // --- Ninja sprite (Bomberman-style white ninja, shaded for a 3D look) ---
+  // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
+  const NINJA_MAX_ARM = Math.PI / 3; // 60° hard limit
   const NINJA_LEG_LEN = 13;                  // thigh + shin, used by the wall-kick leg
   const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0 };
   let ninjaLightX = -1; // local x direction toward the light (world top-left), set per draw
@@ -3513,6 +3520,7 @@
     ctx.restore();
   }
 
+  // --- Coins, ground, floaters and particles ---
   // Coin body is pre-rendered once per resize (gradient + emboss) and blitted each frame
   let coinSprite = null;
   function buildCoinSprite() {
@@ -3708,6 +3716,7 @@
     ctx.globalAlpha = 1;
   }
 
+  // --- Frame: render() draws everything; loop() runs the fixed-timestep game loop ---
   function render() {
     const meters = ninja ? worldToMeters(ninja.y) : 0;
     if (state === 'menu') atmosCache = atmosphereAt(30);
@@ -3913,6 +3922,7 @@
     }, ACTIVE);
   }
 
+  // --- Buttons, menus and page bindings ---
   // Jogar: click + touchend, guarded so one tap never starts twice
   let lastStartAt = -1e9;
   function onPlayTap(e) {
