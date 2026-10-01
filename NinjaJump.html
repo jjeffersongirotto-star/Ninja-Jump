@@ -118,7 +118,7 @@
   #streak i {
     display: block;
     width: 6px; height: 6px;
-    margin: 0 3px;
+    margin: 0 2px;
     border-radius: 50%;
     background: rgba(255,255,255,.22);
     box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
@@ -360,7 +360,7 @@
 <div id="ui">
   <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
   <div id="progress"><div id="progressBar"></div></div>
-  <div id="streak"><i></i><i></i><i></i><i></i><i></i></div>
+  <div id="streak"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
   <div id="hud">
     <div class="hud-side" id="themeName"></div>
     <div class="hud-right">
@@ -784,26 +784,29 @@
   const ELASTIC_MAX_FRAC = 1 / 3;
   const ELASTIC_MAX_MIN_PX = 90;
   function elasticMaxLen() { return Math.max(ELASTIC_MAX_MIN_PX, W * ELASTIC_MAX_FRAC); }
-  // Power curve over the allowed range (t = 0 shortest .. 1 longest): the longest line gives
-  // LONG_ELASTIC_POWER of the max, sizes in between ramp smoothly (more than the old 1/len curve),
-  // and the very shortest lines get a small extra bonus on top (MIN_ELASTIC_BONUS).
+  // Power curve over the allowed range (t = 0 shortest .. 1 longest): full power SHORT_ELASTIC_POWER for
+  // the shortest SHORT_PLATEAU_T of the range (a finger rarely hits the exact minimum, so "short" lines
+  // of ~36-45 px all get the full reward), then a smooth fall to LONG_ELASTIC_POWER at the longest line.
+  const SHORT_ELASTIC_POWER = 1.15;
+  const SHORT_PLATEAU_T = 0.1;
   const LONG_ELASTIC_POWER = 0.42;
-  const ELASTIC_CURVE = 1.4;
-  const MIN_ELASTIC_BONUS = 0.08;
+  const ELASTIC_CURVE = 1.3;
+  // Short lines drawn with a finger come out tilted by accident and lose height: their launch direction
+  // is pulled toward straight up by up to SHORT_STRAIGHTEN (shortest line), fading to 0 at SHORT_ELASTIC_T.
+  const SHORT_STRAIGHTEN = 0.5;
   function elasticT(rawLen) {
     const maxLen = elasticMaxLen();
     return Math.max(0, Math.min(1, (rawLen - ELASTIC_MIN) / (maxLen - ELASTIC_MIN)));
   }
   function elasticPower(rawLen) {
-    const t = elasticT(rawLen);
-    const base = LONG_ELASTIC_POWER + (1 - LONG_ELASTIC_POWER) * Math.pow(1 - t, ELASTIC_CURVE);
-    return base * (1 + MIN_ELASTIC_BONUS * (1 - smoothstep(0, 0.12, t)));
+    const t = Math.max(0, (elasticT(rawLen) - SHORT_PLATEAU_T) / (1 - SHORT_PLATEAU_T));
+    return LONG_ELASTIC_POWER + (SHORT_ELASTIC_POWER - LONG_ELASTIC_POWER) * Math.pow(1 - t, ELASTIC_CURVE);
   }
   // Super jump: SUPER_STREAK short elastics in a row -> the last of them launches a super jump.
-  // "Short" = the shortest SHORT_ELASTIC_T of the allowed range (about 64%+ on the % indicator).
+  // "Short" = the shortest SHORT_ELASTIC_T of the allowed range (about 80%+ on the % indicator).
   const SHORT_ELASTIC_T = 0.4;
-  const SUPER_STREAK = 5;
-  const SUPER_JUMP_MULT = 1.7;               // x the normal impulse of that same elastic
+  const SUPER_STREAK = 10;
+  const SUPER_JUMP_MULT = 1.6;               // x the normal impulse of that same elastic
   const SUPER_JUMP_MIN = BASE_IMPULSE * 1.35; // floor so every super jump feels big
   const SUPER_SPIN_TURNS_PER_SEC = 3.5;      // spin speed at launch; slows to 0 at the top
   // Wall kick (visual only): min horizontal speed into a wall, and pose duration in frames
@@ -850,7 +853,10 @@
     moveRange: [35, 95],           // px half-sweep of moving flyers (movingFlyers -> max)
     ufoRange: [40, 110],           // px half-sweep of UFO drift (aliens -> max)
     coinChance: 0.65,              // chance a hazard row gets a coin line in/near its gap
-    shieldOnSuperJump: true,       // fatal hazards can't kill during a super-jump ascent (fairness)
+    shieldOnSuperJump: true,       // spikes/saws can't kill during a super jump: smashed instead (fairness)
+    // During a super jump: platforms are intangible, blue flyers/UFOs are defeated (+stomp.coins),
+    // red ones are knocked aside at `knockSpeed` px/frame (slowing down) and can't touch him for `knockCool` frames.
+    superJump: { knockSpeed: 9, knockCool: 30 },
     // After a non-fatal bump the fall is a little gentler for a moment (more time to draw a new elastic):
     // gravity x `gravity` right after the hit, blending back to normal over `frames`; fall speed capped at
     // `maxFall` px/frame during that window. Normal gravity is unchanged otherwise.
@@ -1417,6 +1423,14 @@
         if (hz.dying <= 0) hz.alive = false;
         continue;
       }
+      if (hz.knockVX) { // knocked aside by a super jump: slides away and slows down, stays on screen
+        hz.ox += hz.knockVX;
+        const lim = (hz.vw || 20) + (hz.range || 0);
+        if (hz.ox < lim || hz.ox > W - lim) { hz.ox = Math.max(lim, Math.min(W - lim, hz.ox)); hz.knockVX = -hz.knockVX * 0.4; }
+        hz.knockVX *= 0.88;
+        if (Math.abs(hz.knockVX) < 0.05) hz.knockVX = 0;
+        if (!hz.range) hz.x = hz.ox;
+      }
       if (hz.range) {
         hz.phase += hz.speed / Math.max(10, hz.range);
         hz.x = hz.ox + Math.sin(hz.phase) * hz.range;
@@ -1463,6 +1477,14 @@
         if (hz.cool > 0 || hz.ghost) continue;
         if (!hz.fatal && ninja.ghost > 0) continue;
         if (!hazardContact(hz, px, py)) continue;
+        if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
+          // super jump: platforms are intangible (like when falling); blue enemies are defeated (+1 coin),
+          // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
+          if (hz.type === 'platform') ghostPlatform(hz);
+          else if (hz.color === 'red') knockAside(hz);
+          else defeatEnemy(hz);
+          continue;
+        }
         if (!onBand && hz.type === 'platform' && ninja.vy >= 0 && ly + NINJA_R <= hz.y - hz.h / 2 + 2) {
           // falling onto a platform from above: it turns intangible and he drops straight through
           ghostPlatform(hz);
@@ -1535,17 +1557,40 @@
       beep(300, 0.08, 'square', 0.06);
     } else {
       ninja.vy = -ST.blueImpulse;
-      hz.dying = ST.poofFrames;
       debugStats.stomps.blue++;
-      runCoins += ST.coins;
-      floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
-      burst(hz.x, hz.y, '#ffffff', 12, 3.2);
-      burst(hz.x, hz.y, '#8fd3ff', 10, 3);
-      burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
-      beep(660, 0.07, 'triangle', 0.08);
-      beep(990, 0.09, 'sine', 0.06);
+      defeatEnemy(hz);
     }
   }
+  // Blue flyer/UFO defeated (head stomp or super jump): poof, +coins
+  function defeatEnemy(hz) {
+    const ST = HAZARDS.stomp;
+    if (hz.dying > 0) return;
+    hz.dying = ST.poofFrames;
+    hz.hit = 1;
+    runCoins += ST.coins;
+    countHit(hz.kind + ':defeated');
+    floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
+    burst(hz.x, hz.y, '#ffffff', 12, 3.2);
+    burst(hz.x, hz.y, '#8fd3ff', 10, 3);
+    burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
+    beep(660, 0.07, 'triangle', 0.08);
+    beep(990, 0.09, 'sine', 0.06);
+  }
+  // Red flyer/UFO hit during a super jump: not defeated, knocked aside (away from the ninja)
+  function knockAside(hz) {
+    const dir = hz.x === ninja.x ? (Math.random() < 0.5 ? -1 : 1) : (hz.x > ninja.x ? 1 : -1);
+    hz.knockVX = dir * HAZARDS.superJump.knockSpeed;
+    hz.cool = HAZARDS.superJump.knockCool;
+    hz.hit = 1;
+    hz.face = dir;
+    countHit(hz.kind + ':knocked');
+    shake = Math.max(shake, 4);
+    burst(hz.x - dir * 10, hz.y, '#ffb0a0', 10, 3);
+    rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.6, color: '#ffd0c4' });
+    beep(300, 0.08, 'square', 0.06);
+    beep(200, 0.1, 'triangle', 0.05);
+  }
+  function superActive() { return !!(ninja && ninja.superSpin && !ninja.dead); }
 
   // Safety net: he must never stay embedded in a solid or frozen in the air.
   function antiStuck() {
@@ -1696,7 +1741,7 @@
   }
 
   function hitFatal(hz) {
-    if (HAZARDS.shieldOnSuperJump && ninja.superSpin && ninja.vy < 0) {
+    if (HAZARDS.shieldOnSuperJump && superActive()) {
       // super-jump ascent: smash through instead of dying (the player couldn't see it coming)
       hz.alive = false;
       debugStats.shieldBreaks++;
@@ -2021,10 +2066,15 @@
             strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN);
           }
           updateStreakHud();
-          // Launch along upward normal — do NOT multiply by an extra -1
+          // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
+          // toward vertical (their tilt is usually accidental and would waste height).
+          const straighten = isShort ? SHORT_STRAIGHTEN * (1 - elasticT(rawLen) / SHORT_ELASTIC_T) : 0;
+          let lx = nx * (1 - straighten), ly = ny * (1 - straighten) - straighten;
+          const ll = Math.hypot(lx, ly) || 1;
+          lx /= ll; ly /= ll;
           const boost = elastic.impactSpeed * 0.28;
-          ninja.vx = nx * (strength + boost * 0.45);
-          ninja.vy = ny * (strength + boost);
+          ninja.vx = lx * (strength + boost * 0.45);
+          ninja.vy = ly * (strength + boost);
           ninja.facing = ninja.vx >= 0 ? 1 : -1;
           if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
           ninja.bonkedSinceLaunch = false;

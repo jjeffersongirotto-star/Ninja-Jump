@@ -163,10 +163,15 @@ function update(dt) {
           strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN);
         }
         updateStreakHud();
-        // Launch along upward normal — do NOT multiply by an extra -1
+        // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
+        // toward vertical (their tilt is usually accidental and would waste height).
+        const straighten = isShort ? SHORT_STRAIGHTEN * (1 - elasticT(rawLen) / SHORT_ELASTIC_T) : 0;
+        let lx = nx * (1 - straighten), ly = ny * (1 - straighten) - straighten;
+        const ll = Math.hypot(lx, ly) || 1;
+        lx /= ll; ly /= ll;
         const boost = elastic.impactSpeed * 0.28;
-        ninja.vx = nx * (strength + boost * 0.45);
-        ninja.vy = ny * (strength + boost);
+        ninja.vx = lx * (strength + boost * 0.45);
+        ninja.vy = ly * (strength + boost);
         ninja.facing = ninja.vx >= 0 ? 1 : -1;
         if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
         ninja.bonkedSinceLaunch = false;

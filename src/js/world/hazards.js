@@ -38,6 +38,14 @@ function updateHazards() {
       if (hz.dying <= 0) hz.alive = false;
       continue;
     }
+    if (hz.knockVX) { // knocked aside by a super jump: slides away and slows down, stays on screen
+      hz.ox += hz.knockVX;
+      const lim = (hz.vw || 20) + (hz.range || 0);
+      if (hz.ox < lim || hz.ox > W - lim) { hz.ox = Math.max(lim, Math.min(W - lim, hz.ox)); hz.knockVX = -hz.knockVX * 0.4; }
+      hz.knockVX *= 0.88;
+      if (Math.abs(hz.knockVX) < 0.05) hz.knockVX = 0;
+      if (!hz.range) hz.x = hz.ox;
+    }
     if (hz.range) {
       hz.phase += hz.speed / Math.max(10, hz.range);
       hz.x = hz.ox + Math.sin(hz.phase) * hz.range;
@@ -84,6 +92,14 @@ function collideHazards(x0, y0, onBand) {
       if (hz.cool > 0 || hz.ghost) continue;
       if (!hz.fatal && ninja.ghost > 0) continue;
       if (!hazardContact(hz, px, py)) continue;
+      if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
+        // super jump: platforms are intangible (like when falling); blue enemies are defeated (+1 coin),
+        // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
+        if (hz.type === 'platform') ghostPlatform(hz);
+        else if (hz.color === 'red') knockAside(hz);
+        else defeatEnemy(hz);
+        continue;
+      }
       if (!onBand && hz.type === 'platform' && ninja.vy >= 0 && ly + NINJA_R <= hz.y - hz.h / 2 + 2) {
         // falling onto a platform from above: it turns intangible and he drops straight through
         ghostPlatform(hz);
@@ -156,17 +172,40 @@ function stompHazard(hz, px, py) {
     beep(300, 0.08, 'square', 0.06);
   } else {
     ninja.vy = -ST.blueImpulse;
-    hz.dying = ST.poofFrames;
     debugStats.stomps.blue++;
-    runCoins += ST.coins;
-    floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
-    burst(hz.x, hz.y, '#ffffff', 12, 3.2);
-    burst(hz.x, hz.y, '#8fd3ff', 10, 3);
-    burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
-    beep(660, 0.07, 'triangle', 0.08);
-    beep(990, 0.09, 'sine', 0.06);
+    defeatEnemy(hz);
   }
 }
+// Blue flyer/UFO defeated (head stomp or super jump): poof, +coins
+function defeatEnemy(hz) {
+  const ST = HAZARDS.stomp;
+  if (hz.dying > 0) return;
+  hz.dying = ST.poofFrames;
+  hz.hit = 1;
+  runCoins += ST.coins;
+  countHit(hz.kind + ':defeated');
+  floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
+  burst(hz.x, hz.y, '#ffffff', 12, 3.2);
+  burst(hz.x, hz.y, '#8fd3ff', 10, 3);
+  burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
+  beep(660, 0.07, 'triangle', 0.08);
+  beep(990, 0.09, 'sine', 0.06);
+}
+// Red flyer/UFO hit during a super jump: not defeated, knocked aside (away from the ninja)
+function knockAside(hz) {
+  const dir = hz.x === ninja.x ? (Math.random() < 0.5 ? -1 : 1) : (hz.x > ninja.x ? 1 : -1);
+  hz.knockVX = dir * HAZARDS.superJump.knockSpeed;
+  hz.cool = HAZARDS.superJump.knockCool;
+  hz.hit = 1;
+  hz.face = dir;
+  countHit(hz.kind + ':knocked');
+  shake = Math.max(shake, 4);
+  burst(hz.x - dir * 10, hz.y, '#ffb0a0', 10, 3);
+  rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.6, color: '#ffd0c4' });
+  beep(300, 0.08, 'square', 0.06);
+  beep(200, 0.1, 'triangle', 0.05);
+}
+function superActive() { return !!(ninja && ninja.superSpin && !ninja.dead); }
 
 // Safety net: he must never stay embedded in a solid or frozen in the air.
 function antiStuck() {
@@ -317,7 +356,7 @@ function snapElastic(e) {
 }
 
 function hitFatal(hz) {
-  if (HAZARDS.shieldOnSuperJump && ninja.superSpin && ninja.vy < 0) {
+  if (HAZARDS.shieldOnSuperJump && superActive()) {
     // super-jump ascent: smash through instead of dying (the player couldn't see it coming)
     hz.alive = false;
     debugStats.shieldBreaks++;

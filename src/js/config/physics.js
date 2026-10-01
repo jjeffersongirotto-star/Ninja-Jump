@@ -8,26 +8,29 @@ const BASE_IMPULSE = 19.5;
 const ELASTIC_MAX_FRAC = 1 / 3;
 const ELASTIC_MAX_MIN_PX = 90;
 function elasticMaxLen() { return Math.max(ELASTIC_MAX_MIN_PX, W * ELASTIC_MAX_FRAC); }
-// Power curve over the allowed range (t = 0 shortest .. 1 longest): the longest line gives
-// LONG_ELASTIC_POWER of the max, sizes in between ramp smoothly (more than the old 1/len curve),
-// and the very shortest lines get a small extra bonus on top (MIN_ELASTIC_BONUS).
+// Power curve over the allowed range (t = 0 shortest .. 1 longest): full power SHORT_ELASTIC_POWER for
+// the shortest SHORT_PLATEAU_T of the range (a finger rarely hits the exact minimum, so "short" lines
+// of ~36-45 px all get the full reward), then a smooth fall to LONG_ELASTIC_POWER at the longest line.
+const SHORT_ELASTIC_POWER = 1.15;
+const SHORT_PLATEAU_T = 0.1;
 const LONG_ELASTIC_POWER = 0.42;
-const ELASTIC_CURVE = 1.4;
-const MIN_ELASTIC_BONUS = 0.08;
+const ELASTIC_CURVE = 1.3;
+// Short lines drawn with a finger come out tilted by accident and lose height: their launch direction
+// is pulled toward straight up by up to SHORT_STRAIGHTEN (shortest line), fading to 0 at SHORT_ELASTIC_T.
+const SHORT_STRAIGHTEN = 0.5;
 function elasticT(rawLen) {
   const maxLen = elasticMaxLen();
   return Math.max(0, Math.min(1, (rawLen - ELASTIC_MIN) / (maxLen - ELASTIC_MIN)));
 }
 function elasticPower(rawLen) {
-  const t = elasticT(rawLen);
-  const base = LONG_ELASTIC_POWER + (1 - LONG_ELASTIC_POWER) * Math.pow(1 - t, ELASTIC_CURVE);
-  return base * (1 + MIN_ELASTIC_BONUS * (1 - smoothstep(0, 0.12, t)));
+  const t = Math.max(0, (elasticT(rawLen) - SHORT_PLATEAU_T) / (1 - SHORT_PLATEAU_T));
+  return LONG_ELASTIC_POWER + (SHORT_ELASTIC_POWER - LONG_ELASTIC_POWER) * Math.pow(1 - t, ELASTIC_CURVE);
 }
 // Super jump: SUPER_STREAK short elastics in a row -> the last of them launches a super jump.
-// "Short" = the shortest SHORT_ELASTIC_T of the allowed range (about 64%+ on the % indicator).
+// "Short" = the shortest SHORT_ELASTIC_T of the allowed range (about 80%+ on the % indicator).
 const SHORT_ELASTIC_T = 0.4;
-const SUPER_STREAK = 5;
-const SUPER_JUMP_MULT = 1.7;               // x the normal impulse of that same elastic
+const SUPER_STREAK = 10;
+const SUPER_JUMP_MULT = 1.6;               // x the normal impulse of that same elastic
 const SUPER_JUMP_MIN = BASE_IMPULSE * 1.35; // floor so every super jump feels big
 const SUPER_SPIN_TURNS_PER_SEC = 3.5;      // spin speed at launch; slows to 0 at the top
 // Wall kick (visual only): min horizontal speed into a wall, and pose duration in frames
