@@ -1,10 +1,17 @@
 // --- Background drawing (parallax layers) ---
-// --- Space background cache (round 4): the nebula was two full-screen radial gradients per frame,
-// the main cost above ~700 m on slow phones. Both gradients are now painted once, with their alpha,
-// into one offscreen canvas at device resolution and copied 1:1 each frame. Source-over is associative,
-// so (sky + A) + B == sky + (A + B): same pixels as before. The alpha is rounded to 1/20 steps, so the
-// cache is only rebuilt a few times while space fades in (650-800 m), then never.
+// --- Background performance ---
+// The background (sky, hills, mountains, trees, clouds) was the main cost of every frame: many big
+// overlapping fills at full screen resolution. It is soft (gradients and large shapes), so it is now
+// drawn into an offscreen canvas at a lower resolution (at most BG_MAX_DPR pixels per logical pixel,
+// times the UI scale) and stretched over the screen in one copy: about a quarter of the pixels on
+// high-density phones, visually the same.
+// Space nebula: two full-screen radial gradients, painted ONCE into a cached layer (at full strength)
+// and drawn with the fade-in alpha. Before, the cache was rebuilt ~20 times while space faded in
+// (650-800 m), reallocating a screen-sized canvas each time: the stutter when entering space.
+const BG_MAX_DPR = 1.25;
 let bgCacheOff = false;
+let bgCanvas = null, bgCtx = null;
+let drawDpr = 1;   // pixels per logical pixel of the canvas being drawn right now (main or background)
 let nebCache = null, nebKey = '';
 function paintNebulaGrad(c, which) {
   if (which === 0) {
@@ -22,30 +29,45 @@ function paintNebulaGrad(c, which) {
   c.fillRect(0, 0, W, H);
 }
 function paintNebula(c) { paintNebulaGrad(c, 0); paintNebulaGrad(c, 1); }
-function nebulaLayer(alpha) {
-  const q = Math.max(1, Math.round(alpha * 20 / 0.35));
-  const key = W + 'x' + H + '@' + dpr + '#' + q;
+function nebulaLayer() {
+  const key = W + 'x' + H + '@' + drawDpr;
   if (nebCache && nebKey === key) return nebCache;
   try {
-    const cv = nebCache && nebCache.width === Math.ceil(W * dpr) && nebCache.height === Math.ceil(H * dpr) ? nebCache : document.createElement('canvas');
-    cv.width = Math.ceil(W * dpr);
-    cv.height = Math.ceil(H * dpr);
+    const cv = document.createElement('canvas');
+    cv.width = Math.ceil(W * drawDpr);
+    cv.height = Math.ceil(H * drawDpr);
     const c = cv.getContext('2d');
     if (!c) return null;
-    c.setTransform(dpr, 0, 0, dpr, 0, 0);
-    c.clearRect(0, 0, W, H);
-    c.globalAlpha = q * 0.35 / 20;
+    c.setTransform(drawDpr, 0, 0, drawDpr, 0, 0);
     paintNebula(c);
     nebCache = cv; nebKey = key;
     return cv;
   } catch (e) { return null; }
 }
 let shakeX = 0, shakeY = 0;  // current screen-shake offset (set in render)
-function blitScreen(cv) { // 1:1 device-pixel copy (no scaling filter), following the screen shake
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.drawImage(cv, Math.round(shakeX * dpr), Math.round(shakeY * dpr));
-  ctx.restore();
+
+// Draw the background into the low-resolution layer, then stretch it over the frame
+function renderBackground(meters) {
+  const bgDpr = Math.min(dpr, BG_MAX_DPR * uiScale);
+  if (bgCacheOff || bgDpr >= dpr - 0.01) { drawDpr = dpr; drawBackground(meters); return; }
+  const bw = Math.ceil(W * bgDpr), bh = Math.ceil(H * bgDpr);
+  try {
+    if (!bgCanvas) { bgCanvas = document.createElement('canvas'); bgCtx = bgCanvas.getContext('2d'); }
+    if (!bgCtx) throw new Error('no 2d context');
+    if (bgCanvas.width !== bw || bgCanvas.height !== bh) { bgCanvas.width = bw; bgCanvas.height = bh; }
+  } catch (e) { bgCacheOff = true; drawDpr = dpr; drawBackground(meters); return; }
+  const main = ctx;
+  ctx = bgCtx;
+  drawDpr = bgDpr;
+  try {
+    bgCtx.setTransform(bgDpr, 0, 0, bgDpr, 0, 0);
+    bgCtx.globalAlpha = 1;
+    drawBackground(meters);
+  } finally {
+    ctx = main;
+    drawDpr = dpr;
+  }
+  ctx.drawImage(bgCanvas, 0, 0, W, H);
 }
 function planetGradient(c, p, px, py) {
   const rg = c.createRadialGradient(px - p.r * 0.3, py - p.r * 0.3, p.r * 0.1, px, py, p.r);
@@ -55,10 +77,10 @@ function planetGradient(c, p, px, py) {
   return rg;
 }
 function planetSprite(p) {
-  if (p.spr && p.sprDpr === dpr) return p.spr;
+  if (p.spr && p.sprDpr === drawDpr) return p.spr;
   try {
     const size = p.r * 2 + 4, cv = document.createElement('canvas');
-    cv.width = Math.ceil(size * dpr); cv.height = Math.ceil(size * dpr);
+    cv.width = Math.ceil(size * drawDpr); cv.height = Math.ceil(size * drawDpr);
     const c = cv.getContext('2d');
     if (!c) return null;
     c.scale(cv.width / size, cv.height / size);
@@ -66,7 +88,7 @@ function planetSprite(p) {
     c.beginPath();
     c.arc(size / 2, size / 2, p.r, 0, Math.PI * 2);
     c.fill();
-    p.spr = cv; p.sprDpr = dpr;
+    p.spr = cv; p.sprDpr = drawDpr;
     return cv;
   } catch (e) { return null; }
 }
@@ -85,9 +107,11 @@ function drawBackground(meters) {
 
   // Nebula tint (space)
   if (at.space > 0.05) {
-    const neb = bgCacheOff ? null : nebulaLayer(at.space * 0.35);
-    if (neb) blitScreen(neb);
-    else { ctx.globalAlpha = at.space * 0.35; paintNebula(ctx); ctx.globalAlpha = 1; }
+    const neb = bgCacheOff ? null : nebulaLayer();
+    ctx.globalAlpha = at.space * 0.35;
+    if (neb) ctx.drawImage(neb, 0, 0, W, H);
+    else paintNebula(ctx);
+    ctx.globalAlpha = 1;
   }
 
   // Stars

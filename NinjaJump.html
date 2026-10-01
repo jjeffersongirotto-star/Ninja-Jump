@@ -862,7 +862,7 @@
     // Falling onto a platform from above: it turns intangible (he drops straight through). It becomes
     // solid again when a new elastic is drawn with him fully below it. If he is still inside it when an
     // elastic is drawn or touched, the elastic snaps in the middle (`snapFrames` animation).
-    ghostPlatform: { alpha: 0.35, snapFrames: 20, margin: 4 },
+    ghostPlatform: { snapFrames: 20, margin: 4 },  // looks the same as a solid platform
     // Head stomp: landing on a flyer/UFO from above (moving down faster than `minDown`, contact within
     // ~60 degrees of straight down: upward contact component >= `zone`). Blue: defeated, +`coins`, rebound
     // `blueImpulse`. Red: NOT defeated, just rebound `redImpulse` and he survives. Spikes/saws: always fatal.
@@ -955,9 +955,18 @@
   const PLAY_MAX_ASPECT = 0.66;
   const UI_MIN_H = 560, UI_MAX_H = 900;
   let uiScale = 1, colLeft = 0, colWidth = 0;
+  // Adaptive quality (keeps 60 FPS on weak phones): while playing, if frames keep arriving slower than
+  // QUALITY_SLOW_MS on average, the canvas resolution drops one step (sharpness first, smoothness wins).
+  // Never below 1 canvas pixel per CSS pixel; starts again from full quality when the page reloads.
+  const QUALITY_STEPS = [1, 0.8, 0.64, 0.5];
+  const QUALITY_SLOW_MS = 18.2;        // ~55 FPS
+  const QUALITY_VERY_SLOW_MS = 22;     // ~45 FPS
+  const QUALITY_WINDOW = 90;           // frames per measurement window (1.5 s at 60 FPS)
+  let qualityLevel = 0;
   let resizeRetries = 0;
   function resize() {
-    const devDpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const rawDpr = Math.min(window.devicePixelRatio || 1, 2.5);
+    const devDpr = Math.max(Math.min(rawDpr, 1), rawDpr * QUALITY_STEPS[qualityLevel]); // adaptive quality
     const de = document.documentElement || {};
     // Some WebViews report 0 before first layout: fall back to other sizes and retry
     const vw = window.innerWidth || de.clientWidth || (window.screen && window.screen.width) || 0;
@@ -2383,12 +2392,19 @@
   }
 
   // --- Background drawing (parallax layers) ---
-  // --- Space background cache (round 4): the nebula was two full-screen radial gradients per frame,
-  // the main cost above ~700 m on slow phones. Both gradients are now painted once, with their alpha,
-  // into one offscreen canvas at device resolution and copied 1:1 each frame. Source-over is associative,
-  // so (sky + A) + B == sky + (A + B): same pixels as before. The alpha is rounded to 1/20 steps, so the
-  // cache is only rebuilt a few times while space fades in (650-800 m), then never.
+  // --- Background performance ---
+  // The background (sky, hills, mountains, trees, clouds) was the main cost of every frame: many big
+  // overlapping fills at full screen resolution. It is soft (gradients and large shapes), so it is now
+  // drawn into an offscreen canvas at a lower resolution (at most BG_MAX_DPR pixels per logical pixel,
+  // times the UI scale) and stretched over the screen in one copy: about a quarter of the pixels on
+  // high-density phones, visually the same.
+  // Space nebula: two full-screen radial gradients, painted ONCE into a cached layer (at full strength)
+  // and drawn with the fade-in alpha. Before, the cache was rebuilt ~20 times while space faded in
+  // (650-800 m), reallocating a screen-sized canvas each time: the stutter when entering space.
+  const BG_MAX_DPR = 1.25;
   let bgCacheOff = false;
+  let bgCanvas = null, bgCtx = null;
+  let drawDpr = 1;   // pixels per logical pixel of the canvas being drawn right now (main or background)
   let nebCache = null, nebKey = '';
   function paintNebulaGrad(c, which) {
     if (which === 0) {
@@ -2406,30 +2422,45 @@
     c.fillRect(0, 0, W, H);
   }
   function paintNebula(c) { paintNebulaGrad(c, 0); paintNebulaGrad(c, 1); }
-  function nebulaLayer(alpha) {
-    const q = Math.max(1, Math.round(alpha * 20 / 0.35));
-    const key = W + 'x' + H + '@' + dpr + '#' + q;
+  function nebulaLayer() {
+    const key = W + 'x' + H + '@' + drawDpr;
     if (nebCache && nebKey === key) return nebCache;
     try {
-      const cv = nebCache && nebCache.width === Math.ceil(W * dpr) && nebCache.height === Math.ceil(H * dpr) ? nebCache : document.createElement('canvas');
-      cv.width = Math.ceil(W * dpr);
-      cv.height = Math.ceil(H * dpr);
+      const cv = document.createElement('canvas');
+      cv.width = Math.ceil(W * drawDpr);
+      cv.height = Math.ceil(H * drawDpr);
       const c = cv.getContext('2d');
       if (!c) return null;
-      c.setTransform(dpr, 0, 0, dpr, 0, 0);
-      c.clearRect(0, 0, W, H);
-      c.globalAlpha = q * 0.35 / 20;
+      c.setTransform(drawDpr, 0, 0, drawDpr, 0, 0);
       paintNebula(c);
       nebCache = cv; nebKey = key;
       return cv;
     } catch (e) { return null; }
   }
   let shakeX = 0, shakeY = 0;  // current screen-shake offset (set in render)
-  function blitScreen(cv) { // 1:1 device-pixel copy (no scaling filter), following the screen shake
-    ctx.save();
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.drawImage(cv, Math.round(shakeX * dpr), Math.round(shakeY * dpr));
-    ctx.restore();
+
+  // Draw the background into the low-resolution layer, then stretch it over the frame
+  function renderBackground(meters) {
+    const bgDpr = Math.min(dpr, BG_MAX_DPR * uiScale);
+    if (bgCacheOff || bgDpr >= dpr - 0.01) { drawDpr = dpr; drawBackground(meters); return; }
+    const bw = Math.ceil(W * bgDpr), bh = Math.ceil(H * bgDpr);
+    try {
+      if (!bgCanvas) { bgCanvas = document.createElement('canvas'); bgCtx = bgCanvas.getContext('2d'); }
+      if (!bgCtx) throw new Error('no 2d context');
+      if (bgCanvas.width !== bw || bgCanvas.height !== bh) { bgCanvas.width = bw; bgCanvas.height = bh; }
+    } catch (e) { bgCacheOff = true; drawDpr = dpr; drawBackground(meters); return; }
+    const main = ctx;
+    ctx = bgCtx;
+    drawDpr = bgDpr;
+    try {
+      bgCtx.setTransform(bgDpr, 0, 0, bgDpr, 0, 0);
+      bgCtx.globalAlpha = 1;
+      drawBackground(meters);
+    } finally {
+      ctx = main;
+      drawDpr = dpr;
+    }
+    ctx.drawImage(bgCanvas, 0, 0, W, H);
   }
   function planetGradient(c, p, px, py) {
     const rg = c.createRadialGradient(px - p.r * 0.3, py - p.r * 0.3, p.r * 0.1, px, py, p.r);
@@ -2439,10 +2470,10 @@
     return rg;
   }
   function planetSprite(p) {
-    if (p.spr && p.sprDpr === dpr) return p.spr;
+    if (p.spr && p.sprDpr === drawDpr) return p.spr;
     try {
       const size = p.r * 2 + 4, cv = document.createElement('canvas');
-      cv.width = Math.ceil(size * dpr); cv.height = Math.ceil(size * dpr);
+      cv.width = Math.ceil(size * drawDpr); cv.height = Math.ceil(size * drawDpr);
       const c = cv.getContext('2d');
       if (!c) return null;
       c.scale(cv.width / size, cv.height / size);
@@ -2450,7 +2481,7 @@
       c.beginPath();
       c.arc(size / 2, size / 2, p.r, 0, Math.PI * 2);
       c.fill();
-      p.spr = cv; p.sprDpr = dpr;
+      p.spr = cv; p.sprDpr = drawDpr;
       return cv;
     } catch (e) { return null; }
   }
@@ -2469,9 +2500,11 @@
 
     // Nebula tint (space)
     if (at.space > 0.05) {
-      const neb = bgCacheOff ? null : nebulaLayer(at.space * 0.35);
-      if (neb) blitScreen(neb);
-      else { ctx.globalAlpha = at.space * 0.35; paintNebula(ctx); ctx.globalAlpha = 1; }
+      const neb = bgCacheOff ? null : nebulaLayer();
+      ctx.globalAlpha = at.space * 0.35;
+      if (neb) ctx.drawImage(neb, 0, 0, W, H);
+      else paintNebula(ctx);
+      ctx.globalAlpha = 1;
     }
 
     // Stars
@@ -3289,12 +3322,9 @@
       const sc = 1 + (1 - k) * 0.5;
       ctx.scale(sc, sc * (0.45 + 0.55 * k));
       ctx.translate(-hz.x, -sy);
-    } else if (hz.ghost) { // intangible platform: see-through
-      ctx.save();
-      ctx.globalAlpha = HAZARDS.ghostPlatform.alpha;
     }
     drawHazardBody(hz, sy);
-    if (hz.dying > 0 || hz.ghost) ctx.restore();
+    if (hz.dying > 0) ctx.restore();
   }
   function drawHazardBody(hz, sy) {
     if (hz.type === 'platform') drawPlatform(hz, sy);
@@ -3870,7 +3900,7 @@
       ctx.translate(shakeX, shakeY);
     }
 
-    drawBackground(state === 'playing' || state === 'gameover' ? meters : 30);
+    renderBackground(state === 'playing' || state === 'gameover' ? meters : 30);
     paintSides(atmosCache);
 
     if (state === 'menu') {
@@ -3908,10 +3938,31 @@
   const STEP_MS = 1000 / 60;
   const MAX_STEPS = 6;  // after a long hiccup (tab switch, slow frame) don't fast-forward more than this
   let loopErrors = 0, acc = 0;
+  let qSum = 0, qCount = 0, qSlowWindows = 0;
+  function watchFrameRate(elapsed) {
+    if (state !== 'playing' || paused || document.hidden || qualityLevel >= QUALITY_STEPS.length - 1) {
+      qSum = 0; qCount = 0;
+      return;
+    }
+    if (elapsed > 250) { qSum = 0; qCount = 0; return; } // a hiccup (tab switch, GC), not the steady rate
+    qSum += elapsed;
+    if (++qCount < QUALITY_WINDOW) return;
+    const avg = qSum / qCount;
+    qSum = 0; qCount = 0;
+    qSlowWindows = avg > QUALITY_SLOW_MS ? qSlowWindows + 1 : 0;
+    // slow for ~3 s in a row (or very slow, under ~45 FPS, for 1.5 s): lower the resolution one step
+    if (qSlowWindows >= 2 || avg > QUALITY_VERY_SLOW_MS) {
+      qSlowWindows = 0;
+      qualityLevel++;
+      debugStats.qualityDrops = (debugStats.qualityDrops || 0) + 1;
+      resize();
+    }
+  }
   function loop(ts) {
     if (typeof ts !== 'number') ts = nowMs();
     const elapsed = Math.max(0, ts - (lastTime || ts));
     lastTime = ts;
+    watchFrameRate(elapsed);
     acc = Math.min(acc + elapsed, STEP_MS * MAX_STEPS);
     // One bad frame must never freeze the game: log it and keep the loop alive
     while (acc >= STEP_MS) {

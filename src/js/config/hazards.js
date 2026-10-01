@@ -45,7 +45,7 @@ const HAZARDS = {
   // Falling onto a platform from above: it turns intangible (he drops straight through). It becomes
   // solid again when a new elastic is drawn with him fully below it. If he is still inside it when an
   // elastic is drawn or touched, the elastic snaps in the middle (`snapFrames` animation).
-  ghostPlatform: { alpha: 0.35, snapFrames: 20, margin: 4 },
+  ghostPlatform: { snapFrames: 20, margin: 4 },  // looks the same as a solid platform
   // Head stomp: landing on a flyer/UFO from above (moving down faster than `minDown`, contact within
   // ~60 degrees of straight down: upward contact component >= `zone`). Blue: defeated, +`coins`, rebound
   // `blueImpulse`. Red: NOT defeated, just rebound `redImpulse` and he survives. Spikes/saws: always fatal.

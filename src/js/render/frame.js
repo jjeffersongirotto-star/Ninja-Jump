@@ -11,7 +11,7 @@ function render() {
     ctx.translate(shakeX, shakeY);
   }
 
-  drawBackground(state === 'playing' || state === 'gameover' ? meters : 30);
+  renderBackground(state === 'playing' || state === 'gameover' ? meters : 30);
   paintSides(atmosCache);
 
   if (state === 'menu') {
@@ -49,10 +49,31 @@ function render() {
 const STEP_MS = 1000 / 60;
 const MAX_STEPS = 6;  // after a long hiccup (tab switch, slow frame) don't fast-forward more than this
 let loopErrors = 0, acc = 0;
+let qSum = 0, qCount = 0, qSlowWindows = 0;
+function watchFrameRate(elapsed) {
+  if (state !== 'playing' || paused || document.hidden || qualityLevel >= QUALITY_STEPS.length - 1) {
+    qSum = 0; qCount = 0;
+    return;
+  }
+  if (elapsed > 250) { qSum = 0; qCount = 0; return; } // a hiccup (tab switch, GC), not the steady rate
+  qSum += elapsed;
+  if (++qCount < QUALITY_WINDOW) return;
+  const avg = qSum / qCount;
+  qSum = 0; qCount = 0;
+  qSlowWindows = avg > QUALITY_SLOW_MS ? qSlowWindows + 1 : 0;
+  // slow for ~3 s in a row (or very slow, under ~45 FPS, for 1.5 s): lower the resolution one step
+  if (qSlowWindows >= 2 || avg > QUALITY_VERY_SLOW_MS) {
+    qSlowWindows = 0;
+    qualityLevel++;
+    debugStats.qualityDrops = (debugStats.qualityDrops || 0) + 1;
+    resize();
+  }
+}
 function loop(ts) {
   if (typeof ts !== 'number') ts = nowMs();
   const elapsed = Math.max(0, ts - (lastTime || ts));
   lastTime = ts;
+  watchFrameRate(elapsed);
   acc = Math.min(acc + elapsed, STEP_MS * MAX_STEPS);
   // One bad frame must never freeze the game: log it and keep the loop alive
   while (acc >= STEP_MS) {

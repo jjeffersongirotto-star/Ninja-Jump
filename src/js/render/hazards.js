@@ -13,12 +13,9 @@ function drawHazard(hz) {
     const sc = 1 + (1 - k) * 0.5;
     ctx.scale(sc, sc * (0.45 + 0.55 * k));
     ctx.translate(-hz.x, -sy);
-  } else if (hz.ghost) { // intangible platform: see-through
-    ctx.save();
-    ctx.globalAlpha = HAZARDS.ghostPlatform.alpha;
   }
   drawHazardBody(hz, sy);
-  if (hz.dying > 0 || hz.ghost) ctx.restore();
+  if (hz.dying > 0) ctx.restore();
 }
 function drawHazardBody(hz, sy) {
   if (hz.type === 'platform') drawPlatform(hz, sy);
