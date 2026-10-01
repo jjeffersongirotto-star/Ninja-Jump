@@ -8,6 +8,18 @@ que puder desviando dos obstáculos, junte moedas e libere novos personagens.
 Abra o arquivo **`NinjaJump.html`** no navegador (de preferência o Chrome no celular).
 É um arquivo único, sem dependências: dá para mandar pelo WhatsApp ou publicar no GitHub Pages.
 
+## Instalar como app
+Com o GitHub Pages ativo, abra **https://jjeffersongirotto-star.github.io/Ninja-Jump/** no celular:
+
+- **Android (Chrome):** toque em **📲 Instalar app** no menu do jogo (ou ⋮ → *Instalar app*).
+- **iPhone/iPad (Safari):** toque em **Compartilhar** (□↑) → **Adicionar à Tela de Início**.
+
+O jogo ganha um ícone, abre em tela cheia e funciona sem internet. Quando houver uma versão nova,
+ela é baixada sozinha na próxima vez que o app for aberto com internet.
+
+Arquivos do app (fora de `src/`, publicados como estão): `index.html` (atalho para o jogo),
+`manifest.webmanifest` (nome, ícone e cores), `sw.js` (funcionamento offline) e `icons/`.
+
 ## Estrutura do código
 O `NinjaJump.html` é **gerado** — não edite ele diretamente. O código fica em `src/`:
 

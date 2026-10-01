@@ -8,7 +8,10 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <title>Ninja Jump</title>
-<link rel="icon" href="data:,">
+<meta name="theme-color" content="#5EC8F0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <noscript><style>#nojsMsg{display:block!important}.subtitle,#recordsBox,#menuBtns,#goStats,#walletBox{display:none!important}</style></noscript>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -122,6 +125,10 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    justify-content: safe center; /* too tall for the screen: scroll instead of cutting the top off */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
     background: rgba(8, 8, 20, .72);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -197,6 +204,13 @@
   .screen.hidden { display: none; }
   .menu-btns { display: flex; flex-direction: column; align-items: stretch; min-width: 220px; }
   .menu-btns .btn { margin-bottom: 16px; }
+  .menu-btns .hidden { display: none; }
+  .btn-install { background: linear-gradient(180deg, #2fa866, #1d7a47); box-shadow: 0 6px 0 #0f4a2a, 0 10px 24px rgba(30,140,80,.3); }
+  .btn-install:active { box-shadow: 0 2px 0 #0f4a2a, 0 4px 12px rgba(30,140,80,.3); }
+  .install-hint {
+    max-width: 260px; margin: -4px auto 12px; font-size: 13px; line-height: 1.45; color: rgba(255,255,255,.85);
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 12px; padding: 10px 12px;
+  }
   .wallet {
     font-size: 17px; font-weight: 800; color: #ffd700;
     background: rgba(255,255,255,.08); border: 1px solid rgba(255,215,0,.3);
@@ -341,6 +355,8 @@
         <button class="btn" id="playBtn">Jogar</button>
         <button class="btn btn-sec" id="charsBtn">Personagens</button>
         <button class="btn btn-sec" id="optionsBtn">Opções</button>
+        <button class="btn btn-sec btn-install hidden" id="installBtn">📲 Instalar app</button>
+        <div class="install-hint hidden" id="installHint">No Safari, toque em <b>Compartilhar</b> (□↑) e depois em <b>Adicionar à Tela de Início</b>.</div>
       </div>
     </div>
     <div class="screen hidden" id="scrChars">
@@ -3973,6 +3989,61 @@
     window.addEventListener('orientationchange', function () { setTimeout(resize, 250); });
   }
 
+  // --- Installable app (PWA) ---
+  // When the game is served over https (GitHub Pages), a service worker (sw.js) keeps it working
+  // offline and the browser can install it as an app. Opened as a plain file (WhatsApp, file manager)
+  // none of this runs and the game works as before.
+  const installBtn = document.getElementById('installBtn');
+  const installHint = document.getElementById('installHint');
+  let installPrompt = null; // Android/desktop Chrome: deferred "install" prompt
+
+  function isStandalone() {
+    try {
+      return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    } catch (e) { return false; }
+  }
+  function isIos() {
+    const ua = navigator.userAgent || '';
+    return /iphone|ipad|ipod/i.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function isServed() {
+    return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+  }
+  function refreshInstallBtn() {
+    if (!installBtn) return;
+    const show = !isStandalone() && (!!installPrompt || (isIos() && isServed()));
+    if (show) installBtn.classList.remove('hidden'); else installBtn.classList.add('hidden');
+    if (!show && installHint) installHint.classList.add('hidden');
+  }
+  function onInstallTap() {
+    if (installPrompt) {
+      const p = installPrompt;
+      installPrompt = null;
+      try {
+        p.prompt();
+        if (p.userChoice && typeof p.userChoice.then === 'function') p.userChoice.then(refreshInstallBtn, refreshInstallBtn);
+      } catch (e) { logErr('install', e); }
+      refreshInstallBtn();
+    } else if (installHint) {
+      installHint.classList.toggle('hidden'); // iPhone/iPad: Safari has no install prompt, show how to do it
+    }
+  }
+  function bindApp() {
+    if (installBtn) {
+      installBtn.addEventListener('click', function (e) { e.stopPropagation(); ensureAudio(); onInstallTap(); }, false);
+    }
+    window.addEventListener('beforeinstallprompt', function (e) {
+      e.preventDefault();
+      installPrompt = e;
+      refreshInstallBtn();
+    });
+    window.addEventListener('appinstalled', function () { installPrompt = null; refreshInstallBtn(); });
+    refreshInstallBtn();
+    if ('serviceWorker' in navigator && isServed()) {
+      navigator.serviceWorker.register('sw.js').catch(function (err) { logErr('service worker', err); });
+    }
+  }
+
   // --- Startup: each piece isolated so one failure can't block the others ---
   function step(name, fn) {
     try { fn(); return true; } catch (err) { logErr(name, err); return false; }
@@ -3980,6 +4051,7 @@
   step('play button', bindPlayButton);
   step('menus', bindMenus);
   step('settings', function () { loadSound(); loadSkin(); refreshWallet(); });
+  step('app', bindApp);
   step('input', bindInput);
   step('page guards', bindPageGuards);
   step('resize listeners', bindResize);

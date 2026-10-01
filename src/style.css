@@ -109,6 +109,10 @@ html, body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  justify-content: safe center; /* too tall for the screen: scroll instead of cutting the top off */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   background: rgba(8, 8, 20, .72);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -184,6 +188,13 @@ html, body {
 .screen.hidden { display: none; }
 .menu-btns { display: flex; flex-direction: column; align-items: stretch; min-width: 220px; }
 .menu-btns .btn { margin-bottom: 16px; }
+.menu-btns .hidden { display: none; }
+.btn-install { background: linear-gradient(180deg, #2fa866, #1d7a47); box-shadow: 0 6px 0 #0f4a2a, 0 10px 24px rgba(30,140,80,.3); }
+.btn-install:active { box-shadow: 0 2px 0 #0f4a2a, 0 4px 12px rgba(30,140,80,.3); }
+.install-hint {
+  max-width: 260px; margin: -4px auto 12px; font-size: 13px; line-height: 1.45; color: rgba(255,255,255,.85);
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 12px; padding: 10px 12px;
+}
 .wallet {
   font-size: 17px; font-weight: 800; color: #ffd700;
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,215,0,.3);
