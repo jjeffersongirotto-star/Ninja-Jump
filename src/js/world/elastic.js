@@ -11,7 +11,6 @@ function syncDrawingWorld() {
 }
 function startDraw(x, y) {
   if (state !== 'playing' || paused || (ninja && ninja.dead)) return;
-  if (elastic && elastic.phase !== 'snapped') snapElastic(elastic);
   drawing = {
     sx1: x, sy1: y, sx2: x, sy2: y,
     x1: x, y1: y + camera.y, x2: x, y2: y + camera.y
@@ -25,6 +24,11 @@ function moveDraw(x, y) {
   drawing.sx2 = x;
   drawing.sy2 = y;
   syncDrawingWorld();
+  // Only one working elastic: the old one breaks as soon as the new line is long enough to count
+  if (!drawing.broke && Math.hypot(x - drawing.sx1, y - drawing.sy1) >= 12) {
+    drawing.broke = true;
+    if (elastic && elastic.phase !== 'snapped') snapElastic(elastic);
+  }
 }
 function endDraw() {
   if (!drawing) return;
