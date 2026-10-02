@@ -18,6 +18,8 @@
   html, body {
     width: 100%; height: 100%;
     overflow: hidden;
+    /* The page itself never moves: no pull-to-refresh, no scroll that brings the address bar back */
+    overscroll-behavior: none;
     background: #0a0a12;
     touch-action: none;
     -webkit-touch-callout: none;
@@ -25,6 +27,7 @@
     user-select: none;
     font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   }
+  body { position: fixed; top: 0; left: 0; }
   #game {
     display: block;
     position: fixed;
@@ -142,6 +145,7 @@
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-y;
+    overscroll-behavior: contain; /* menus taller than the screen scroll, but never drag the page/browser */
     background: rgba(8, 8, 20, .72);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
@@ -291,6 +295,36 @@
     display: flex; align-items: center; justify-content: center;
     background: rgba(10,12,35,.26); border: 1px solid rgba(255,255,255,.16);
     box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.15); -webkit-tap-highlight-color: transparent;
+  }
+  .pause-btn, .fs-btn { position: relative; touch-action: none; }
+  /* invisible 44px touch area around the 34px circle */
+  .pause-btn::before, .fs-btn::before { content: ''; position: absolute; top: -6px; right: -6px; bottom: -6px; left: -6px; border-radius: 50%; }
+  .fs-btn {
+    position: absolute; z-index: 30; pointer-events: auto; cursor: pointer;
+    top: 8px; top: calc(env(safe-area-inset-top, 12px) + 8px);
+    right: 16px; right: calc(env(safe-area-inset-right, 0px) + 16px);
+    width: 34px; height: 34px; border-radius: 50%; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(10,12,35,.26); border: 1px solid rgba(255,255,255,.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.15); -webkit-tap-highlight-color: transparent;
+  }
+  .fs-btn.hidden { display: none; }
+  .fs-btn:active { transform: scale(.92); }
+  .fs-btn svg {
+    display: block; width: 20px; height: 20px; overflow: visible;
+    fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+    filter: drop-shadow(0 1px 1px rgba(0,0,0,.45));
+  }
+  .fs-btn .fs-in { display: none; }
+  .fs-btn.on .fs-out { display: none; }
+  .fs-btn.on .fs-in { display: inline; }
+  /* With the fullscreen button in the top-right corner, the pause button moves right below it
+     (same column) and the coins pill keeps its old place */
+  html.fs-avail #hud { padding-right: 42px; }
+  html.fs-avail .pause-btn {
+    position: absolute; margin-left: 0;
+    top: 52px; top: calc(env(safe-area-inset-top, 12px) + 52px);
+    right: 16px; right: calc(env(safe-area-inset-right, 0px) + 16px);
   }
   .pause-btn i { display: block; width: 4px; height: 13px; margin: 0 2px; border-radius: 2px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
   #countdown {
@@ -446,6 +480,12 @@
       </div>
     </div>
   </div>
+  <button class="fs-btn hidden" id="fsBtn" aria-label="Tela cheia" aria-pressed="false">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <g class="fs-out"><path d="M3.5 9V3.5H9M3.5 3.5l6 6M15 3.5h5.5V9M20.5 3.5l-6 6M20.5 15v5.5H15M20.5 20.5l-6-6M9 20.5H3.5V15M3.5 20.5l6-6"/></g>
+      <g class="fs-in"><path d="M4.5 10H10V4.5M10 10L3.5 3.5M14 4.5V10h5.5M14 10l6.5-6.5M19.5 14H14v5.5M14 14l6.5 6.5M10 19.5V14H4.5M10 14l-6.5 6.5"/></g>
+    </svg>
+  </button>
 </div>
 <script>
 // Boot (ES5 on purpose, runs even on very old WebViews): hides the "no JavaScript" notice
@@ -4291,11 +4331,23 @@
     }
   }
 
+  // The page must never scroll: a drag that the browser treats as scrolling (on the menus, the HUD
+  // or a button) brings the address bar back / starts pull-to-refresh and the game shrinks.
+  // Only a menu that is really taller than the screen may scroll (inside the overlay).
+  function overlayScrolls(target) {
+    if (state === 'playing' && !paused) return false;
+    if (!overlay || overlay.classList.contains('hidden') || !target || !overlay.contains(target)) return false;
+    return overlay.scrollHeight > overlay.clientHeight + 1;
+  }
   function bindPageGuards() {
     document.addEventListener('gesturestart', e => e.preventDefault());
     document.addEventListener('touchmove', e => {
-      if (e.target === canvas || state === 'playing') e.preventDefault();
+      if (e.target === canvas || !overlayScrolls(e.target)) e.preventDefault();
     }, ACTIVE);
+    // something scrolled the page anyway (focus, old engines): put it back
+    window.addEventListener('scroll', function () {
+      if (window.scrollY || window.scrollX) { try { window.scrollTo(0, 0); } catch (e) {} }
+    }, false);
   }
 
   // --- Buttons, menus and page bindings ---
@@ -4353,6 +4405,128 @@
   function bindResize() {
     window.addEventListener('resize', resize);
     window.addEventListener('orientationchange', function () { setTimeout(resize, 250); });
+    // fullscreenchange / visualViewport resize: see ui/fullscreen.js (scheduleResize)
+  }
+
+  // --- Fullscreen button (top-right corner: menu, game and pause) ---
+  // Four diagonal arrows pointing OUT = enter fullscreen; pointing IN = leave it.
+  // Once the player turns it on, the game stays fullscreen: if the browser drops it on its own
+  // (system back gesture, app switch), the icon flips back and the next tap on the game re-enters
+  // (browsers only allow fullscreen from a tap). Only the minimize button turns it off for good.
+  // Hidden where it makes no sense: no Fullscreen API (iPhone Safari), installed app already in
+  // fullscreen/standalone mode, Android WebView (APK), iframes that block fullscreen.
+  const LS_FULLSCREEN = 'ninjaJump_fullscreen';  // '1' = player wants fullscreen
+  const fsBtn = document.getElementById('fsBtn');
+  let fsWanted = false;
+  let fsAvailable = false;
+
+  function fsElement() {
+    return document.fullscreenElement || document.webkitFullscreenElement || null;
+  }
+  function fsSupported() {
+    const de = document.documentElement;
+    if (!de || !(de.requestFullscreen || de.webkitRequestFullscreen)) return false;
+    // false inside iframes without allowfullscreen
+    if (document.fullscreenEnabled === false || (document.fullscreenEnabled === undefined && document.webkitFullscreenEnabled === false)) return false;
+    return true;
+  }
+  function fsPointless() {
+    if (fsElement()) return false; // our own fullscreen also matches (display-mode: fullscreen)
+    try {
+      if (window.matchMedia && (window.matchMedia('(display-mode: fullscreen)').matches ||
+          window.matchMedia('(display-mode: standalone)').matches)) return true;
+    } catch (e) {}
+    if (navigator.standalone === true) return true;
+    return /; wv\)/.test(navigator.userAgent || ''); // Android WebView (APK): already fullscreen
+  }
+  function enterFullscreen() {
+    const de = document.documentElement;
+    let p = null;
+    try {
+      if (de.requestFullscreen) p = de.requestFullscreen({ navigationUI: 'hide' });
+      else if (de.webkitRequestFullscreen) p = de.webkitRequestFullscreen();
+    } catch (e) { logErr('fullscreen', e); }
+    const lock = function () {
+      try {
+        if (window.screen && screen.orientation && typeof screen.orientation.lock === 'function') {
+          const l = screen.orientation.lock('portrait');
+          if (l && typeof l.catch === 'function') l.catch(function () {});
+        }
+      } catch (e) {}
+    };
+    if (p && typeof p.then === 'function') p.then(lock, function (err) { logErr('fullscreen', err); refreshFsBtn(); });
+    else setTimeout(lock, 300);
+  }
+  function exitFullscreen() {
+    try {
+      const p = document.exitFullscreen ? document.exitFullscreen() : (document.webkitExitFullscreen ? document.webkitExitFullscreen() : null);
+      if (p && typeof p.catch === 'function') p.catch(function () {});
+    } catch (e) {}
+  }
+  function refreshFsBtn() {
+    if (!fsBtn) return;
+    fsAvailable = fsSupported() && !fsPointless();
+    const root = document.documentElement;
+    if (fsAvailable) { fsBtn.classList.remove('hidden'); root.classList.add('fs-avail'); }
+    else { fsBtn.classList.add('hidden'); root.classList.remove('fs-avail'); }
+    const on = !!fsElement();
+    if (on) fsBtn.classList.add('on'); else fsBtn.classList.remove('on');
+    fsBtn.setAttribute('aria-label', on ? 'Sair da tela cheia' : 'Tela cheia');
+    fsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  function onFsTap() {
+    if (fsElement()) {
+      fsWanted = false;
+      store.set(LS_FULLSCREEN, '0');
+      exitFullscreen();
+    } else {
+      fsWanted = true;
+      store.set(LS_FULLSCREEN, '1');
+      enterFullscreen();
+    }
+  }
+  // The browser left fullscreen on its own but the player never minimized: next tap re-enters
+  function onAnyTapForFs(e) {
+    if (!fsWanted || !fsAvailable || fsElement()) return;
+    if (e && e.target && e.target.closest && e.target.closest('#fsBtn')) return;
+    enterFullscreen();
+  }
+  // Size changes (entering/leaving fullscreen, address bar, keyboard): browsers report the new
+  // size a little late on some phones, so measure again shortly after.
+  let fsResizeTimers = [];
+  function scheduleResize() {
+    for (let i = 0; i < fsResizeTimers.length; i++) clearTimeout(fsResizeTimers[i]);
+    fsResizeTimers = [];
+    try { resize(); } catch (e) { logErr('resize', e); }
+    [80, 250, 600].forEach(function (ms) {
+      fsResizeTimers.push(setTimeout(function () { try { resize(); } catch (e) {} }, ms));
+    });
+  }
+  function onFsChange() {
+    refreshFsBtn();
+    scheduleResize();
+  }
+  function bindFullscreen() {
+    fsWanted = store.get(LS_FULLSCREEN) === '1';
+    if (fsBtn) {
+      fsBtn.addEventListener('click', function (e) { e.stopPropagation(); ensureAudio(); onFsTap(); }, false);
+      // touch-action none on the button: no pan/zoom starting from it, the click still fires
+      fsBtn.addEventListener('touchmove', function (e) { e.preventDefault(); }, ACTIVE);
+    }
+    document.addEventListener('fullscreenchange', onFsChange, false);
+    document.addEventListener('webkitfullscreenchange', onFsChange, false);
+    // pointerup / touchend count as a user tap for requestFullscreen (pointerdown on touch does not)
+    if (window.PointerEvent) document.addEventListener('pointerup', onAnyTapForFs, true);
+    else document.addEventListener('touchend', onAnyTapForFs, true);
+    if (window.visualViewport && window.visualViewport.addEventListener) {
+      window.visualViewport.addEventListener('resize', scheduleResize, false);
+    }
+    try {
+      const mq = window.matchMedia && window.matchMedia('(display-mode: fullscreen)');
+      if (mq && mq.addEventListener) mq.addEventListener('change', refreshFsBtn);
+      else if (mq && mq.addListener) mq.addListener(refreshFsBtn);
+    } catch (e) {}
+    refreshFsBtn();
   }
 
   // --- Installable app (PWA) ---
@@ -4422,6 +4596,7 @@
   step('input', bindInput);
   step('page guards', bindPageGuards);
   step('resize listeners', bindResize);
+  step('fullscreen', bindFullscreen);
   const sized = step('resize', resize);
   step('records', loadRecords);
   ninja = { x: W / 2, y: H * 0.38, vx: 0, vy: 0, facing: 1, spinning: 0 };
