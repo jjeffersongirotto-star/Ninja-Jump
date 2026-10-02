@@ -49,6 +49,22 @@ function endDraw() {
   drawing = null;
 }
 
+// Fall energy multiplier on a launch of speed `l0` after landing at `speedIn` px/frame into the band
+// (see config/physics.js)
+function fallBounceMult(speedIn, l0) {
+  const extra = FALL_ENERGY_GAIN * Math.max(0, speedIn * speedIn - FALL_ENERGY_FREE_SPEED * FALL_ENERGY_FREE_SPEED);
+  if (extra <= 0 || l0 <= 0) return 1;
+  return Math.min(FALL_BOUNCE_MAX_MULT, Math.sqrt(l0 * l0 + extra) / l0);
+}
+// A big fall bounce gets a little extra kick on screen: ring + shake + a lower "boing"
+function fallBounceFx(m) {
+  const k = Math.min(1, (m - 1) / (FALL_BOUNCE_MAX_MULT - 1));
+  rings.push({ x: ninja.x, y: ninja.y + NINJA_R, r: 8, life: 0.5 + 0.4 * k, color: (atmosCache || atmosphereAt(0)).elastic });
+  shake = Math.max(shake, 3 + 4 * k);
+  beep(150 + 60 * k, 0.16, 'sine', 0.07);
+  debugStats.fallBounces++;
+}
+
 function elasticLength(e) {
   return Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
 }

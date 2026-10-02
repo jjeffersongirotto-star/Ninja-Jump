@@ -48,7 +48,8 @@ function bindApp() {
   });
   window.addEventListener('appinstalled', function () { installPrompt = null; refreshInstallBtn(); });
   refreshInstallBtn();
-  if ('serviceWorker' in navigator && isServed()) {
+  // not inside the Android app's WebView (it serves the game from its own assets, there is no sw.js)
+  if ('serviceWorker' in navigator && isServed() && !/; wv\)/.test(navigator.userAgent || '')) {
     navigator.serviceWorker.register('sw.js').catch(function (err) { logErr('service worker', err); });
   }
 }

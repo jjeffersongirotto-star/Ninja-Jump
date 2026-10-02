@@ -50,29 +50,36 @@ function drawElastic(e, isDrawing) {
   const cpx = x1 + (x2 - x1) * tHit - nx * sag + wob;
   const cpy = y1 + (y2 - y1) * tHit - ny * sag + wob * 0.5;
   const curved = sag > 0.4 || Math.abs(wob) > 0.4;
+  // About to expire (unused for almost ELASTIC_LIFETIME): it thins out and flickers
+  let th = 1, al = 1;
+  if (!isDrawing && e.phase === 'ready' && !e.used && e.age > ELASTIC_LIFETIME - ELASTIC_WARN_FRAMES) {
+    const k = Math.min(1, (e.age - (ELASTIC_LIFETIME - ELASTIC_WARN_FRAMES)) / ELASTIC_WARN_FRAMES);
+    th = 1 - 0.4 * k;
+    al = 1 - 0.5 * k * (0.5 + 0.5 * Math.sin(e.age * 1.3));
+  }
 
   ctx.save();
   ctx.lineCap = 'round';
   // Soft glow
   ctx.strokeStyle = col;
-  ctx.globalAlpha = 0.3;
-  ctx.lineWidth = 10;
+  ctx.globalAlpha = 0.3 * al;
+  ctx.lineWidth = 10 * th;
   elasticPath(x1, y1, x2, y2, cpx, cpy, curved);
   ctx.stroke();
 
   // Rubber tube: dark underside, body, specular line on the upper edge
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = al;
   ctx.strokeStyle = shadeHex(col, -0.4);
-  ctx.lineWidth = 5;
+  ctx.lineWidth = 5 * th;
   ctx.stroke();
   ctx.strokeStyle = col;
-  ctx.lineWidth = 3.5;
+  ctx.lineWidth = 3.5 * th;
   ctx.stroke();
   const ox = nx * 1.1, oy = ny * 1.1;
   elasticPath(x1 + ox, y1 + oy, x2 + ox, y2 + oy, cpx + ox, cpy + oy, curved);
   ctx.strokeStyle = shadeHex(col, 0.6);
-  ctx.globalAlpha = 0.85;
-  ctx.lineWidth = 1.2;
+  ctx.globalAlpha = 0.85 * al;
+  ctx.lineWidth = 1.2 * th;
   ctx.stroke();
   ctx.globalAlpha = 1;
 

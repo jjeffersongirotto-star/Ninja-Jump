@@ -128,8 +128,10 @@ function update(dt) {
         elastic.phase = 'stretching';
         elastic.hitT = hit.t;
         elastic.impactSpeed = Math.hypot(ninja.vx, ninja.vy);
+        elastic.speedIn = Math.max(0, -(ninja.vx * nx + ninja.vy * ny)); // speed into the band (fall energy)
         elastic.stretchFrames = 0;
-        elastic.maxSag = Math.min(32, 12 + elastic.impactSpeed * 1.35);
+        elastic.maxSag = Math.min(ELASTIC_SAG_MAX, ELASTIC_SAG_BASE + elastic.impactSpeed * ELASTIC_SAG_PER_SPEED +
+          ELASTIC_SAG_FALL_EXTRA * Math.max(0, elastic.speedIn - FALL_ENERGY_FREE_SPEED));
         elastic.sag = 0;
         ninja.vx = 0;
         ninja.vy = 0;
@@ -139,7 +141,7 @@ function update(dt) {
 
     if (elastic.phase === 'stretching') {
       elastic.stretchFrames++;
-      const dur = Math.max(10, Math.min(18, 12 + elastic.impactSpeed * 0.25));
+      const dur = Math.max(10, Math.min(20, 12 + elastic.impactSpeed * 0.25));
       const progress = Math.min(1, elastic.stretchFrames / dur);
       // Ease toward peak sag (visible droop under the ninja)
       elastic.sag = elastic.maxSag * Math.sin(progress * Math.PI * 0.5);
@@ -156,13 +158,14 @@ function update(dt) {
       if (elastic.stretchFrames >= dur) {
         const rawLen = elasticLength(elastic);
         let strength = BASE_IMPULSE * diff.impulseBonus * elasticPower(rawLen);
+        const fallMult = fallBounceMult(elastic.speedIn || 0, strength + elastic.impactSpeed * 0.28);
         // Short-elastic streak: the SUPER_STREAK-th short bounce in a row is a super jump
         const isShort = elasticT(rawLen) <= SHORT_ELASTIC_T;
         shortStreak = isShort ? shortStreak + 1 : 0;
         const isSuper = isShort && shortStreak >= SUPER_STREAK;
         if (isSuper) {
           shortStreak = 0;
-          strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN);
+          strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN, strength * fallMult);
         }
         updateStreakHud();
         // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
@@ -172,13 +175,16 @@ function update(dt) {
         const ll = Math.hypot(lx, ly) || 1;
         lx /= ll; ly /= ll;
         const boost = elastic.impactSpeed * 0.28;
-        ninja.vx = lx * (strength + boost * 0.45);
-        ninja.vy = ly * (strength + boost);
+        const fm = isSuper ? 1 : fallMult; // no stacking with the super jump (it already took the bigger one)
+        ninja.vx = lx * (strength + boost * 0.45) * fm;
+        ninja.vy = ly * (strength + boost) * fm;
+        if (fm > 1.1 && !isSuper) fallBounceFx(fm);
         ninja.facing = ninja.vx >= 0 ? 1 : -1;
         if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
         ninja.bonkedSinceLaunch = false;
         debugStats.bounces++;
-        debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak };
+        debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak,
+          speedIn: +(elastic.speedIn || 0).toFixed(2), fallMult: +fm.toFixed(3), sag: +elastic.maxSag.toFixed(1) };
         if (isSuper) {
           debugStats.supers++;
           debugStats.superFrame = frame;
@@ -220,7 +226,10 @@ function update(dt) {
     if (elastic.phase === 'snapped') {
       if (++elastic.snapT >= HAZARDS.ghostPlatform.snapFrames) elastic = null;
     } else if (elastic.used && elastic.clearIn > 0 && --elastic.clearIn === 0) elastic = null;
-    else if (!elastic.used && elastic.phase === 'ready' && elastic.age > 700) elastic = null;
+    else if (!elastic.used && elastic.phase === 'ready' && elastic.age >= ELASTIC_LIFETIME) {
+      snapElastic(elastic); // unused for 1.5 s: it snaps (both halves whip back)
+      debugStats.expired++;
+    }
   }
 
   // Hazards: move, then continuous collision along this frame's path
