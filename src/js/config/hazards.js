@@ -11,8 +11,9 @@ const HAZARDS = {
     flyersBlue: 330,             // blue winged flyers: bump like a platform (not fatal)
     flyersRed: 420,              // red winged flyers: touching = game over
     spikes: 500,                 // small spike structures: touching = game over
-    movingFlyers: 600,           // flyers start sliding side to side
-    aliens: 720,                 // UFOs with aliens drifting in a pattern (blue = bump, red = fatal)
+    movingFlyers: 600,           // flyers start moving (blue birds: sine wave; red bats: patrol)
+    divingBats: 660,             // some red bats dive at the ninja (always after a ~0.5 s warning)
+    aliens: 720,                 // UFOs with aliens that teleport nearby (blue = bump, red = fatal)
     saws: 900,                   // spinning saws (fatal) and sliding platforms
     maxDifficulty: 1600          // every ramp below is capped from here on
   },
@@ -53,6 +54,27 @@ const HAZARDS = {
   // ~60 degrees of straight down: upward contact component >= `zone`). Blue: defeated, +`coins`, rebound
   // `blueImpulse`. Red: NOT defeated, just rebound `redImpulse` and he survives. Spikes/saws: always fatal.
   stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 1, poofFrames: 22 },
+  // Rooms (hand-built obstacle patterns, see world/rooms.js): the generator places one room at a time,
+  // with a calm breather (coins only, `breather` m) between rooms. A room's difficulty (1-3) is allowed
+  // once the altitude ramp reaches `roomDiffAt[d-1]` (0..1 of the ramp from platformLeft to maxDifficulty);
+  // higher difficulties are picked less often (`roomDiffWeight`). No room repeats within `roomNoRepeat` rooms.
+  // `classicWeight`: weight of a "classic" room made of 2-3 loose random rows (keeps the old mix alive).
+  rooms: { roomDiffAt: [0, 0.3, 0.65], roomDiffWeight: [1, 0.8, 0.55], roomNoRepeat: 3, classicWeight: 0.6,
+    minRowGap: 13, hintCoins: 0.8 },
+  // Enemy personalities. Every sudden move is announced `warn` frames before (60 frames = 1 s).
+  enemies: {
+    // blue birds that move fly in a sine wave: up/down `amp` px while gliding side to side
+    birdWave: { amp: 18, freq: 0.055 },
+    // red bats (from stages.divingBats): when the ninja passes within `triggerX` px sideways and between
+    // `triggerBelow` px under the bat, it warns (shakes, "!", dashed line to the target), then dives toward
+    // where he WAS when the warning started, clamped to `maxDx`/`maxDy` px (that box counts for the gap rule),
+    // holds, flies back, and rests `cool` frames. Only while the bat is fully on screen.
+    batDive: { chance: [0.35, 0.6], triggerX: 150, triggerBelow: [20, 300], warn: 32, dive: 20, hold: 8,
+      back: 42, cool: 150, maxDx: 80, maxDy: 120 },
+    // UFOs: hover, then every `every` frames teleport to another spot inside their area (range x bob);
+    // a ghost outline marks the destination `warn` frames before. Never onto the ninja.
+    ufoTeleport: { every: [150, 230], warn: 34 }
+  },
   // Anti-stuck safeguard: overlapping a solid for `embedFrames` frames, or moving less than `minMove` px
   // for `frames` frames while free (not pinned on an elastic) -> pushed out and falls free for `ghostFrames`.
   antiStuck: { frames: 20, minMove: 3, embedFrames: 3, ghostFrames: 18 }
