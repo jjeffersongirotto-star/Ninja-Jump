@@ -35,15 +35,6 @@
     box-shadow: 0 0 40px rgba(0,0,0,.45);
   }
   #ui { transform-origin: 0 0; -webkit-transform-origin: 0 0; }
-  #rotateHint {
-    position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; display: none;
-    flex-direction: column; align-items: center; justify-content: center; text-align: center;
-    background: #0a0a12; color: #fff; font-size: 18px; font-weight: 800; padding: 24px;
-  }
-  #rotateHint.active { display: flex; }
-  #rotateHint i { font-style: normal; font-size: 54px; margin-bottom: 14px; display: block; animation: rot 1.6s ease-in-out infinite; }
-  #rotateHint small { display: block; margin-top: 8px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.65); }
-  @keyframes rot { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
   #ui {
     position: fixed;
     top: 0; right: 0; bottom: 0; left: 0; /* = inset: 0 (old WebViews don't know inset) */
@@ -356,7 +347,6 @@
 </head>
 <body>
 <canvas id="game"></canvas>
-<div id="rotateHint"><i>&#8635;</i>Ajuste a tela para vertical<small>O jogo funciona apenas em uma viewport vertical</small></div>
 <div id="ui">
   <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
   <div id="progress"><div id="progressBar"></div></div>
@@ -953,7 +943,7 @@
 
   // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
   // Responsive / scalable layout (same game on phones, tablets and computers):
-  // - Play column: phones and computers use the same centered portrait layout, even in a landscape window.
+  // - Play column: every device uses the same fixed, centered portrait column.
   // - Scale: the game's logical height is kept between UI_MIN_H and UI_MAX_H; outside that range the whole
   //   game AND the menus/HUD are scaled up or down, so a tall monitor shows the same game as a phone, just bigger.
   //   W and H are always the LOGICAL size; `dpr` includes the scale (canvas pixels stay = screen pixels).
@@ -994,7 +984,6 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     layoutUi();
     sideKey = '';
-    refreshRotateHint();
     if (hillsFar.length === 0 && W > 0) seedScenery();
     try { buildCoinSprite(); } catch (e) { coinSprite = null; }
   }
@@ -1025,17 +1014,6 @@
         shadeHex(at.sky[1], -0.6) + ' 60%, ' + shadeHex(at.sky[2], -0.65) + ')';
     } catch (e) {}
   }
-  // The game only runs in a vertical viewport.
-  const rotateEl = document.getElementById('rotateHint');
-  function refreshRotateHint() {
-    if (!rotateEl) return;
-    const vw = window.innerWidth || 0, vh = window.innerHeight || 0;
-    if (vw > vh) {
-      rotateEl.classList.add('active');
-      if (state === 'playing' && !paused) pauseGame();
-    } else rotateEl.classList.remove('active');
-  }
-
   function seedScenery() {
     hillsFar = [];
     hillsNear = [];

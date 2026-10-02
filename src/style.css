@@ -19,15 +19,6 @@ html, body {
   box-shadow: 0 0 40px rgba(0,0,0,.45);
 }
 #ui { transform-origin: 0 0; -webkit-transform-origin: 0 0; }
-#rotateHint {
-  position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 50; display: none;
-  flex-direction: column; align-items: center; justify-content: center; text-align: center;
-  background: #0a0a12; color: #fff; font-size: 18px; font-weight: 800; padding: 24px;
-}
-#rotateHint.active { display: flex; }
-#rotateHint i { font-style: normal; font-size: 54px; margin-bottom: 14px; display: block; animation: rot 1.6s ease-in-out infinite; }
-#rotateHint small { display: block; margin-top: 8px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.65); }
-@keyframes rot { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
 #ui {
   position: fixed;
   top: 0; right: 0; bottom: 0; left: 0; /* = inset: 0 (old WebViews don't know inset) */
