@@ -1,6 +1,6 @@
 // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
 // Responsive / scalable layout (same game on phones, tablets and computers):
-// - Play column: touch devices and portrait screens use a centered portrait layout; landscape computers use full width.
+// - Play column: phones and computers use the same centered portrait layout, even in a landscape window.
 // - Scale: the game's logical height is kept between UI_MIN_H and UI_MAX_H; outside that range the whole
 //   game AND the menus/HUD are scaled up or down, so a tall monitor shows the same game as a phone, just bigger.
 //   W and H are always the LOGICAL size; `dpr` includes the scale (canvas pixels stay = screen pixels).
@@ -27,7 +27,7 @@ function resize() {
     resizeRetries++;
     setTimeout(resize, 100);
   }
-  colWidth = Math.min(vw, (isTouchDevice() || vh > vw) ? Math.round(vh * PLAY_MAX_ASPECT) : vw) || vw;
+  colWidth = Math.min(vw, Math.round(vh * PLAY_MAX_ASPECT)) || vw;
   colLeft = Math.max(0, Math.floor((vw - colWidth) / 2));
   uiScale = vh > UI_MAX_H ? vh / UI_MAX_H : (vh > 0 && vh < UI_MIN_H ? vh / UI_MIN_H : 1);
   W = Math.round(colWidth / uiScale);
