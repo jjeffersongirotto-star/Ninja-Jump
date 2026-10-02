@@ -1,6 +1,6 @@
 // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
 // Responsive / scalable layout (same game on phones, tablets and computers):
-// - Play column: phones and computers use the same centered portrait layout, even in a landscape window.
+// - Play column: every device uses the same fixed, centered portrait column.
 // - Scale: the game's logical height is kept between UI_MIN_H and UI_MAX_H; outside that range the whole
 //   game AND the menus/HUD are scaled up or down, so a tall monitor shows the same game as a phone, just bigger.
 //   W and H are always the LOGICAL size; `dpr` includes the scale (canvas pixels stay = screen pixels).
@@ -41,7 +41,6 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   layoutUi();
   sideKey = '';
-  refreshRotateHint();
   if (hillsFar.length === 0 && W > 0) seedScenery();
   try { buildCoinSprite(); } catch (e) { coinSprite = null; }
 }
@@ -72,17 +71,6 @@ function paintSides(at) {
       shadeHex(at.sky[1], -0.6) + ' 60%, ' + shadeHex(at.sky[2], -0.65) + ')';
   } catch (e) {}
 }
-// The game only runs in a vertical viewport.
-const rotateEl = document.getElementById('rotateHint');
-function refreshRotateHint() {
-  if (!rotateEl) return;
-  const vw = window.innerWidth || 0, vh = window.innerHeight || 0;
-  if (vw > vh) {
-    rotateEl.classList.add('active');
-    if (state === 'playing' && !paused) pauseGame();
-  } else rotateEl.classList.remove('active');
-}
-
 function seedScenery() {
   hillsFar = [];
   hillsNear = [];
