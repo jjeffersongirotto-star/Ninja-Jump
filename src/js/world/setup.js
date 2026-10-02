@@ -72,13 +72,12 @@ function paintSides(at) {
       shadeHex(at.sky[1], -0.6) + ' 60%, ' + shadeHex(at.sky[2], -0.65) + ')';
   } catch (e) {}
 }
-// Phone held sideways (short landscape screen): ask to turn it upright and pause the run
+// The game only runs in a vertical viewport.
 const rotateEl = document.getElementById('rotateHint');
 function refreshRotateHint() {
   if (!rotateEl) return;
   const vw = window.innerWidth || 0, vh = window.innerHeight || 0;
-  const sideways = vw > vh && vh < 500 && isTouchDevice();
-  if (sideways) {
+  if (vw > vh) {
     rotateEl.classList.add('active');
     if (state === 'playing' && !paused) pauseGame();
   } else rotateEl.classList.remove('active');
