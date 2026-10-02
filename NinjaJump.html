@@ -839,6 +839,35 @@
   const SUPER_JUMP_MULT = 1.6;               // x the normal impulse of that same elastic
   const SUPER_JUMP_MIN = BASE_IMPULSE * 1.35; // floor so every super jump feels big
   const SUPER_SPIN_TURNS_PER_SEC = 3.5;      // spin speed at launch; slows to 0 at the top
+  // Elastic lifetime: an elastic the ninja has NOT landed on snaps after this many game frames
+  // (60 frames = 1 s; the game runs at a fixed 60 updates/s). Applies to every idle elastic, also at the
+  // ground start. Once he lands on it (stretching/launching) it stays and is removed right after the launch.
+  // The last ELASTIC_WARN_FRAMES it flickers and thins so the snap doesn't come out of nowhere.
+  const ELASTIC_LIFETIME = 90;      // 1.5 s
+  const ELASTIC_WARN_FRAMES = 24;   // 0.4 s
+  // Fall energy: landing on an elastic while falling fast gives a bigger bounce (the lower the elastic is
+  // below where he started falling, the faster he arrives). Energy-style, like a real trampoline:
+  //   launch = sqrt(L0^2 + FALL_ENERGY_GAIN * max(0, speedIn^2 - FALL_ENERGY_FREE_SPEED^2))
+  // where L0 = the usual launch speed of that elastic (length-based: shorter = higher, unchanged) and
+  // speedIn = speed INTO the band (perpendicular). GAIN 1 would give back exactly the height of the fall;
+  // a bit more than 1 makes a deliberate long fall slightly rewarding (never a huge exploit).
+  // Capped at FALL_BOUNCE_MAX_MULT x L0. FALL_ENERGY_FREE_SPEED ~ a normal short drop (about 110 px at base
+  // gravity), so everyday bounces are exactly as before.
+  // Super jump: the fall bonus does NOT stack with it (a super jump uses whichever is bigger), and a fall
+  // bounce counts for the short-elastic streak like any other bounce (the streak is about line length).
+  const FALL_ENERGY_FREE_SPEED = 9;
+  const FALL_ENERGY_GAIN = 1.25;
+  const FALL_BOUNCE_MAX_MULT = 1.5;
+  // Sag of the elastic under the ninja: deeper for faster landings (px), up to ELASTIC_SAG_MAX
+  const ELASTIC_SAG_BASE = 12;
+  const ELASTIC_SAG_PER_SPEED = 1.35;
+  const ELASTIC_SAG_FALL_EXTRA = 1.2;  // extra px per px/frame above FALL_ENERGY_FREE_SPEED (fast landings only)
+  const ELASTIC_SAG_MAX = 50;          // was 32 (reached at ~15 px/frame); now long falls sink visibly deeper
+  // Touch dead zones (screen px): a touch that STARTS this close to the bottom/top edge doesn't draw
+  // (that is where Android's navigation/notification gestures live). The real size is the larger of this
+  // and the device's safe-area inset. Lines are also kept out of these bands while dragging.
+  const TOUCH_DEAD_BOTTOM = 28;
+  const TOUCH_DEAD_TOP = 24;
   // Wall kick (visual only): min horizontal speed into a wall, and pose duration in frames
   const WALL_KICK_MIN_SPEED = 0.8;
   const WALL_KICK_FRAMES = 22;
@@ -973,7 +1002,7 @@
   function freshDebugStats() {
     return { bounces: 0, supers: 0, wallKicks: 0, superFrame: -1, last: null, hits: {}, deaths: 0, deathBy: null, shieldBreaks: 0,
       stomps: { blue: 0, red: 0 }, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0,
-      bonks: 0, ghostPlatforms: 0, snaps: 0,
+      bonks: 0, ghostPlatforms: 0, snaps: 0, expired: 0, fallBounces: 0,
       powerups: { magnet: 0, shield: 0, rocket: 0 }, shieldSaves: 0, rocketExtend: 0, dives: 0, teleports: 0, magnetCoins: 0 };
   }
   const debugStats = freshDebugStats();
@@ -2369,6 +2398,22 @@
     drawing = null;
   }
 
+  // Fall energy multiplier on a launch of speed `l0` after landing at `speedIn` px/frame into the band
+  // (see config/physics.js)
+  function fallBounceMult(speedIn, l0) {
+    const extra = FALL_ENERGY_GAIN * Math.max(0, speedIn * speedIn - FALL_ENERGY_FREE_SPEED * FALL_ENERGY_FREE_SPEED);
+    if (extra <= 0 || l0 <= 0) return 1;
+    return Math.min(FALL_BOUNCE_MAX_MULT, Math.sqrt(l0 * l0 + extra) / l0);
+  }
+  // A big fall bounce gets a little extra kick on screen: ring + shake + a lower "boing"
+  function fallBounceFx(m) {
+    const k = Math.min(1, (m - 1) / (FALL_BOUNCE_MAX_MULT - 1));
+    rings.push({ x: ninja.x, y: ninja.y + NINJA_R, r: 8, life: 0.5 + 0.4 * k, color: (atmosCache || atmosphereAt(0)).elastic });
+    shake = Math.max(shake, 3 + 4 * k);
+    beep(150 + 60 * k, 0.16, 'sine', 0.07);
+    debugStats.fallBounces++;
+  }
+
   function elasticLength(e) {
     return Math.hypot(e.x2 - e.x1, e.y2 - e.y1);
   }
@@ -2722,8 +2767,10 @@
           elastic.phase = 'stretching';
           elastic.hitT = hit.t;
           elastic.impactSpeed = Math.hypot(ninja.vx, ninja.vy);
+          elastic.speedIn = Math.max(0, -(ninja.vx * nx + ninja.vy * ny)); // speed into the band (fall energy)
           elastic.stretchFrames = 0;
-          elastic.maxSag = Math.min(32, 12 + elastic.impactSpeed * 1.35);
+          elastic.maxSag = Math.min(ELASTIC_SAG_MAX, ELASTIC_SAG_BASE + elastic.impactSpeed * ELASTIC_SAG_PER_SPEED +
+            ELASTIC_SAG_FALL_EXTRA * Math.max(0, elastic.speedIn - FALL_ENERGY_FREE_SPEED));
           elastic.sag = 0;
           ninja.vx = 0;
           ninja.vy = 0;
@@ -2733,7 +2780,7 @@
 
       if (elastic.phase === 'stretching') {
         elastic.stretchFrames++;
-        const dur = Math.max(10, Math.min(18, 12 + elastic.impactSpeed * 0.25));
+        const dur = Math.max(10, Math.min(20, 12 + elastic.impactSpeed * 0.25));
         const progress = Math.min(1, elastic.stretchFrames / dur);
         // Ease toward peak sag (visible droop under the ninja)
         elastic.sag = elastic.maxSag * Math.sin(progress * Math.PI * 0.5);
@@ -2750,13 +2797,14 @@
         if (elastic.stretchFrames >= dur) {
           const rawLen = elasticLength(elastic);
           let strength = BASE_IMPULSE * diff.impulseBonus * elasticPower(rawLen);
+          const fallMult = fallBounceMult(elastic.speedIn || 0, strength + elastic.impactSpeed * 0.28);
           // Short-elastic streak: the SUPER_STREAK-th short bounce in a row is a super jump
           const isShort = elasticT(rawLen) <= SHORT_ELASTIC_T;
           shortStreak = isShort ? shortStreak + 1 : 0;
           const isSuper = isShort && shortStreak >= SUPER_STREAK;
           if (isSuper) {
             shortStreak = 0;
-            strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN);
+            strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN, strength * fallMult);
           }
           updateStreakHud();
           // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
@@ -2766,13 +2814,16 @@
           const ll = Math.hypot(lx, ly) || 1;
           lx /= ll; ly /= ll;
           const boost = elastic.impactSpeed * 0.28;
-          ninja.vx = lx * (strength + boost * 0.45);
-          ninja.vy = ly * (strength + boost);
+          const fm = isSuper ? 1 : fallMult; // no stacking with the super jump (it already took the bigger one)
+          ninja.vx = lx * (strength + boost * 0.45) * fm;
+          ninja.vy = ly * (strength + boost) * fm;
+          if (fm > 1.1 && !isSuper) fallBounceFx(fm);
           ninja.facing = ninja.vx >= 0 ? 1 : -1;
           if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
           ninja.bonkedSinceLaunch = false;
           debugStats.bounces++;
-          debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak };
+          debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak,
+            speedIn: +(elastic.speedIn || 0).toFixed(2), fallMult: +fm.toFixed(3), sag: +elastic.maxSag.toFixed(1) };
           if (isSuper) {
             debugStats.supers++;
             debugStats.superFrame = frame;
@@ -2814,7 +2865,10 @@
       if (elastic.phase === 'snapped') {
         if (++elastic.snapT >= HAZARDS.ghostPlatform.snapFrames) elastic = null;
       } else if (elastic.used && elastic.clearIn > 0 && --elastic.clearIn === 0) elastic = null;
-      else if (!elastic.used && elastic.phase === 'ready' && elastic.age > 700) elastic = null;
+      else if (!elastic.used && elastic.phase === 'ready' && elastic.age >= ELASTIC_LIFETIME) {
+        snapElastic(elastic); // unused for 1.5 s: it snaps (both halves whip back)
+        debugStats.expired++;
+      }
     }
 
     // Hazards: move, then continuous collision along this frame's path
@@ -3567,29 +3621,36 @@
     const cpx = x1 + (x2 - x1) * tHit - nx * sag + wob;
     const cpy = y1 + (y2 - y1) * tHit - ny * sag + wob * 0.5;
     const curved = sag > 0.4 || Math.abs(wob) > 0.4;
+    // About to expire (unused for almost ELASTIC_LIFETIME): it thins out and flickers
+    let th = 1, al = 1;
+    if (!isDrawing && e.phase === 'ready' && !e.used && e.age > ELASTIC_LIFETIME - ELASTIC_WARN_FRAMES) {
+      const k = Math.min(1, (e.age - (ELASTIC_LIFETIME - ELASTIC_WARN_FRAMES)) / ELASTIC_WARN_FRAMES);
+      th = 1 - 0.4 * k;
+      al = 1 - 0.5 * k * (0.5 + 0.5 * Math.sin(e.age * 1.3));
+    }
 
     ctx.save();
     ctx.lineCap = 'round';
     // Soft glow
     ctx.strokeStyle = col;
-    ctx.globalAlpha = 0.3;
-    ctx.lineWidth = 10;
+    ctx.globalAlpha = 0.3 * al;
+    ctx.lineWidth = 10 * th;
     elasticPath(x1, y1, x2, y2, cpx, cpy, curved);
     ctx.stroke();
 
     // Rubber tube: dark underside, body, specular line on the upper edge
-    ctx.globalAlpha = 1;
+    ctx.globalAlpha = al;
     ctx.strokeStyle = shadeHex(col, -0.4);
-    ctx.lineWidth = 5;
+    ctx.lineWidth = 5 * th;
     ctx.stroke();
     ctx.strokeStyle = col;
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 3.5 * th;
     ctx.stroke();
     const ox = nx * 1.1, oy = ny * 1.1;
     elasticPath(x1 + ox, y1 + oy, x2 + ox, y2 + oy, cpx + ox, cpy + oy, curved);
     ctx.strokeStyle = shadeHex(col, 0.6);
-    ctx.globalAlpha = 0.85;
-    ctx.lineWidth = 1.2;
+    ctx.globalAlpha = 0.85 * al;
+    ctx.lineWidth = 1.2 * th;
     ctx.stroke();
     ctx.globalAlpha = 1;
 
@@ -5138,6 +5199,40 @@
       y: Math.max(0, Math.min(H, (clientY - r.top) * (H / rh)))
     };
   }
+  // --- Touch dead zones (bottom/top edge, where Android's system gestures live) ---
+  // A touch that STARTS in them doesn't draw, and lines are kept out of them while dragging, so the
+  // player never needs to touch the very edge. Size = max(TOUCH_DEAD_*, safe-area inset), in canvas px.
+  let safeProbe = null, deadZoneCache = null;
+  function safeInsets() {
+    try {
+      if (!safeProbe) {
+        safeProbe = document.createElement('div');
+        safeProbe.setAttribute('aria-hidden', 'true');
+        safeProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;' +
+          'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)';
+        document.body.appendChild(safeProbe);
+      }
+      const cs = getComputedStyle(safeProbe);
+      return { top: parseFloat(cs.paddingTop) || 0, bottom: parseFloat(cs.paddingBottom) || 0 };
+    } catch (e) { return { top: 0, bottom: 0 }; }
+  }
+  function touchDeadZones() {
+    const r = canvas.getBoundingClientRect();
+    const key = W + 'x' + H + ':' + Math.round(r.height);
+    if (deadZoneCache && deadZoneCache.key === key) return deadZoneCache;
+    const s = safeInsets(), k = H / (r.height || H);
+    deadZoneCache = { key: key, top: Math.max(TOUCH_DEAD_TOP, s.top * k), bottom: Math.max(TOUCH_DEAD_BOTTOM, s.bottom * k) };
+    return deadZoneCache;
+  }
+  function inTouchDeadZone(y) {
+    const z = touchDeadZones();
+    return y < z.top || y > H - z.bottom;
+  }
+  function clampTouchY(y) {
+    const z = touchDeadZones();
+    return Math.max(z.top, Math.min(H - z.bottom, y));
+  }
+  let drawIsTouch = false; // the current line comes from a finger/pen (kept out of the dead zones)
   function applyPointer(e) {
     // Prefer coalesced events for zero-lag finger tracking on mobile
     let list = null;
@@ -5145,10 +5240,11 @@
     const pts = (list && list.length) ? list : [e];
     for (const ev of pts) {
       const p = pointerToCanvas(ev.clientX, ev.clientY);
-      moveDraw(p.x, p.y);
+      moveDraw(p.x, drawIsTouch ? clampTouchY(p.y) : p.y);
     }
   }
   let activePointerId = null;
+  let debugTouchDead = 0; // touches ignored because they started in a dead zone (tests)
   function cancelGesture() {
     drawing = null;
     activePointerId = null;
@@ -5164,8 +5260,10 @@
     if (drawing && activePointerId !== null && e.pointerId !== activePointerId) return; // a second finger is ignored
     ensureAudio();
     const p = pointerToCanvas(e.clientX, e.clientY);
+    if (e.pointerType !== 'mouse' && inTouchDeadZone(p.y)) { debugTouchDead++; return; } // edge: system gesture zone
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     activePointerId = e.pointerId;
+    drawIsTouch = e.pointerType !== 'mouse';
     startDraw(p.x, p.y);
   }
   function onPointerMove(e) {
@@ -5181,7 +5279,7 @@
     if (e.type === 'pointercancel') { drawing = null; return; } // a cancelled gesture places nothing
     if (drawing) {
       const p = pointerToCanvas(e.clientX, e.clientY);
-      moveDraw(p.x, p.y);
+      moveDraw(p.x, drawIsTouch ? clampTouchY(p.y) : p.y);
     }
     endDraw();
   }
@@ -5201,8 +5299,10 @@
     if (!t) return;
     e.preventDefault();
     ensureAudio();
-    touchId = t.identifier;
     const p = pointerToCanvas(t.clientX, t.clientY);
+    if (inTouchDeadZone(p.y)) { debugTouchDead++; return; }
+    touchId = t.identifier;
+    drawIsTouch = true;
     startDraw(p.x, p.y);
   }
   function onTouchMove(e) {
@@ -5212,7 +5312,7 @@
     const t = findTouch(e.changedTouches, touchId);
     if (!t) return;
     const p = pointerToCanvas(t.clientX, t.clientY);
-    moveDraw(p.x, p.y);
+    moveDraw(p.x, clampTouchY(p.y));
   }
   function onTouchEnd(e) {
     lastTouchAt = nowMs();
@@ -5222,7 +5322,7 @@
     e.preventDefault();
     if (drawing) {
       const p = pointerToCanvas(t.clientX, t.clientY);
-      moveDraw(p.x, p.y);
+      moveDraw(p.x, clampTouchY(p.y));
     }
     endDraw();
     touchId = null;
@@ -5234,6 +5334,7 @@
     e.preventDefault();
     ensureAudio();
     mouseDown = true;
+    drawIsTouch = false;
     const p = pointerToCanvas(e.clientX, e.clientY);
     startDraw(p.x, p.y);
   }
@@ -5257,6 +5358,7 @@
   function bindInput() {
     try { canvas.style.touchAction = 'none'; } catch (e) {}
     window.addEventListener('blur', cancelGesture, false);
+    window.addEventListener('resize', function () { deadZoneCache = null; }, false);
     document.addEventListener('visibilitychange', function () { if (document.hidden) cancelGesture(); }, false);
     if (window.PointerEvent) {
       canvas.addEventListener('pointerdown', onPointerDown, ACTIVE);
@@ -5288,6 +5390,11 @@
     document.addEventListener('gesturestart', e => e.preventDefault());
     document.addEventListener('touchmove', e => {
       if (e.target === canvas || !overlayScrolls(e.target)) e.preventDefault();
+    }, ACTIVE);
+    // While playing, a touch on the game never starts any browser default (scroll, pull-to-refresh,
+    // text selection, long-press menu). System edge gestures can't be blocked by a page; see TOUCH_DEAD_*.
+    document.addEventListener('touchstart', e => {
+      if (state === 'playing' && !paused && e.target === canvas && e.cancelable) e.preventDefault();
     }, ACTIVE);
     // something scrolled the page anyway (focus, old engines): put it back
     window.addEventListener('scroll', function () {
@@ -5524,7 +5631,8 @@
     });
     window.addEventListener('appinstalled', function () { installPrompt = null; refreshInstallBtn(); });
     refreshInstallBtn();
-    if ('serviceWorker' in navigator && isServed()) {
+    // not inside the Android app's WebView (it serves the game from its own assets, there is no sw.js)
+    if ('serviceWorker' in navigator && isServed() && !/; wv\)/.test(navigator.userAgent || '')) {
       navigator.serviceWorker.register('sw.js').catch(function (err) { logErr('service worker', err); });
     }
   }

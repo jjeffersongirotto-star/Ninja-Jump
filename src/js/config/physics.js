@@ -33,6 +33,35 @@ const SUPER_STREAK = 10;
 const SUPER_JUMP_MULT = 1.6;               // x the normal impulse of that same elastic
 const SUPER_JUMP_MIN = BASE_IMPULSE * 1.35; // floor so every super jump feels big
 const SUPER_SPIN_TURNS_PER_SEC = 3.5;      // spin speed at launch; slows to 0 at the top
+// Elastic lifetime: an elastic the ninja has NOT landed on snaps after this many game frames
+// (60 frames = 1 s; the game runs at a fixed 60 updates/s). Applies to every idle elastic, also at the
+// ground start. Once he lands on it (stretching/launching) it stays and is removed right after the launch.
+// The last ELASTIC_WARN_FRAMES it flickers and thins so the snap doesn't come out of nowhere.
+const ELASTIC_LIFETIME = 90;      // 1.5 s
+const ELASTIC_WARN_FRAMES = 24;   // 0.4 s
+// Fall energy: landing on an elastic while falling fast gives a bigger bounce (the lower the elastic is
+// below where he started falling, the faster he arrives). Energy-style, like a real trampoline:
+//   launch = sqrt(L0^2 + FALL_ENERGY_GAIN * max(0, speedIn^2 - FALL_ENERGY_FREE_SPEED^2))
+// where L0 = the usual launch speed of that elastic (length-based: shorter = higher, unchanged) and
+// speedIn = speed INTO the band (perpendicular). GAIN 1 would give back exactly the height of the fall;
+// a bit more than 1 makes a deliberate long fall slightly rewarding (never a huge exploit).
+// Capped at FALL_BOUNCE_MAX_MULT x L0. FALL_ENERGY_FREE_SPEED ~ a normal short drop (about 110 px at base
+// gravity), so everyday bounces are exactly as before.
+// Super jump: the fall bonus does NOT stack with it (a super jump uses whichever is bigger), and a fall
+// bounce counts for the short-elastic streak like any other bounce (the streak is about line length).
+const FALL_ENERGY_FREE_SPEED = 9;
+const FALL_ENERGY_GAIN = 1.25;
+const FALL_BOUNCE_MAX_MULT = 1.5;
+// Sag of the elastic under the ninja: deeper for faster landings (px), up to ELASTIC_SAG_MAX
+const ELASTIC_SAG_BASE = 12;
+const ELASTIC_SAG_PER_SPEED = 1.35;
+const ELASTIC_SAG_FALL_EXTRA = 1.2;  // extra px per px/frame above FALL_ENERGY_FREE_SPEED (fast landings only)
+const ELASTIC_SAG_MAX = 50;          // was 32 (reached at ~15 px/frame); now long falls sink visibly deeper
+// Touch dead zones (screen px): a touch that STARTS this close to the bottom/top edge doesn't draw
+// (that is where Android's navigation/notification gestures live). The real size is the larger of this
+// and the device's safe-area inset. Lines are also kept out of these bands while dragging.
+const TOUCH_DEAD_BOTTOM = 28;
+const TOUCH_DEAD_TOP = 24;
 // Wall kick (visual only): min horizontal speed into a wall, and pose duration in frames
 const WALL_KICK_MIN_SPEED = 0.8;
 const WALL_KICK_FRAMES = 22;
