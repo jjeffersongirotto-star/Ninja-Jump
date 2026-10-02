@@ -993,7 +993,7 @@
 
   // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
   // Responsive / scalable layout (same game on phones, tablets and computers):
-  // - Play column: touch devices keep a centered portrait layout on wide screens; computers use the full width.
+  // - Play column: touch devices and portrait screens use a centered portrait layout; landscape computers use full width.
   // - Scale: the game's logical height is kept between UI_MIN_H and UI_MAX_H; outside that range the whole
   //   game AND the menus/HUD are scaled up or down, so a tall monitor shows the same game as a phone, just bigger.
   //   W and H are always the LOGICAL size; `dpr` includes the scale (canvas pixels stay = screen pixels).
@@ -1020,7 +1020,7 @@
       resizeRetries++;
       setTimeout(resize, 100);
     }
-    colWidth = Math.min(vw, isTouchDevice() ? Math.round(vh * PLAY_MAX_ASPECT) : vw) || vw;
+    colWidth = Math.min(vw, (isTouchDevice() || vh > vw) ? Math.round(vh * PLAY_MAX_ASPECT) : vw) || vw;
     colLeft = Math.max(0, Math.floor((vw - colWidth) / 2));
     uiScale = vh > UI_MAX_H ? vh / UI_MAX_H : (vh > 0 && vh < UI_MIN_H ? vh / UI_MIN_H : 1);
     W = Math.round(colWidth / uiScale);
@@ -1836,6 +1836,7 @@
   }
   function startDraw(x, y) {
     if (state !== 'playing' || paused || (ninja && ninja.dead)) return;
+    if (elastic && elastic.phase !== 'snapped') snapElastic(elastic);
     drawing = {
       sx1: x, sy1: y, sx2: x, sy2: y,
       x1: x, y1: y + camera.y, x2: x, y2: y + camera.y
@@ -2897,7 +2898,6 @@
     const at = atmosCache || atmosphereAt(0);
     const x1 = e.x1, y1 = e.y1 - cam;
     const x2 = e.x2, y2 = e.y2 - cam;
-    const len = Math.hypot(x2 - x1, y2 - y1);
     const wob = (e.wobble || 0) * Math.sin(frame * 0.8) * 8;
     const col = at.elastic;
     const sag = e.sag || 0;
@@ -2944,12 +2944,6 @@
       ctx.beginPath(); ctx.arc(px - 1, py - 1, 2, 0, Math.PI * 2); ctx.fill();
     }
 
-    if (isDrawing && len > 10) {
-      ctx.fillStyle = 'rgba(255,255,255,0.75)';
-      ctx.font = 'bold 12px system-ui, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(Math.round(elasticPower(len) * 100) + '%', (x1 + x2) / 2, (y1 + y2) / 2 - 14);
-    }
     ctx.restore();
   }
 
@@ -4067,8 +4061,7 @@
 
   // --- Controls: "Dispositivos móveis" (touch) or "Computador" (mouse), chosen automatically or by hand ---
   // touch: press, drag and release to draw the elastic (finger or mouse).
-  // mouse: the same drag works, and also click -> move the mouse -> click again (left button);
-  //        right click or Esc cancels the line being drawn. Esc / P pause the game.
+  // mouse: hold the left button and drag; release to finish. Right click cancels the line. Esc / P pause.
   // Automático: picks touch or mouse from the device, and follows the input actually being used.
   let controlsAuto = true;
   let controlMode = 'touch';
@@ -4097,7 +4090,7 @@
     try { if (mode === 'mouse') canvas.classList.add('mouse-mode'); else canvas.classList.remove('mouse-mode'); } catch (e) {}
     if (overlaySub) {
       overlaySub.textContent = mode === 'mouse'
-        ? 'Clique e arraste com o botão esquerdo (ou clique, mova e clique de novo) para criar um elástico. Quanto menor a linha, mais alto o salto!'
+        ? 'Clique e arraste com o botão esquerdo para criar um elástico. Solte para finalizar. Quanto menor a linha, mais alto o salto!'
         : 'Arraste o dedo para criar um elástico. Quanto menor a linha, mais alto o salto!';
     }
     if (changed && screen === 'controls') refreshControlsUi();
@@ -4111,7 +4104,7 @@
 
   const CONTROL_DESC = {
     touch: '<b>Touch:</b> arraste o dedo na tela para desenhar o elástico.',
-    mouse: '<b>Mouse:</b> clique com o botão esquerdo e arraste, ou clique, mova o mouse e clique de novo. <b>Esc</b> pausa.'
+    mouse: '<b>Mouse:</b> clique e arraste com o botão esquerdo; solte para finalizar. <b>Esc</b> pausa.'
   };
   function refreshControlsUi() {
     const auto = document.getElementById('ctlAuto');
@@ -4199,18 +4192,8 @@
     e.preventDefault();
     ensureAudio();
     const p = pointerToCanvas(e.clientX, e.clientY);
-    if (drawing && drawing.clickMode) { // computer controls: second click places the line
-      moveDraw(p.x, p.y);
-      endDraw();
-      return;
-    }
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
     startDraw(p.x, p.y);
-  }
-  // Computer controls: a click without dragging starts "click mode" (the line follows the mouse until the next click)
-  function startsClickMode(e) {
-    if (!drawing || controlMode !== 'mouse' || e.pointerType !== 'mouse' || e.type === 'pointercancel') return false;
-    return Math.hypot(drawing.sx2 - drawing.sx1, drawing.sy2 - drawing.sy1) < 12;
   }
   function onPointerMove(e) {
     if (state !== 'playing' || !drawing) return;
@@ -4220,12 +4203,6 @@
   function onPointerUp(e) {
     if (state !== 'playing') return;
     e.preventDefault();
-    if (drawing && drawing.clickMode) return;
-    if (startsClickMode(e)) {
-      drawing.clickMode = true;
-      try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
-      return;
-    }
     if (drawing) {
       const p = pointerToCanvas(e.clientX, e.clientY);
       moveDraw(p.x, p.y);
@@ -4310,16 +4287,6 @@
       canvas.addEventListener('pointerup', onPointerUp, ACTIVE);
       canvas.addEventListener('pointercancel', onPointerUp, ACTIVE);
       canvas.addEventListener('contextmenu', function (e) { if (state === 'playing') e.preventDefault(); }, false);
-      // Click mode: keep following the mouse over the sides of the column / the HUD, and let the
-      // second click land anywhere outside the canvas too (except on buttons, e.g. pause)
-      window.addEventListener('pointermove', function (e) {
-        if (state === 'playing' && drawing && drawing.clickMode && e.target !== canvas) applyPointer(e);
-      }, false);
-      window.addEventListener('pointerdown', function (e) {
-        if (state !== 'playing' || !drawing || !drawing.clickMode || e.target === canvas) return;
-        if (e.target && e.target.closest && e.target.closest('button')) return;
-        onPointerDown(e);
-      }, true);
     } else {
       canvas.addEventListener('touchstart', onTouchStart, ACTIVE);
       canvas.addEventListener('touchmove', onTouchMove, ACTIVE);
