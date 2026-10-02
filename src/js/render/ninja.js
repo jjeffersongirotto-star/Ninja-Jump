@@ -2,7 +2,7 @@
 // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
 const NINJA_MAX_ARM = Math.PI / 3; // 60° hard limit
 const NINJA_LEG_LEN = 13;                  // thigh + shin, used by the wall-kick leg
-const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0 };
+const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0, hero: 0 };
 let ninjaLightX = -1; // local x direction toward the light (world top-left), set per draw
 
 function updateNinjaPose() {
@@ -28,6 +28,10 @@ function updateNinjaPose() {
   // Wall-kick timer (visual only)
   if (onBand) p.wallKick = 0;
   if (p.wallKick > 0) { p.wallKick -= 1 / WALL_KICK_FRAMES; if (p.wallKick < 0) p.wallKick = 0; }
+  // Hero pose (super jump): blends in at launch, out when the ascent ends
+  const heroOn = !!(ninja && !ninja.dead && state === 'playing' && ninja.superSpin && ninja.vy < -0.5);
+  if (heroOn) p.hero = Math.min(1, p.hero + 1 / HERO_POSE_BLEND_IN);
+  else p.hero = Math.max(0, p.hero - 1 / HERO_POSE_BLEND_OUT);
 }
 
 function startWallKick(side) {
@@ -145,6 +149,7 @@ function drawNinja(x, y) {
   drawNinjaSprite(x, y);
 }
 function drawNinjaSprite(x, y) {
+  if (ninja && !ninja.dead && state === 'playing' && (ninjaPose.hero > 0 || ninja.superSpin)) { drawHeroNinja(x, y); return; }
   const p = ninjaPose;
   const c = p.crouch;
   const onBand = state === 'playing' && elastic && elastic.phase === 'stretching';
@@ -163,10 +168,6 @@ function drawNinjaSprite(x, y) {
   }
   if (ninja && ninja.spinning > 0) {
     const a = ninja.spinning * Math.PI * 2 * ninja.facing;
-    ctx.rotate(a); rot += a;
-  }
-  if (ninja && ninja.superSpin) {
-    const a = ninja.spinAngle * ninja.facing;
     ctx.rotate(a); rot += a;
   }
   if (ninja && ninja.dead) { ctx.rotate(ninja.deathSpin); rot += ninja.deathSpin; }
@@ -205,6 +206,195 @@ function drawNinjaSprite(x, y) {
 
   // Headband tails (behind everything)
   const knotX = -9.5, knotY = headY - 4;
+  drawNinjaTails(knotX, knotY, tailLen, tailDy, wave);
+
+  // Legs (side-view squat): thighs rotate FORWARD (+x = facing, mirrored by the
+  // facing scale), shins angle back down to feet kept together. Back leg is drawn
+  // behind the body; once crouching (or kicking a wall in front), the front leg is
+  // drawn in front of the body so the forward knee reads clearly.
+  const legTop = hipY;
+  const kneeFwd = c * 9.5;
+  const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5;
+  const ankleBack = c * 1.5;
+  const kickFront = !!kick && kick.side * facing > 0;
+  const backG = legGeom(-2.2, legTop, kneeFwd * 0.85, kneeY + 0.6, ankleBack, footY, 0.2, kick, !!kick && !kickFront, rot, facing);
+  const frontG = legGeom(2.2, legTop, kneeFwd, kneeY, ankleBack, footY, 1.0, kick, kickFront, rot, facing);
+  drawLeg(backG, 4.4, skin.limbBack, skin.footBack, 3.3, 2.5);
+  const frontInFront = c > 0.12 || (kickFront && kick.w > 0.05);
+  if (!frontInFront) drawLeg(frontG, 4.6, skin.limb, skin.foot, 3.4, 2.5);
+
+  drawNinjaTorso(bodyY, facing, spd, wave, -6);
+
+  if (frontInFront) drawLeg(frontG, 4.6, skin.limb, skin.foot, 3.4, 2.5);
+
+  // Arms: rotate outward symmetrically with crouch, 0..60° (hard clamp); open a bit for balance on a wall kick
+  let armA = Math.max(c * NINJA_MAX_ARM, p.relax * (Math.PI / 12), kick ? kick.w * 0.55 : 0);
+  if (armA > NINJA_MAX_ARM) armA = NINJA_MAX_ARM;
+  const shY = bodyY - 3.5, shX = 6.2, armLen = 8.5;
+  const sa = Math.sin(armA), ca = Math.cos(armA);
+  const rhx = shX + sa * armLen, rhy = shY + ca * armLen;
+  ninjaLimb(-shX, shY, (-shX - rhx) * 0.5, (shY + rhy) * 0.5, -rhx, rhy, 4.2);
+  ninjaLimb(shX, shY, (shX + rhx) * 0.5, (shY + rhy) * 0.5, rhx, rhy, 4.2);
+  for (let i = -1; i <= 1; i += 2) {
+    const hx = rhx * i;
+    ctx.fillStyle = skin.hand;
+    ctx.strokeStyle = skin.out;
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(hx, rhy, 3.1, 0, Math.PI * 2);
+    ctx.fill(); ctx.stroke();
+    ctx.fillStyle = skin.spec;
+    ctx.beginPath();
+    ctx.arc(hx + ninjaLightX * 0.9, rhy - 0.9, 1.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  drawNinjaHead(headY, hr, facing, knotX, knotY, 2.2, 1, 1);
+
+  ctx.restore();
+}
+
+// --- Hero pose (super jump): "superman uppercut" while spinning around his own vertical axis ---
+// Front arm punching straight up, slightly forward like an uppercut (so the fist still shows in profile), other fist tucked at the stomach, one knee up at
+// waist height (thigh level, shin hanging), the other leg straight and pointed down, body stretched.
+// The pirouette is faked in 2D: joints live in body space (lat = sideways, y = down, fwd = toward his
+// face) and are projected for the spin angle; limbs are drawn back-to-front by depth (far ones darker),
+// the visor slides/narrows and disappears from behind. Angle 0 = the normal (front) view.
+// Blend: joints go from the normal pose (b = 0) to the hero pose (b = 1).
+const HERO_JOINTS = {
+  //            normal pose [lat, y, fwd] ... hero pose [lat, y, fwd]
+  armUp:   { n: [[6.2, 4.5, 0.6], [6.2, 8.75, 0.6], [6.2, 13, 0.6]], h: [[6.4, 3.6, 0.5], [8.2, -6.3, 4], [9.2, -16.6, 8.5]] },
+  armTuck: { n: [[-6.2, 4.5, 0.4], [-6.2, 8.75, 0.4], [-6.2, 13, 0.4]], h: [[-6.4, 4.2, 0], [-9.8, 9.6, -1.2], [-3.4, 11.2, 6.2]] },
+  legUp:   { n: [[2.2, 12, 0.2], [2.2, 16.5, 0.2], [2.2, 20, 0.2], [3.2, 21, 0.2]], h: [[2.6, 12, 0.3], [3, 12.2, 9.4], [3, 19.6, 8.6], [3, 21.4, 10.6]] },
+  legDown: { n: [[-2.2, 12, 0], [-2.2, 16.9, 0], [-2.2, 20, 0], [-2.0, 21, 0]], h: [[-2.4, 12, 0], [-2.6, 19, -0.4], [-2.8, 25.8, -0.8], [-2.8, 28.2, -0.9]] }
+};
+function heroSpinAngle() {
+  if (!ninja.superSpin) return 0;
+  const a = ninja.spinAngle;
+  return a - SUPER_SPIN_LINGER * Math.sin(4 * a) / 4; // slower through the front/side/back views
+}
+function drawFist(fx, fy, ux, uy, near, glow) {
+  // ux,uy = direction the fist points (knuckles side)
+  if (glow > 0.02) {
+    const g = ctx.createRadialGradient(fx, fy, 1, fx, fy, 10);
+    g.addColorStop(0, 'rgba(255,246,180,' + (0.65 * glow).toFixed(3) + ')');
+    g.addColorStop(1, 'rgba(255,220,120,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(fx, fy, 10, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = near ? skin.hand : skin.limbBack;
+  ctx.strokeStyle = skin.out;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(fx, fy, 3.9, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  // knuckle creases across the fist + thumb fold
+  const px = -uy, py = ux;
+  ctx.strokeStyle = 'rgba(20,20,45,0.55)';
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  for (let k = -1; k <= 1; k++) {
+    const cx = fx + ux * 1.6 + px * k * 1.5, cy = fy + uy * 1.6 + py * k * 1.5;
+    ctx.moveTo(cx - ux * 1.2, cy - uy * 1.2);
+    ctx.lineTo(cx + ux * 0.9, cy + uy * 0.9);
+  }
+  ctx.moveTo(fx - px * 2.6 - ux * 0.6, fy - py * 2.6 - uy * 0.6);
+  ctx.lineTo(fx - ux * 1.6, fy - uy * 1.6);
+  ctx.stroke();
+  ctx.fillStyle = skin.spec;
+  ctx.beginPath();
+  ctx.arc(fx + ninjaLightX * 1.2, fy - 1.3, 1.3, 0, Math.PI * 2);
+  ctx.fill();
+}
+function drawHeroNinja(x, y) {
+  const p = ninjaPose, b = smoothstep(0, 1, p.hero), facing = ninja.facing;
+  ninjaLightX = -facing;
+  const th = heroSpinAngle(), c = Math.cos(th), s = Math.sin(th);
+  const vy = ninja.vy;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  // speed streaks below him while he shoots up (world space)
+  if (b > 0.2 && vy < -5) {
+    const k = Math.min(1, (-vy - 5) / 20) * b;
+    ctx.strokeStyle = 'rgba(255,255,255,' + (0.45 * k).toFixed(3) + ')';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 4; i++) {
+      const sx = (i - 1.5) * 7 + Math.sin(frame * 0.7 + i * 2) * 1.5, len = 14 + (-vy) * (1.2 + 0.4 * ((i * 7 + frame) % 3));
+      const sy = 26 + ((frame * 3 + i * 9) % 10);
+      ctx.moveTo(sx, sy); ctx.lineTo(sx, sy + len);
+    }
+    ctx.stroke();
+  }
+  // body stretched upward in the pose
+  ctx.translate(0, 8);
+  ctx.scale(1 - 0.05 * b, 1 + 0.08 * b);
+  ctx.translate(0, -8);
+  ctx.scale(facing, 1);
+  const bodyY = 8 - 1.2 * b, headY = -8 - 1.6 * b, hr = 11.5;
+  // soft drop shadow
+  const sx = 1.8 * facing;
+  ctx.fillStyle = 'rgba(10,12,35,0.22)';
+  ctx.beginPath(); ctx.arc(sx, headY + 2.6, hr + 0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(sx, bodyY + 2.6, 8.6, 7.8, 0, 0, Math.PI * 2); ctx.fill();
+  // headband tails trail behind (back of the head), squashed with the turn
+  const spd = Math.min(16, Math.hypot(ninja.vx, vy));
+  const wave = Math.sin(frame * 0.35) * (1.5 + spd * 0.25);
+  const kX = 9.5 * (-0.6 * c - 0.8 * s), kd = -0.8 * c + 0.6 * s;
+  const knotX = lerp(-9.5, kX, b), knotY = headY - 4;
+  drawNinjaTails(knotX, knotY, 9 + spd * 0.45, Math.max(-8, Math.min(10, -vy * 0.55)) + 3, wave);
+  // project the limbs
+  const parts = [];
+  for (const name in HERO_JOINTS) {
+    const J = HERO_JOINTS[name], pts = [];
+    let d = 0;
+    for (let i = 0; i < J.n.length; i++) {
+      const lat = lerp(J.n[i][0], J.h[i][0], b), yy = lerp(J.n[i][1], J.h[i][1], b), fwd = lerp(J.n[i][2], J.h[i][2], b);
+      const px = lat * c + fwd * s, pd = fwd * c - lat * s;
+      pts.push([px, yy]);
+      d += pd;
+    }
+    parts.push({ name: name, pts: pts, d: d / J.n.length });
+  }
+  parts.sort((u, v) => u.d - v.d);
+  const drawPart = (pt) => {
+    const near = pt.d >= -1;
+    const P = pt.pts;
+    if (pt.name === 'armUp' || pt.name === 'armTuck') {
+      ninjaLimbC(P[0][0], P[0][1], P[1][0], P[1][1], P[2][0], P[2][1], 4.2, near ? skin.limb : skin.limbBack);
+      let ux = P[2][0] - P[1][0], uy = P[2][1] - P[1][1];
+      const ul = Math.hypot(ux, uy) || 1;
+      drawFist(P[2][0], P[2][1], ux / ul, uy / ul, near, pt.name === 'armUp' ? b : 0);
+    } else {
+      const fr = Math.atan2(P[3][1] - P[2][1], P[3][0] - P[2][0]);
+      const g = { hx: P[0][0], hy: P[0][1], kx: P[1][0], ky: P[1][1], ax: P[2][0], ay: P[2][1], fx: P[3][0], fy: P[3][1], frot: b * fr };
+      if (near) drawLeg(g, 4.6, skin.limb, skin.foot, 3.4, 2.5);
+      else drawLeg(g, 4.4, skin.limbBack, skin.footBack, 3.3, 2.5);
+    }
+  };
+  for (const pt of parts) if (pt.d < 0) drawPart(pt);
+  let bk = -6 * c - 2 * s * b;
+  if (Math.abs(bk) < 1.5) bk = bk < 0 ? -1.5 : 1.5;
+  drawNinjaTorso(bodyY, facing, spd, wave, bk);
+  if (b > 0.05 && Math.abs(s) > 0.05) { // side-on: the body turns away from the light a little
+    ctx.fillStyle = 'rgba(10,15,45,' + (0.12 * Math.abs(s) * b).toFixed(3) + ')';
+    ctx.beginPath(); ctx.ellipse(0, bodyY, 8.2, 7.4, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  // visor follows his face around the head; gone when we see the back of the head
+  const vw = lerp(1, 0.45 + 0.55 * Math.max(0, c), b);
+  let visorX = lerp(2.2, 2.2 * c + 7.5 * s, b);
+  const lim = hr - 7.2 * vw - 1;
+  visorX = Math.max(-lim, Math.min(lim, visorX));
+  const va = lerp(1, smoothstep(-0.25, 0.15, c), b);
+  drawNinjaHead(headY, hr, facing, (b < 0.5 || kd > -0.35) ? knotX : null, knotY, visorX, vw, va);
+  for (const pt of parts) if (pt.d >= 0) drawPart(pt);
+  ctx.restore();
+}
+
+// --- Shared sprite parts (normal pose and hero pose) ---
+function drawNinjaTails(knotX, knotY, tailLen, tailDy, wave) {
   ctx.fillStyle = skin.band;
   ctx.strokeStyle = 'rgba(255,255,255,0.45)'; // light rim so tails read on night/space
   ctx.lineWidth = 1;
@@ -225,21 +415,10 @@ function drawNinjaSprite(x, y) {
   ctx.stroke();
   ctx.fill();
 
-  // Legs (side-view squat): thighs rotate FORWARD (+x = facing, mirrored by the
-  // facing scale), shins angle back down to feet kept together. Back leg is drawn
-  // behind the body; once crouching (or kicking a wall in front), the front leg is
-  // drawn in front of the body so the forward knee reads clearly.
-  const legTop = hipY;
-  const kneeFwd = c * 9.5;
-  const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5;
-  const ankleBack = c * 1.5;
-  const kickFront = !!kick && kick.side * facing > 0;
-  const backG = legGeom(-2.2, legTop, kneeFwd * 0.85, kneeY + 0.6, ankleBack, footY, 0.2, kick, !!kick && !kickFront, rot, facing);
-  const frontG = legGeom(2.2, legTop, kneeFwd, kneeY, ankleBack, footY, 1.0, kick, kickFront, rot, facing);
-  drawLeg(backG, 4.4, skin.limbBack, skin.footBack, 3.3, 2.5);
-  const frontInFront = c > 0.12 || (kickFront && kick.w > 0.05);
-  if (!frontInFront) drawLeg(frontG, 4.6, skin.limb, skin.foot, 3.4, 2.5);
-
+}
+// Body + belt; bk = x of the belt knot (back side), its tails trail away from the body centre
+function drawNinjaTorso(bodyY, facing, spd, wave, bk) {
+  const bd = bk < 0 ? 1 : -1;
   // Body: radial shading lit from the top-left (world), rim light on the shadow side
   ctx.save();
   ctx.scale(facing, 1); // back to world orientation for lighting (shape is symmetric)
@@ -276,43 +455,22 @@ function drawNinjaSprite(x, y) {
   ctx.restore();
   ctx.fillStyle = skin.band;
   ctx.beginPath();
-  ctx.moveTo(-6, beltY);
-  ctx.lineTo(-9 - spd * 0.2, beltY + 3.5 + wave * 0.4);
-  ctx.lineTo(-7.5 - spd * 0.2, beltY + 4.8 + wave * 0.4);
+  ctx.moveTo(bk, beltY);
+  ctx.lineTo(bk - 3 * bd - spd * 0.2 * bd, beltY + 3.5 + wave * 0.4);
+  ctx.lineTo(bk - 1.5 * bd - spd * 0.2 * bd, beltY + 4.8 + wave * 0.4);
   ctx.closePath();
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(-6.3, beltY, 1.7, 0, Math.PI * 2);
+  ctx.arc(bk - 0.3 * bd, beltY, 1.7, 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.3)';
   ctx.beginPath();
-  ctx.arc(-6.8, beltY - 0.6, 0.6, 0, Math.PI * 2);
+  ctx.arc(bk - 0.8 * bd, beltY - 0.6, 0.6, 0, Math.PI * 2);
   ctx.fill();
 
-  if (frontInFront) drawLeg(frontG, 4.6, skin.limb, skin.foot, 3.4, 2.5);
-
-  // Arms: rotate outward symmetrically with crouch, 0..60° (hard clamp); open a bit for balance on a wall kick
-  let armA = Math.max(c * NINJA_MAX_ARM, p.relax * (Math.PI / 12), kick ? kick.w * 0.55 : 0);
-  if (armA > NINJA_MAX_ARM) armA = NINJA_MAX_ARM;
-  const shY = bodyY - 3.5, shX = 6.2, armLen = 8.5;
-  const sa = Math.sin(armA), ca = Math.cos(armA);
-  const rhx = shX + sa * armLen, rhy = shY + ca * armLen;
-  ninjaLimb(-shX, shY, (-shX - rhx) * 0.5, (shY + rhy) * 0.5, -rhx, rhy, 4.2);
-  ninjaLimb(shX, shY, (shX + rhx) * 0.5, (shY + rhy) * 0.5, rhx, rhy, 4.2);
-  for (let i = -1; i <= 1; i += 2) {
-    const hx = rhx * i;
-    ctx.fillStyle = skin.hand;
-    ctx.strokeStyle = skin.out;
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.arc(hx, rhy, 3.1, 0, Math.PI * 2);
-    ctx.fill(); ctx.stroke();
-    ctx.fillStyle = skin.spec;
-    ctx.beginPath();
-    ctx.arc(hx + ninjaLightX * 0.9, rhy - 0.9, 1.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
+}
+// Head, headband, knot and visor. visorX = visor centre, vw = visor width factor, va = visor alpha
+function drawNinjaHead(headY, hr, facing, knotX, knotY, visorX, vw, va) {
   // Soft occlusion where the head sits on the body
   ctx.fillStyle = skin.occl;
   ctx.beginPath();
@@ -371,7 +529,8 @@ function drawNinjaSprite(x, y) {
   ctx.quadraticCurveTo(0, headY - 8.8, hr, headY - 5.8);
   ctx.stroke();
   ctx.restore();
-  // knot
+  // knot (null = hidden behind the head)
+  if (knotX !== null) {
   ctx.fillStyle = skin.band;
   ctx.beginPath();
   ctx.arc(knotX + 0.3, knotY, 2.3, 0, Math.PI * 2);
@@ -380,29 +539,32 @@ function drawNinjaSprite(x, y) {
   ctx.beginPath();
   ctx.arc(knotX - 0.3, knotY - 0.8, 0.8, 0, Math.PI * 2);
   ctx.fill();
+  }
 
   // Face visor (glossy dark rounded slot) with eyes, shifted toward facing side
-  const vxc = 2.2, vyc = headY + 2.2;
+  const vxc = visorX, vyc = headY + 2.2;
+  if (va <= 0.01) return;
+  if (va < 1) { ctx.save(); ctx.globalAlpha *= va; }
   const vg = ctx.createLinearGradient(0, vyc - 3.6, 0, vyc + 3.8);
   vg.addColorStop(0, skin.visor[0]);
   vg.addColorStop(1, skin.visor[1]);
   ctx.fillStyle = vg;
-  roundRect(vxc - 7.2, vyc - 3.6, 14.4, 7.4, 3.7);
+  roundRect(vxc - 7.2 * vw, vyc - 3.6, 14.4 * vw, 7.4, Math.min(3.7, 7.2 * vw));
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.22)';
   ctx.lineWidth = 0.9;
   ctx.beginPath();
-  ctx.moveTo(vxc - 5, vyc - 2.5);
-  ctx.lineTo(vxc + 4.6, vyc - 2.5);
+  ctx.moveTo(vxc - 5 * vw, vyc - 2.5);
+  ctx.lineTo(vxc + 4.6 * vw, vyc - 2.5);
   ctx.stroke();
   ctx.fillStyle = skin.eye;
   const blink = (frame % 220) < 6 ? 0.25 : 1;
   ctx.beginPath();
-  ctx.ellipse(vxc - 3, vyc, 1.5, 2.3 * blink, 0, 0, Math.PI * 2);
-  ctx.ellipse(vxc + 3.2, vyc, 1.5, 2.3 * blink, 0, 0, Math.PI * 2);
+  ctx.ellipse(vxc - 3 * vw, vyc, 1.5 * Math.min(1, 0.4 + vw * 0.6), 2.3 * blink, 0, 0, Math.PI * 2);
+  ctx.ellipse(vxc + 3.2 * vw, vyc, 1.5 * Math.min(1, 0.4 + vw * 0.6), 2.3 * blink, 0, 0, Math.PI * 2);
   ctx.fill();
+  if (va < 1) ctx.restore();
 
-  ctx.restore();
 }
 
 function roundRect(x, y, w, h, r) {

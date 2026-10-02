@@ -149,7 +149,7 @@ function resetGame() {
     vy: 0,
     facing: 1,
     spinning: 0,
-    superSpin: false, spinAngle: 0, spinRate0: 0, spinV0: 1,
+    superSpin: false, spinAngle: 0, spinRate0: 0, spinV0: 1, spinPow: 1,
     dead: false, deathSpin: 0,
     floatT: 0, ghost: 0, still: 0, stillX: W / 2, stillY: groundY - NINJA_R, embedded: 0,
     bonks: 0, bonkedSinceLaunch: false, bonkT: 0,
@@ -175,6 +175,7 @@ function resetGame() {
   rings = [];
   floaters = [];
   ninjaPose.wallKick = 0;
+  ninjaPose.hero = 0;
   updateStreakHud();
   seedScenery();
   spawnAhead();

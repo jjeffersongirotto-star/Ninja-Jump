@@ -70,7 +70,7 @@ function update(dt) {
     if (onBand) {
       ninja.superSpin = false; ninja.spinAngle = 0;
     } else if (ninja.vy < 0) {
-      ninja.spinAngle += ninja.spinRate0 * Math.min(1, -ninja.vy / ninja.spinV0);
+      ninja.spinAngle += ninja.spinRate0 * Math.pow(Math.min(1, -ninja.vy / ninja.spinV0), ninja.spinPow || 1);
       if (ninja.vy < -3 && frame % 3 === 0 && particles.length < 220) {
         particles.push({
           x: ninja.x + (Math.random() - 0.5) * 14, y: ninja.y + 10 + Math.random() * 8,
@@ -195,9 +195,13 @@ function update(dt) {
           const g = GRAVITY_BASE * diff.gravityScale;
           const v0 = Math.max(1, -ninja.vy);
           const T = v0 / g;
+          // rate = rate0 * (speed / launch speed)^pow -> total angle = rate0 * T / (pow + 1).
+          // Pick a whole number of turns, then the slow-down curve so the launch rate stays at the nominal one.
           const nominal = SUPER_SPIN_TURNS_PER_SEC * Math.PI * 2 / 60;
-          const turns = Math.max(1, Math.round(nominal * T / 2 / (Math.PI * 2)));
-          ninja.spinRate0 = turns * Math.PI * 2 * 2 / T;
+          const turns = Math.max(1, Math.round(nominal * T / (Math.PI * 2) / 1.5));
+          const pow = Math.max(0.3, Math.min(3, nominal * T / (Math.PI * 2 * turns) - 1));
+          ninja.spinPow = pow;
+          ninja.spinRate0 = turns * Math.PI * 2 * (pow + 1) / T;
           ninja.spinV0 = v0;
           superBurst(ninja.x, ninja.y);
         } else {
