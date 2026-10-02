@@ -1,4 +1,5 @@
 // --- Hazard generator (pure: depends only on its rng, the meters and the screen width) ---
+// Rows of hazards are built here; world/rooms.js assembles them into hand-built rooms.
 const HZ_INTROS = [ // first row of each stage is its "introduction"
   ['platformLeft', 'platSingle', { side: 'left' }],
   ['platformAnySide', 'platSingle', { side: 'right' }],
@@ -7,6 +8,7 @@ const HZ_INTROS = [ // first row of each stage is its "introduction"
   ['flyersRed', 'flyers', { color: 'red', count: 1 }],
   ['spikes', 'spikes', { variant: 'mine', count: 1 }],
   ['movingFlyers', 'flyers', { color: 'blue', count: 1, moving: true }],
+  ['divingBats', 'flyers', { color: 'red', count: 1, diver: true }],
   ['aliens', 'ufo', { color: 'blue' }],
   ['saws', 'saw', null]
 ];
@@ -31,9 +33,23 @@ function mkPlatform(x, w, attach, slide) {
   return { type: 'platform', kind: 'platform', shape: 'rect', x: x, yOff: 0, w: w, h: th, vw: w / 2, vh: th / 2,
     attach: attach, range: slide ? slide.range : 0, speed: slide ? slide.speed : 0 };
 }
+// behave: 'hover' (bobs in place), 'slide' (side to side), 'wave' (blue bird: side to side in a sine wave),
+// 'dive' (red bat that swoops at the ninja, see HAZARDS.enemies.batDive), 'teleport' (UFO).
 function mkFlyer(x, color, move, yOff) {
-  return { type: 'flyer', kind: color === 'red' ? 'redFlyer' : 'blueFlyer', color: color, shape: 'circle', x: x, yOff: yOff || 0,
-    r: color === 'red' ? 11 : 13, vw: 24, vh: 17, bobAmp: 5, range: move ? move.range : 0, speed: move ? move.speed : 0 };
+  const red = color === 'red';
+  const wave = !red && !!move;
+  return { type: 'flyer', kind: red ? 'redFlyer' : 'blueFlyer', color: color, shape: 'circle', x: x, yOff: yOff || 0,
+    r: red ? 11 : 13, vw: 24, vh: 17, bobAmp: wave ? HAZARDS.enemies.birdWave.amp : 5,
+    range: move ? move.range : 0, speed: move ? move.speed : 0, behave: move ? (wave ? 'wave' : 'slide') : 'hover' };
+}
+// A red bat that dives: its whole dive box counts for the gap rule (see itemExtent)
+function mkDiver(x, yOff) {
+  const D = HAZARDS.enemies.batDive;
+  const f = mkFlyer(x, 'red', null, yOff);
+  f.behave = 'dive';
+  f.diveX = D.maxDx;
+  f.diveY = D.maxDy;
+  return f;
 }
 function mkSpikeMine(x, yOff) {
   return { type: 'spikeMine', kind: 'spikes', shape: 'circle', x: x, yOff: yOff || 0, r: 12, vw: 18, vh: 18, bobAmp: 0 };
@@ -47,13 +63,37 @@ function mkSaw(x, move) {
 }
 function mkUfo(x, color, A, B, speed) {
   return { type: 'ufo', kind: color === 'red' ? 'redUfo' : 'blueUfo', color: color, shape: 'ellipse', x: x, yOff: 0,
-    rx: color === 'red' ? 19 : 21, ry: 11, vw: 27, vh: 19, bobAmp: B, range: A, speed: speed };
+    rx: color === 'red' ? 19 : 21, ry: 11, vw: 27, vh: 19, bobAmp: B, range: A, speed: speed, behave: 'teleport' };
 }
 
-function itemExtent(it) {
-  const hw = it.vw + (it.range || 0);
+// Full area an item can ever occupy (moving sweep, bob/wave, teleport area, dive box)
+function itemExtent(it, baseY) {
+  const hw = it.vw + (it.range || 0) + (it.diveX || 0);
   const hh = it.vh + (it.bobAmp || 0);
-  return { x0: it.x - hw, x1: it.x + hw, y0: it.yOff - hh, y1: it.yOff + hh };
+  const y = (baseY || 0) + it.yOff;
+  return { x0: it.x - hw, x1: it.x + hw, y0: y - hh, y1: y + hh + (it.diveY || 0) };
+}
+// The hard rule, checked at EVERY height (not only per row): `list` = [{ item, y }] with y = the row's
+// world-relative y in px (down = +). For every horizontal slice, the items whose full area covers it
+// must leave a free gap of at least gapMinPx(). Returns the worst slice found.
+function sliceCheck(list, width, step) {
+  const ex = list.map(function (e) { return itemExtent(e.item, e.y); });
+  if (!ex.length) return { ok: true, worst: width, at: 0 };
+  let y0 = 1e9, y1 = -1e9;
+  for (const e of ex) { if (e.y0 < y0) y0 = e.y0; if (e.y1 > y1) y1 = e.y1; }
+  const gmin = gapMinPx();
+  let worst = width, at = y0;
+  for (let y = y0; y <= y1; y += step || 2) {
+    const iv = [];
+    for (const e of ex) if (e.y0 <= y && e.y1 >= y) iv.push(e);
+    if (!iv.length) continue;
+    iv.sort(function (p, q) { return p.x0 - q.x0; });
+    let cur = 0, best = 0;
+    for (const e of iv) { if (e.x0 - cur > best) best = e.x0 - cur; cur = Math.max(cur, e.x1); }
+    if (width - cur > best) best = width - cur;
+    if (best < worst) { worst = best; at = y; }
+  }
+  return { ok: worst >= gmin, worst: worst, at: at };
 }
 function freeGaps(items, width) {
   const iv = items.map(itemExtent).sort(function (p, q) { return p.x0 - q.x0; });
@@ -82,12 +122,17 @@ function flyerMove(rng, m, force) {
   if (!force && rng() > pairLerp(HAZARDS.movingShare, t)) return null;
   return { range: pairLerp(HAZARDS.moveRange, t) * rr(rng, 0.65, 1), speed: pairLerp(HAZARDS.moveSpeed, t) * rr(rng, 0.8, 1.05) };
 }
+function maybeDiver(rng, m) {
+  if (m < HAZARDS.stages.divingBats) return false;
+  return rng() < pairLerp(HAZARDS.enemies.batDive.chance, smoothstep(HAZARDS.stages.divingBats, HAZARDS.stages.maxDifficulty, m));
+}
 function pickColor(rng, m, t) {
   return m >= HAZARDS.stages.flyersRed && rng() < pairLerp(HAZARDS.redShare, t) ? 'red' : 'blue';
 }
 
 function makeRowItems(type, rng, m, width, opt) {
   const S = HAZARDS.stages, t = hzT(m), gmin = gapMinPx();
+  opt = opt || {};
   const items = [];
   if (type === 'platSingle') {
     const side = opt.side || (m < S.platformAnySide ? 'left' : (rng() < 0.5 ? 'left' : 'right'));
@@ -109,8 +154,10 @@ function makeRowItems(type, rng, m, width, opt) {
   } else if (type === 'flyers') {
     const count = opt.count || (m >= S.flyersRed + 120 && rng() < pairLerp(HAZARDS.twoFlyerChance, t) ? 2 : 1);
     for (let i = 0; i < count; i++) {
-      const f = mkFlyer(0, opt.color || pickColor(rng, m, t), flyerMove(rng, m, opt.moving), count > 1 ? rr(rng, -12, 12) : 0);
-      f.x = placeX(rng, f.vw + f.range, width);
+      const color = opt.color || pickColor(rng, m, t);
+      const f = color === 'red' && count === 1 && (opt.diver || maybeDiver(rng, m)) ? mkDiver(0, 0)
+        : mkFlyer(0, color, flyerMove(rng, m, opt.moving), count > 1 ? rr(rng, -12, 12) : 0);
+      f.x = placeX(rng, f.vw + f.range + (f.diveX || 0), width);
       items.push(f);
     }
   } else if (type === 'spikes') {
@@ -195,33 +242,4 @@ function gapCoins(rng, items, width, stepPx) {
   }
   return out;
 }
-
-function createSpawner(rng) { return { rng: rng, m: 25, clusterLeft: 0, rows: 0, intro: {} }; }
-// Next row at sp.m (meters); returns { m, kind, items, coins } and advances sp.m.
-function spawnerNext(sp, width) {
-  const rng = sp.rng, m = sp.m, t = hzT(m);
-  const row = { m: m, kind: 'calm', items: [], coins: [] };
-  if (m < HAZARDS.calmUntil) {
-    if (rng() < 0.7) row.coins = coinCluster(rng, width);
-    sp.m += rr(rng, 16, 26);
-    return row;
-  }
-  if (sp.clusterLeft <= 0) {
-    sp.clusterLeft = Math.floor(rr(rng, HAZARDS.clusterRows[0], HAZARDS.clusterRows[1] + 0.999));
-    if (sp.rows > 0) {
-      row.kind = 'breather';
-      if (rng() < 0.8) row.coins = coinCluster(rng, width);
-      sp.m += pairLerp(HAZARDS.breather, t);
-      return row;
-    }
-  }
-  const pick = chooseRow(sp, m);
-  row.kind = pick.type;
-  row.items = buildRow(pick.type, rng, m, width, pick.opt);
-  sp.clusterLeft--;
-  sp.rows++;
-  const step = pairLerp(HAZARDS.rowSpacing, t) * rr(rng, 0.92, 1.2);
-  if (rng() < HAZARDS.coinChance) row.coins = gapCoins(rng, row.items, width, step / METERS_PER_PX);
-  sp.m += step;
-  return row;
-}
+// The spawner (rooms, breathers, power-ups) lives in world/rooms.js

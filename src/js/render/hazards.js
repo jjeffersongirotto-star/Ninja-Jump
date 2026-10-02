@@ -14,8 +14,91 @@ function drawHazard(hz) {
     ctx.scale(sc, sc * (0.45 + 0.55 * k));
     ctx.translate(-hz.x, -sy);
   }
-  drawHazardBody(hz, sy);
+  const dv = hz.dv, tp = hz.tp;
+  const diveWarn = dv && dv.st === 'warn' && !hz.dying, tpWarn = tp && tp.st === 'warn' && !hz.dying;
+  if (diveWarn) drawDiveTelegraph(hz, sy);
+  if (tpWarn) drawTeleportGhost(hz);
+  if (dv && dv.st === 'dive') drawDiveTrail(hz, sy);
+  if (diveWarn || tpWarn) { // telegraph: shake (dive) / flicker (teleport)
+    ctx.save();
+    if (diveWarn) ctx.translate(Math.sin(frame * 2.1) * 2.2, Math.cos(frame * 1.7) * 1.2);
+    else ctx.globalAlpha = (tp.t >> 2) % 2 === 0 ? 0.45 : 1;
+    drawHazardBody(hz, sy);
+    ctx.restore();
+  } else drawHazardBody(hz, sy);
+  if (diveWarn) drawAlertMark(hz.x, sy - 30, dv.t);
+  else if (tpWarn) drawAlertMark(hz.x, sy - 28, tp.t);
   if (hz.dying > 0) ctx.restore();
+}
+
+// --- Enemy telegraphs (~0.5 s before any sudden move) ---
+function drawAlertMark(x, y, t) {
+  const pop = Math.min(1, t / 6), s = 0.7 + 0.3 * pop + Math.sin(t * 0.6) * 0.06;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.fillStyle = '#ffe14a';
+  ctx.strokeStyle = '#3a0a10';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#c4121f';
+  ctx.font = 'bold 15px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('!', 0, 1);
+  ctx.restore();
+}
+function drawDiveTelegraph(hz, sy) {
+  const d = hz.dv, k = d.t / HAZARDS.enemies.batDive.warn;
+  const tx = hz.ox + d.tx, ty = sy + d.ty;
+  ctx.save();
+  ctx.fillStyle = 'rgba(255,40,50,' + (0.18 + 0.22 * Math.abs(Math.sin(d.t * 0.45))).toFixed(3) + ')';
+  ctx.beginPath(); ctx.arc(hz.x, sy, 30 + 6 * k, 0, Math.PI * 2); ctx.fill(); // pulsing glow
+  ctx.strokeStyle = 'rgba(255,70,70,' + (0.35 + 0.4 * k).toFixed(3) + ')';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([6, 6]);
+  ctx.lineDashOffset = -frame * 0.8;
+  ctx.beginPath(); ctx.moveTo(hz.x, sy); ctx.lineTo(tx, ty); ctx.stroke(); // faint dive path
+  ctx.setLineDash([]);
+  const r = 14 - 5 * k;                          // crosshair tightening on the target spot
+  ctx.beginPath(); ctx.arc(tx, ty, r, 0, Math.PI * 2);
+  ctx.moveTo(tx - r - 4, ty); ctx.lineTo(tx - r + 3, ty);
+  ctx.moveTo(tx + r - 3, ty); ctx.lineTo(tx + r + 4, ty);
+  ctx.stroke();
+  ctx.restore();
+}
+function drawDiveTrail(hz, sy) {
+  const d = hz.dv;
+  ctx.save();
+  for (let i = 1; i <= 3; i++) {
+    const k = Math.max(0, d.t - i * 2) / HAZARDS.enemies.batDive.dive, kk = k * k;
+    ctx.globalAlpha = 0.22 - i * 0.05;
+    ctx.fillStyle = '#ff3b4a';
+    ctx.beginPath();
+    ctx.arc(hz.ox + d.tx * kk, sy - d.dy + d.ty * kk, 14, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+function drawTeleportGhost(hz) {
+  const p = hz.tp, k = p.t / HAZARDS.enemies.ufoTeleport.warn;
+  const gx = hz.ox + p.nx, gy = hz.oy + p.ny - camera.y;
+  const red = hz.color === 'red';
+  ctx.save();
+  ctx.strokeStyle = red ? 'rgba(255,110,110,0.9)' : 'rgba(150,255,140,0.9)';
+  ctx.fillStyle = red ? 'rgba(255,80,80,' + (0.1 + 0.15 * k).toFixed(3) + ')' : 'rgba(140,255,130,' + (0.1 + 0.15 * k).toFixed(3) + ')';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 5]);
+  ctx.lineDashOffset = frame * 0.6;
+  ctx.beginPath(); ctx.ellipse(gx, gy, hz.rx + 4 - 4 * k, hz.ry + 4 - 3 * k, 0, 0, Math.PI * 2);
+  ctx.fill(); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.5;                         // sparkles converging on the spot
+  for (let i = 0; i < 4; i++) {
+    const a = i * Math.PI / 2 + frame * 0.08, rr = (1 - k) * 26 + 6;
+    ctx.beginPath(); ctx.arc(gx + Math.cos(a) * rr, gy + Math.sin(a) * rr * 0.6, 2.2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
 }
 function drawHazardBody(hz, sy) {
   if (hz.type === 'platform') drawPlatform(hz, sy);
@@ -125,7 +208,7 @@ function drawWing(red, flap, back) {
 function drawFlyer(hz, sy) {
   const red = hz.color === 'red';
   const flap = Math.sin(hz.t * (red ? 0.38 : 0.3) + hz.bobPhase);
-  const face = hz.range ? (Math.cos(hz.phase) >= 0 ? 1 : -1) : hz.face;
+  const face = hz.range ? (Math.cos(hz.phase) >= 0 ? 1 : -1) : (hz.dv && hz.dv.st !== 'idle' ? (hz.dv.tx >= 0 ? 1 : -1) : hz.face);
   ctx.save();
   ctx.translate(hz.x, sy);
   if (red) dangerHalo(26, hz.t);

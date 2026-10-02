@@ -145,13 +145,13 @@ function drawFloaters() {
     const a = Math.min(1, f.life / 20);
     ctx.globalAlpha = a;
     const y = f.y - cam;
-    if (coinSprite) {
+    if (coinSprite && !f.noCoin) {
       const s = 16;
       ctx.drawImage(coinSprite.cv, f.x + 4, y - s / 2, s, s);
     }
-    ctx.strokeStyle = 'rgba(60,40,0,0.7)';
+    ctx.strokeStyle = f.noCoin ? 'rgba(10,15,40,0.75)' : 'rgba(60,40,0,0.7)';
     ctx.strokeText(f.text, f.x - 8, y);
-    ctx.fillStyle = '#ffe066';
+    ctx.fillStyle = f.color || '#ffe066';
     ctx.fillText(f.text, f.x - 8, y);
   }
   ctx.restore();

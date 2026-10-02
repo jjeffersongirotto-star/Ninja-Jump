@@ -15,7 +15,9 @@ function update(dt) {
   const onBand = elastic && elastic.phase === 'stretching';
 
   // Skip free integration while pinned to the trampoline so we cannot fall through
-  if (!onBand) {
+  if (ninja.rocketT > 0 && !ninja.dead) {
+    rocketStep(); // power-up: automatic ascent, no gravity (see world/powerups.js)
+  } else if (!onBand) {
     let g = GRAVITY_BASE * diff.gravityScale;
     const BF = HAZARDS.bumpFloat;
     const floating = ninja.floatT > 0 && !ninja.dead;
@@ -117,7 +119,7 @@ function update(dt) {
     const { nx, ny } = elasticUpNormal(elastic);
     const angle = Math.atan2(elastic.y2 - elastic.y1, elastic.x2 - elastic.x1);
 
-    if (elastic.phase === 'ready' && !elastic.used && bounceCooldown <= 0) {
+    if (elastic.phase === 'ready' && !elastic.used && bounceCooldown <= 0 && !(ninja.rocketT > 0)) {
       const hit = pathHitsElastic(prevX, prevY, ninja.x, ninja.y, elastic, hitPad);
       const approaching = (ninja.vx * nx + ninja.vy * ny) < -0.25 || ninja.vy > 0.6;
       if (hit && approaching && insideAnyGhost()) {
@@ -225,8 +227,14 @@ function update(dt) {
   updateHazards();
   if (!ninja.dead) {
     if (ninja.ghost > 0) ninja.ghost--;
-    collideHazards(prevX, prevY, onBand);
-    antiStuck();
+    tickPowerTimers();
+    if (ninja.rocketT > 0) { // rocket: passes through every hazard
+      ninja.still = 0; ninja.embedded = 0; ninja.stillX = ninja.x; ninja.stillY = ninja.y;
+    } else {
+      collideHazards(prevX, prevY, onBand);
+      antiStuck();
+    }
+    pickupPowerups();
   } else ninja.deathSpin += 0.22;
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i];
@@ -239,6 +247,7 @@ function update(dt) {
     if (c.collected) continue;
     c.sparkle += 0.15;
     if (c.y > camera.y + H + 80) { c.collected = true; continue; }
+    if (ninja.magnetT > 0 && !ninja.dead) magnetPull(c);
     if (!ninja.dead && Math.hypot(ninja.x - c.x, ninja.y - c.y) < NINJA_R + c.r + 4) {
       c.collected = true;
       runCoins++;

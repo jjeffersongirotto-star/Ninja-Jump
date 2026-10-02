@@ -33,11 +33,17 @@ function render() {
     if (groundY) drawGround();
     for (const hz of hazards) if (hz.alive) drawHazard(hz);
     for (const c of coins) drawCoin(c);
+    if (powerups.length) drawPowerups();
     drawParticles();
     if (floaters.length) drawFloaters();
     if (elastic) drawElastic(elastic, false);
     if (drawing) drawElastic(drawing, true);
-    if (ninja) drawNinja(ninja.x, ninja.y - camera.y);
+    if (ninja) {
+      drawNinjaFxBack(ninja.x, ninja.y - camera.y);
+      drawNinja(ninja.x, ninja.y - camera.y);
+      drawNinjaFxFront(ninja.x, ninja.y - camera.y);
+    }
+    if (state === 'playing') drawPowerHud();
   }
 
   ctx.restore();

@@ -152,7 +152,8 @@ function resetGame() {
     superSpin: false, spinAngle: 0, spinRate0: 0, spinV0: 1,
     dead: false, deathSpin: 0,
     floatT: 0, ghost: 0, still: 0, stillX: W / 2, stillY: groundY - NINJA_R, embedded: 0,
-    bonks: 0, bonkedSinceLaunch: false, bonkT: 0
+    bonks: 0, bonkedSinceLaunch: false, bonkT: 0,
+    magnetT: 0, shield: false, shieldPop: 0, invulnT: 0, rocketT: 0, rocketExt: 0  // power-ups
   };
   resetDebugStats();
   camera = { y: 0 };
@@ -160,6 +161,7 @@ function resetGame() {
   drawing = null;
   hazards = [];
   coins = [];
+  powerups = [];
   particles = [];
   runCoins = 0;
   bestHeight = 0;

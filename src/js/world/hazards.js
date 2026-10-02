@@ -6,7 +6,7 @@ function makeHazard(it, wy) {
   hz.oy = wy + (it.yOff || 0);
   hz.x = hz.ox; hz.y = hz.oy;
   hz.t = 0;
-  hz.phase = Math.random() * Math.PI * 2;
+  hz.phase = it.phase0 != null ? it.phase0 : Math.random() * Math.PI * 2;
   hz.bobPhase = Math.random() * Math.PI * 2;
   hz.face = Math.random() < 0.5 ? -1 : 1;
   hz.angle = 0;
@@ -17,7 +17,17 @@ function makeHazard(it, wy) {
   hz.cool = 0;
   hz.hit = 0;
   hz.lastTouch = -99;
-  if (hz.range) hz.x = hz.ox + Math.sin(hz.phase) * hz.range;
+  hz.behave = it.behave || (it.range ? 'slide' : 'static');
+  if (hz.behave === 'dive') {
+    hz.dv = { st: 'idle', t: 0, tx: 0, ty: 0, dx: 0, dy: 0, cool: 30 + Math.floor(Math.random() * 60) };
+  } else if (hz.behave === 'teleport') {
+    // UFO: lives inside its area (ox +- range, oy +- bobAmp) and hops between spots in it
+    const T = HAZARDS.enemies.ufoTeleport;
+    hz.tp = { st: 'wait', t: Math.floor(T.every[0] * (0.4 + Math.random() * 0.6)), ax: (Math.random() * 2 - 1) * hz.range * 0.8,
+      ay: 0, nx: 0, ny: 0 };
+  }
+  if (hz.range && hz.behave !== 'teleport') hz.x = hz.ox + Math.sin(hz.phase) * hz.range;
+  if (hz.tp) hz.x = hz.ox + hz.tp.ax;
   return hz;
 }
 function materializeRow(row) {
@@ -26,6 +36,15 @@ function materializeRow(row) {
   for (const c of row.coins) {
     coins.push({ x: c.x, y: wy + c.yOff, r: 10, collected: false, sparkle: Math.random() * Math.PI * 2 });
   }
+  if (row.power) {
+    powerups.push({ type: row.power.type, x: row.power.x, y: wy + row.power.yOff, r: POWERUPS.pickupRadius,
+      bob: Math.random() * Math.PI * 2, taken: false });
+  }
+}
+// Is a hazard fully on screen (sudden moves only start when the player can see them)?
+function hazardOnScreen(hz, margin) {
+  const sy = hz.y - camera.y;
+  return sy > margin && sy < H - margin - 40;
 }
 
 function updateHazards() {
@@ -46,16 +65,94 @@ function updateHazards() {
       if (Math.abs(hz.knockVX) < 0.05) hz.knockVX = 0;
       if (!hz.range) hz.x = hz.ox;
     }
-    if (hz.range) {
-      hz.phase += hz.speed / Math.max(10, hz.range);
-      hz.x = hz.ox + Math.sin(hz.phase) * hz.range;
+    if (hz.behave === 'teleport') updateTeleport(hz);
+    else {
+      if (hz.range) {
+        hz.phase += hz.speed / Math.max(10, hz.range);
+        hz.x = hz.ox + Math.sin(hz.phase) * hz.range;
+      }
+      if (hz.behave === 'wave') hz.y = hz.oy + Math.sin(hz.t * HAZARDS.enemies.birdWave.freq + hz.bobPhase) * hz.bobAmp;
+      else if (hz.bobAmp) hz.y = hz.oy + Math.sin(hz.t * 0.05 + hz.bobPhase) * hz.bobAmp;
+      if (hz.dv) updateDive(hz);
     }
-    if (hz.type === 'ufo') hz.y = hz.oy + Math.sin(hz.phase * 2) * (hz.bobAmp || 0);
-    else if (hz.bobAmp) hz.y = hz.oy + Math.sin(hz.t * 0.05 + hz.bobPhase) * hz.bobAmp;
     if (hz.spin) hz.angle += hz.spin;
     if (hz.cool > 0) hz.cool--;
     if (hz.hit > 0) { hz.hit *= 0.86; if (hz.hit < 0.02) hz.hit = 0; }
   }
+}
+
+// Red bat dive: idle -> warn (shake, "!", dashed line) -> dive -> hold -> back -> rest.
+// The target is where the ninja was when the warning started, clamped to the bat's dive box
+// (maxDx sideways, 0..maxDy down), which the generator counts for the gap rule.
+function updateDive(hz) {
+  const D = HAZARDS.enemies.batDive, d = hz.dv;
+  if (d.st === 'idle') {
+    if (d.cool > 0) d.cool--;
+    else if (ninja && !ninja.dead && !(ninja.rocketT > 0) && !hz.knockVX && hazardOnScreen(hz, 40)) {
+      const rx = ninja.x - hz.x, ry = ninja.y - hz.y;
+      if (Math.abs(rx) < D.triggerX && ry > D.triggerBelow[0] && ry < D.triggerBelow[1]) {
+        d.st = 'warn'; d.t = 0;
+        d.tx = Math.max(-D.maxDx, Math.min(D.maxDx, rx));
+        d.tx = Math.max(hz.vw - hz.ox, Math.min(W - hz.vw - hz.ox, d.tx)); // stays on screen
+        d.ty = Math.max(20, Math.min(D.maxDy, ry));
+        debugStats.dives++;
+        beep(880, 0.06, 'square', 0.04);
+      }
+    }
+  } else {
+    d.t++;
+    if (d.st === 'warn') { if (d.t >= D.warn) { d.st = 'dive'; d.t = 0; beep(420, 0.12, 'sawtooth', 0.04); } }
+    else if (d.st === 'dive') {
+      const k = Math.min(1, d.t / D.dive);
+      d.dx = d.tx * k * k; d.dy = d.ty * k * k;
+      if (d.t >= D.dive) { d.st = 'hold'; d.t = 0; }
+    } else if (d.st === 'hold') { if (d.t >= D.hold) { d.st = 'back'; d.t = 0; } }
+    else if (d.st === 'back') {
+      const k = Math.min(1, d.t / D.back), e = 1 - k * k * (3 - 2 * k);
+      d.dx = d.tx * e; d.dy = d.ty * e;
+      if (d.t >= D.back) { d.st = 'idle'; d.t = 0; d.dx = 0; d.dy = 0; d.cool = D.cool; }
+    }
+  }
+  hz.x = hz.ox + d.dx; // divers never slide, so their base x is ox
+  hz.y += d.dy;        // on top of the hover bob set just before
+}
+// UFO teleport: wait -> warn (ghost outline at the destination) -> blink to it. Never onto the ninja.
+function updateTeleport(hz) {
+  const T = HAZARDS.enemies.ufoTeleport, p = hz.tp;
+  const hover = Math.sin(hz.t * 0.05 + hz.bobPhase) * 3;
+  const ayMax = Math.max(0, (hz.bobAmp || 0) - 3);
+  if (p.st === 'wait') {
+    if (--p.t <= 0) {
+      p.t = 20;
+      if (ninja && !ninja.dead && !hz.knockVX && hazardOnScreen(hz, 30)) {
+        for (let k = 0; k < 6; k++) {
+          const nx = (Math.random() * 2 - 1) * hz.range, ny = (Math.random() * 2 - 1) * ayMax;
+          if (Math.abs(nx - p.ax) < Math.min(40, hz.range)) continue;
+          if (Math.hypot(hz.ox + nx - ninja.x, hz.oy + ny - ninja.y) < hz.rx + NINJA_R + 40) continue;
+          p.nx = nx; p.ny = ny; p.st = 'warn'; p.t = 0;
+          beep(1200, 0.05, 'sine', 0.035);
+          break;
+        }
+      }
+    }
+  } else if (p.st === 'warn') {
+    if (++p.t >= T.warn) {
+      const dx = hz.ox + p.nx, dy = hz.oy + p.ny;
+      if (ninja && Math.hypot(dx - ninja.x, dy - ninja.y) < hz.rx + NINJA_R + 6) {
+        p.st = 'wait'; p.t = 40; // he is standing right there: cancel, try again later
+      } else {
+        burst(hz.x, hz.y, hz.color === 'red' ? '#ff9a9a' : '#b8ff9e', 10, 2.6);
+        p.ax = p.nx; p.ay = p.ny;
+        p.st = 'wait'; p.t = Math.floor(T.every[0] + Math.random() * (T.every[1] - T.every[0]));
+        rings.push({ x: dx, y: dy, r: 8, life: 0.5, color: hz.color === 'red' ? '#ffb0b0' : '#c8ffb0' });
+        debugStats.teleports++;
+        beep(1500, 0.05, 'triangle', 0.04);
+        beep(700, 0.07, 'sine', 0.03);
+      }
+    }
+  }
+  hz.x = hz.ox + p.ax;
+  hz.y = hz.oy + p.ay + hover;
 }
 
 function hazardContact(hz, px, py) {
@@ -90,6 +187,7 @@ function collideHazards(x0, y0, onBand) {
     const t = i / steps, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
     for (const hz of hzNear) {
       if (hz.cool > 0 || hz.ghost) continue;
+      if (hz.fatal && ninja.invulnT > 0) continue; // just lost the shield: a moment to get away
       if (!hz.fatal && ninja.ghost > 0) continue;
       if (!hazardContact(hz, px, py)) continue;
       if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
@@ -356,6 +454,7 @@ function snapElastic(e) {
 }
 
 function hitFatal(hz) {
+  if (!(HAZARDS.shieldOnSuperJump && superActive()) && ninja.shield) { breakShield(hz); return; }
   if (HAZARDS.shieldOnSuperJump && superActive()) {
     // super-jump ascent: smash through instead of dying (the player couldn't see it coming)
     hz.alive = false;
@@ -393,6 +492,7 @@ function spawnAhead() {
   const cullY = camera.y + H + 150;
   hazards = hazards.filter(h => h.alive && h.oy - h.vh - (h.bobAmp || 0) < cullY);
   coins = coins.filter(c => !c.collected && c.y < cullY);
+  if (powerups.length) powerups = powerups.filter(p => !p.taken && p.y < cullY);
   if (!spawner) return;
   const aheadM = Math.max(worldToMeters(ninja.y), worldToMeters(camera.y)) + 200;
   let guard = 0;

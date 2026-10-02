@@ -26,12 +26,15 @@ const GAME_FILES = [
   'config/atmosphere.js',       // scenery bands by height + physics difficulty curve
   'config/physics.js',          // gravity, elastic power, super jump, ground
   'config/hazards.js',          // hazards & difficulty progression (all tuning)
+  'config/powerups.js',         // power-ups: magnet, shield, rocket (all tuning)
   'core/state.js',              // game state variables, debug stats
   'core/storage.js',            // localStorage + records
   'world/setup.js',             // resize, scenery seeds, new run, meters <-> world
-  'world/hazard-generator.js',  // hazard/coin row generator
+  'world/hazard-generator.js',  // hazard/coin row generator + gap validator
+  'world/rooms.js',             // hand-built obstacle rooms + the room spawner
   'world/hazards.js',           // hazards in the world: collisions, bumps, stomps, ghost platforms
   'world/elastic.js',           // drawing the elastic, particle bursts
+  'world/powerups.js',          // power-ups in the world: pickup and effects
   'world/update.js',            // per-frame game logic
   'ui/hud.js',                  // HUD, game over, start of a run
   'ui/screens.js',              // menu screens, wallet & characters, options, pause
@@ -41,6 +44,7 @@ const GAME_FILES = [
   'render/ninja.js',            // ninja sprite and pose
   'render/hazards.js',          // hazard sprites
   'render/coins-effects.js',    // coins, ground, floaters, particles
+  'render/powerups.js',         // power-up items, shield bubble, rocket flame, HUD timers
   'render/frame.js',            // render() + fixed-timestep game loop
   'input/controls.js',          // control mode: touch / computer (mouse) / automatic, keyboard shortcuts
   'input/pointer.js',           // touch / pointer / mouse input
