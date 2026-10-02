@@ -1,7 +1,6 @@
 // --- Controls: "Dispositivos móveis" (touch) or "Computador" (mouse), chosen automatically or by hand ---
 // touch: press, drag and release to draw the elastic (finger or mouse).
-// mouse: the same drag works, and also click -> move the mouse -> click again (left button);
-//        right click or Esc cancels the line being drawn. Esc / P pause the game.
+// mouse: hold the left button and drag; release to finish. Right click cancels the line. Esc / P pause.
 // Automático: picks touch or mouse from the device, and follows the input actually being used.
 let controlsAuto = true;
 let controlMode = 'touch';
@@ -30,7 +29,7 @@ function setControlMode(mode) {
   try { if (mode === 'mouse') canvas.classList.add('mouse-mode'); else canvas.classList.remove('mouse-mode'); } catch (e) {}
   if (overlaySub) {
     overlaySub.textContent = mode === 'mouse'
-      ? 'Clique e arraste com o botão esquerdo (ou clique, mova e clique de novo) para criar um elástico. Quanto menor a linha, mais alto o salto!'
+      ? 'Clique e arraste com o botão esquerdo para criar um elástico. Solte para finalizar. Quanto menor a linha, mais alto o salto!'
       : 'Arraste o dedo para criar um elástico. Quanto menor a linha, mais alto o salto!';
   }
   if (changed && screen === 'controls') refreshControlsUi();
@@ -44,7 +43,7 @@ function noteInputType(pointerType) {
 
 const CONTROL_DESC = {
   touch: '<b>Touch:</b> arraste o dedo na tela para desenhar o elástico.',
-  mouse: '<b>Mouse:</b> clique com o botão esquerdo e arraste, ou clique, mova o mouse e clique de novo. <b>Esc</b> pausa.'
+  mouse: '<b>Mouse:</b> clique e arraste com o botão esquerdo; solte para finalizar. <b>Esc</b> pausa.'
 };
 function refreshControlsUi() {
   const auto = document.getElementById('ctlAuto');

@@ -41,7 +41,6 @@ function drawElastic(e, isDrawing) {
   const at = atmosCache || atmosphereAt(0);
   const x1 = e.x1, y1 = e.y1 - cam;
   const x2 = e.x2, y2 = e.y2 - cam;
-  const len = Math.hypot(x2 - x1, y2 - y1);
   const wob = (e.wobble || 0) * Math.sin(frame * 0.8) * 8;
   const col = at.elastic;
   const sag = e.sag || 0;
@@ -88,11 +87,5 @@ function drawElastic(e, isDrawing) {
     ctx.beginPath(); ctx.arc(px - 1, py - 1, 2, 0, Math.PI * 2); ctx.fill();
   }
 
-  if (isDrawing && len > 10) {
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = 'bold 12px system-ui, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(Math.round(elasticPower(len) * 100) + '%', (x1 + x2) / 2, (y1 + y2) / 2 - 14);
-  }
   ctx.restore();
 }
