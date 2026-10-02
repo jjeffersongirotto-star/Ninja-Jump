@@ -53,4 +53,5 @@ function bindMenus() {
 function bindResize() {
   window.addEventListener('resize', resize);
   window.addEventListener('orientationchange', function () { setTimeout(resize, 250); });
+  // fullscreenchange / visualViewport resize: see ui/fullscreen.js (scheduleResize)
 }

@@ -160,9 +160,21 @@ function bindInput() {
   }
 }
 
+// The page must never scroll: a drag that the browser treats as scrolling (on the menus, the HUD
+// or a button) brings the address bar back / starts pull-to-refresh and the game shrinks.
+// Only a menu that is really taller than the screen may scroll (inside the overlay).
+function overlayScrolls(target) {
+  if (state === 'playing' && !paused) return false;
+  if (!overlay || overlay.classList.contains('hidden') || !target || !overlay.contains(target)) return false;
+  return overlay.scrollHeight > overlay.clientHeight + 1;
+}
 function bindPageGuards() {
   document.addEventListener('gesturestart', e => e.preventDefault());
   document.addEventListener('touchmove', e => {
-    if (e.target === canvas || state === 'playing') e.preventDefault();
+    if (e.target === canvas || !overlayScrolls(e.target)) e.preventDefault();
   }, ACTIVE);
+  // something scrolled the page anyway (focus, old engines): put it back
+  window.addEventListener('scroll', function () {
+    if (window.scrollY || window.scrollX) { try { window.scrollTo(0, 0); } catch (e) {} }
+  }, false);
 }

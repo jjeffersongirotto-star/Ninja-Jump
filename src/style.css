@@ -2,6 +2,8 @@
 html, body {
   width: 100%; height: 100%;
   overflow: hidden;
+  /* The page itself never moves: no pull-to-refresh, no scroll that brings the address bar back */
+  overscroll-behavior: none;
   background: #0a0a12;
   touch-action: none;
   -webkit-touch-callout: none;
@@ -9,6 +11,7 @@ html, body {
   user-select: none;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
 }
+body { position: fixed; top: 0; left: 0; }
 #game {
   display: block;
   position: fixed;
@@ -126,6 +129,7 @@ html, body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
+  overscroll-behavior: contain; /* menus taller than the screen scroll, but never drag the page/browser */
   background: rgba(8, 8, 20, .72);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -275,6 +279,36 @@ html, body {
   display: flex; align-items: center; justify-content: center;
   background: rgba(10,12,35,.26); border: 1px solid rgba(255,255,255,.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.15); -webkit-tap-highlight-color: transparent;
+}
+.pause-btn, .fs-btn { position: relative; touch-action: none; }
+/* invisible 44px touch area around the 34px circle */
+.pause-btn::before, .fs-btn::before { content: ''; position: absolute; top: -6px; right: -6px; bottom: -6px; left: -6px; border-radius: 50%; }
+.fs-btn {
+  position: absolute; z-index: 30; pointer-events: auto; cursor: pointer;
+  top: 8px; top: calc(env(safe-area-inset-top, 12px) + 8px);
+  right: 16px; right: calc(env(safe-area-inset-right, 0px) + 16px);
+  width: 34px; height: 34px; border-radius: 50%; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(10,12,35,.26); border: 1px solid rgba(255,255,255,.16);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.15); -webkit-tap-highlight-color: transparent;
+}
+.fs-btn.hidden { display: none; }
+.fs-btn:active { transform: scale(.92); }
+.fs-btn svg {
+  display: block; width: 20px; height: 20px; overflow: visible;
+  fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,.45));
+}
+.fs-btn .fs-in { display: none; }
+.fs-btn.on .fs-out { display: none; }
+.fs-btn.on .fs-in { display: inline; }
+/* With the fullscreen button in the top-right corner, the pause button moves right below it
+   (same column) and the coins pill keeps its old place */
+html.fs-avail #hud { padding-right: 42px; }
+html.fs-avail .pause-btn {
+  position: absolute; margin-left: 0;
+  top: 52px; top: calc(env(safe-area-inset-top, 12px) + 52px);
+  right: 16px; right: calc(env(safe-area-inset-right, 0px) + 16px);
 }
 .pause-btn i { display: block; width: 4px; height: 13px; margin: 0 2px; border-radius: 2px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
 #countdown {

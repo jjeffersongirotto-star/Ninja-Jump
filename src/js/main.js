@@ -10,6 +10,7 @@ step('controls', bindControls);
 step('input', bindInput);
 step('page guards', bindPageGuards);
 step('resize listeners', bindResize);
+step('fullscreen', bindFullscreen);
 const sized = step('resize', resize);
 step('records', loadRecords);
 ninja = { x: W / 2, y: H * 0.38, vx: 0, vy: 0, facing: 1, spinning: 0 };

@@ -45,6 +45,7 @@ const GAME_FILES = [
   'input/controls.js',          // control mode: touch / computer (mouse) / automatic, keyboard shortcuts
   'input/pointer.js',           // touch / pointer / mouse input
   'ui/buttons.js',              // button and page bindings
+  'ui/fullscreen.js',           // fullscreen button (top-right) + keeping the game fullscreen
   'core/app.js',                // installable app (PWA): offline service worker + "Instalar app" button
   'main.js'                     // startup
 ];
