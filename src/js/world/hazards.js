@@ -186,12 +186,12 @@ function collideHazards(x0, y0, onBand) {
   for (let i = 1; i <= steps; i++) {
     const t = i / steps, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
     for (const hz of hzNear) {
-      if (hz.cool > 0 || hz.ghost) continue;
+      if (hz.cool > 0 || hz.ghost || hz.dying > 0) continue;
       if (hz.fatal && ninja.invulnT > 0) continue; // just lost the shield: a moment to get away
       if (!hz.fatal && ninja.ghost > 0) continue;
       if (!hazardContact(hz, px, py)) continue;
       if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
-        // super jump: platforms are intangible (like when falling); blue enemies are defeated (+1 coin),
+        // super jump: platforms are intangible (like when falling); blue enemies are defeated (+stomp.coins),
         // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
         if (hz.type === 'platform') ghostPlatform(hz);
         else if (hz.color === 'red') knockAside(hz);
@@ -201,6 +201,16 @@ function collideHazards(x0, y0, onBand) {
       if (!onBand && hz.type === 'platform' && ninja.vy >= 0 && ly + NINJA_R <= hz.y - hz.h / 2 + 2) {
         // falling onto a platform from above: it turns intangible and he drops straight through
         ghostPlatform(hz);
+        continue;
+      }
+      if (!onBand && isUpperHit(hz, py)) {
+        // blue enemy touched on its upper half: defeated (+coins). Coming down = stomp rebound, else fly on.
+        if (ninja.vy > HAZARDS.stomp.minDown) { stompHazard(hz, px, py); return; }
+        debugStats.upperHits++;
+        countHit(hz.kind + ':upper');
+        ninja.vx *= 0.85;
+        shake = Math.max(shake, 3);
+        defeatEnemy(hz);
         continue;
       }
       if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
@@ -240,6 +250,12 @@ function pushOut(hz, x, y) {
   return best || opts[1];
 }
 
+// Blue flyer/UFO touched anywhere from its vertical middle up (ninja centre at or above the enemy centre)
+function isUpperHit(hz, py) {
+  if (!HAZARDS.stomp.upperHalf || hz.color === 'red' || hz.fatal) return false;
+  if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
+  return py <= hz.y;
+}
 // Head stomp: coming down onto a flyer/UFO from above
 function isStomp(hz, px, py) {
   if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;

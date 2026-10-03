@@ -149,10 +149,14 @@ function drawFloaters() {
       const s = 16;
       ctx.drawImage(coinSprite.cv, f.x + 4, y - s / 2, s, s);
     }
+    // with the coin icon: text ends just left of the coin (so '+10' doesn't run into it)
+    const withCoin = !!(coinSprite && !f.noCoin);
+    ctx.textAlign = withCoin ? 'right' : 'center';
+    const tx = withCoin ? f.x + 2 : f.x - 8;
     ctx.strokeStyle = f.noCoin ? 'rgba(10,15,40,0.75)' : 'rgba(60,40,0,0.7)';
-    ctx.strokeText(f.text, f.x - 8, y);
+    ctx.strokeText(f.text, tx, y);
     ctx.fillStyle = f.color || '#ffe066';
-    ctx.fillText(f.text, f.x - 8, y);
+    ctx.fillText(f.text, tx, y);
   }
   ctx.restore();
 }
