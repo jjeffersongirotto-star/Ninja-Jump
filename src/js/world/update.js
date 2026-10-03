@@ -183,6 +183,7 @@ function update(dt) {
         if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
         ninja.bonkedSinceLaunch = false;
         debugStats.bounces++;
+        missionLaunch();
         debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak,
           speedIn: +(elastic.speedIn || 0).toFixed(2), fallMult: +fm.toFixed(3), sag: +elastic.maxSag.toFixed(1) };
         if (isSuper) {
@@ -251,6 +252,7 @@ function update(dt) {
     pickupPowerups();
     updateCombo();
     skinTrail(); // cosmetic particles of the chosen character
+    if (state === 'playing') missionTick(); // mission counters + unlocks (read-only)
   } else ninja.deathSpin += 0.22;
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i];

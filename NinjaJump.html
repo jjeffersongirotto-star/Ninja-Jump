@@ -231,11 +231,11 @@
     overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;
     border-radius: 14px; padding: 6px 0 2px;
   }
-  .chars-filter { display: flex; flex-wrap: nowrap; justify-content: center; margin: -8px 0 6px; max-width: 100%; overflow-x: auto; }
+  .chars-filter { display: flex; flex-wrap: wrap; justify-content: center; margin: -8px 0 6px; max-width: 100%; } /* 7 chips: one line on phones, wraps if narrower */
   .chip {
-    pointer-events: auto; font: inherit; font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,.75); cursor: pointer; flex: none;
+    pointer-events: auto; font: inherit; font-size: 10px; font-weight: 800; color: rgba(255,255,255,.75); cursor: pointer; flex: none;
     background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 999px;
-    padding: 5px 7px; margin: 2px; -webkit-tap-highlight-color: transparent;
+    padding: 5px 5px; margin: 2px 1px; -webkit-tap-highlight-color: transparent;
   }
   .chip.on { color: #1a1a2a; background: #ffd700; border-color: #ffd700; }
   .chars-count { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.6); margin-bottom: 4px; }
@@ -422,6 +422,26 @@
   .dlg-btns .btn { min-width: 112px; min-height: 48px; margin: 0 6px 16px; padding: 12px 18px; font-size: 16px; }
   .dlg-yes { background: linear-gradient(180deg, #34c46a, #1f8a47); box-shadow: 0 6px 0 #0f4a2a, 0 10px 24px rgba(30,140,80,.3); }
   .dlg-yes:active { box-shadow: 0 2px 0 #0f4a2a, 0 4px 12px rgba(30,140,80,.3); }
+
+  /* Mission characters: tag, requirement, progress bar (card + dialog), unlock notice */
+  .char .mtag { font-size: 9px; font-weight: 900; letter-spacing: .4px; color: #7dffb0; text-transform: uppercase; margin-top: 2px; }
+  .char .mreq { font-size: 9.5px; font-weight: 700; line-height: 1.2; color: rgba(255,255,255,.78); margin: 2px 0 4px; min-height: 23px; }
+  .mbar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.14); overflow: hidden; margin: 0 6px; }
+  .mbar i { display: block; height: 100%; min-width: 2px; border-radius: 3px; background: linear-gradient(90deg, #3ddc84, #b6ff6a); }
+  .char .mval { font-size: 10.5px; font-weight: 800; color: rgba(255,255,255,.75); margin-top: 3px; }
+  .dlg-prog { margin: -6px 10px 14px; }
+  .dlg-prog.hidden { display: none; }
+  .dlg-prog .mbar { height: 9px; border-radius: 5px; margin: 0; }
+  .dlg-prog-t { font-size: 13px; font-weight: 800; color: #b6ff6a; margin-top: 5px; }
+  .go-unlock { color: #ffd700; font-size: 15px; font-weight: 800; margin: -4px 0 14px; animation: pulse 1.2s ease infinite; }
+  .unlock-toast {
+    position: absolute; left: 7%; right: 7%; top: 96px; top: calc(env(safe-area-inset-top, 8px) + 88px);
+    transform: translateY(-12px); padding: 10px 14px; border-radius: 14px;
+    background: rgba(20,24,40,.9); border: 2px solid #ffd700; color: #fff; font-size: 15px; font-weight: 800;
+    text-align: center; box-shadow: 0 6px 20px rgba(0,0,0,.45); opacity: 0; pointer-events: none; z-index: 30;
+    transition: opacity .25s, transform .25s;
+  }
+  .unlock-toast.show { opacity: 1; transform: translateY(0); }
 </style>
 </head>
 <body>
@@ -438,6 +458,7 @@
     </div>
   </div>
   <div id="countdown"></div>
+  <div class="unlock-toast" id="unlockToast" aria-live="polite"></div>
   <div id="overlay">
     <div class="title">Ninja Jump</div>
     <div class="notice" id="nojsMsg">
@@ -460,6 +481,7 @@
         <div class="go-stats">Altura<div class="big" id="goMeters">0 m</div></div>
         <div class="go-stats" style="margin-bottom:20px">Moedas: <strong id="goCoins">0</strong></div>
         <div class="new-record" id="newRec" style="display:none">🎉 Novo recorde!</div>
+        <div class="go-unlock" id="goUnlock" style="display:none"></div>
       </div>
       <div class="wallet" id="walletBox">🪙 <span id="walletVal">0</span></div>
       <div class="menu-btns" id="menuBtns">
@@ -475,6 +497,7 @@
       <div class="chars-filter" id="charsFilter" role="tablist">
         <button class="chip on" data-f="all">Todos</button>
         <button class="chip" data-f="mine">Meus</button>
+        <button class="chip" data-f="mission">Missões</button>
         <button class="chip" data-f="0">Comum</button>
         <button class="chip" data-f="1">Raro</button>
         <button class="chip" data-f="2">Épico</button>
@@ -531,6 +554,7 @@
       <div class="dlg-text" id="dlgText"></div>
       <div class="dlg-desc" id="dlgDesc"></div>
       <div class="dlg-sub" id="dlgSub"></div>
+      <div class="dlg-prog hidden" id="dlgProg"><div class="mbar"><i></i></div><div class="dlg-prog-t"></div></div>
       <div class="dlg-btns" id="dlgBtns">
         <button class="btn btn-sec dlg-no" id="dlgNo">Não</button>
         <button class="btn dlg-yes" id="dlgYes">Sim</button>
@@ -2030,6 +2054,7 @@
     hz.cool = 0;
     hz.hit = 0;
     hz.lastTouch = -99;
+    hz.uid = ++hazardUid; // structure id for the missions (same structure hit again)
     hz.behave = it.behave || (it.range ? 'slide' : 'static');
     if (hz.behave === 'dive') {
       hz.dv = { st: 'idle', t: 0, tx: 0, ty: 0, dx: 0, dy: 0, cool: 30 + Math.floor(Math.random() * 60) };
@@ -2313,6 +2338,7 @@
     hz.dying = ST.poofFrames;
     hz.hit = 1;
     runCoins += ST.coins;
+    missionKill(hz);
     countHit(hz.kind + ':defeated');
     floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
     if (comboDrops()) dropComboCoins(hz); // magnet + shield combo: extra coins burst out
@@ -2441,6 +2467,7 @@
     }
     if (fresh) {
       hz.hit = 1;
+      missionHit(hz.uid);
       countHit(hz.kind + ':' + side);
       const col = hz.type === 'platform' ? '#cfe6ff' : '#8fd3ff';
       burst(ninja.x, ninja.y + (side === 'top' ? NINJA_R : -NINJA_R * 0.5), col, 8, 2.5);
@@ -3118,6 +3145,7 @@
           if (!ninja.bonkedSinceLaunch) ninja.bonks = 0; // a jump with no bonk ends the bonk streak
           ninja.bonkedSinceLaunch = false;
           debugStats.bounces++;
+          missionLaunch();
           debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak,
             speedIn: +(elastic.speedIn || 0).toFixed(2), fallMult: +fm.toFixed(3), sag: +elastic.maxSag.toFixed(1) };
           if (isSuper) {
@@ -3186,6 +3214,7 @@
       pickupPowerups();
       updateCombo();
       skinTrail(); // cosmetic particles of the chosen character
+      if (state === 'playing') missionTick(); // mission counters + unlocks (read-only)
     } else ninja.deathSpin += 0.22;
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i];
@@ -3286,6 +3315,7 @@
     paused = false;
     drawing = null;
     addWallet(runCoins);
+    try { missionEndRun(); } catch (e) { logErr('missions', e); }
     metersEl.classList.remove('active');
     progressEl.classList.remove('active');
     hud.classList.remove('active');
@@ -3302,6 +3332,12 @@
     goMeters.textContent = bestHeight + ' m';
     goCoins.textContent = String(runCoins);
     newRec.style.display = isNew ? 'block' : 'none';
+    const gu = document.getElementById('goUnlock');
+    if (gu) {
+      gu.textContent = runMission.unlocked.length ? '🎉 Novo personagem liberado: ' + runMission.unlocked.join(', ') + '!' : '';
+      gu.style.display = runMission.unlocked.length ? 'block' : 'none';
+    }
+    hideUnlockToast(); // the game-over screen lists them instead
     playBtn.textContent = 'Jogar de novo';
     titleEl.textContent = 'Fim de jogo';
     beep(150, 0.2, 'sawtooth', 0.08);
@@ -3312,6 +3348,7 @@
     ensureAudio();
     resetGame();
     state = 'playing';
+    missionResetRun();
     streakShown = -1;
     resetHudCache();
     lastThemeName = '';
@@ -3371,7 +3408,7 @@
   function ownedSkins() {
     const list = (store.get(LS_SKINS) || '').split(',');
     const out = {};
-    for (const sk of SKINS) if (sk.price === 0 || list.indexOf(sk.id) >= 0) out[sk.id] = true;
+    for (const sk of SKINS) if ((sk.price === 0 && !sk.mission) || list.indexOf(sk.id) >= 0) out[sk.id] = true;
     return out;
   }
   function skinById(id) { for (const sk of SKINS) if (sk.id === id) return sk; return null; }
@@ -3401,6 +3438,15 @@
     const rar = document.getElementById('dlgRar'), desc = document.getElementById('dlgDesc');
     if (rar) { const r = sk.rarity || 0; rar.textContent = RARITY_NAMES[r]; rar.style.color = RARITY_COLORS[r]; }
     if (desc) desc.textContent = sk.desc || '';
+    const prog = document.getElementById('dlgProg');
+    if (prog) {
+      const mp = sk.mission && !ownedSkins()[sk.id] ? missionProgress(sk) : null;
+      prog.className = 'dlg-prog' + (mp ? '' : ' hidden');
+      if (mp) {
+        prog.firstChild.firstChild.style.width = Math.round(100 * mp.cur / mp.goal) + '%';
+        prog.lastChild.textContent = missionProgressText(sk, mp);
+      }
+    }
     const pic = document.getElementById('dlgPic');
     try { drawSkinPreview(pic, sk); } catch (err) { logErr('preview', err); }
     dlgEl.classList.remove('hidden');
@@ -3418,7 +3464,7 @@
   }
 
   function buySkin(sk) {
-    if (getWallet() < sk.price || ownedSkins()[sk.id]) return;
+    if (sk.mission || getWallet() < sk.price || ownedSkins()[sk.id]) return;
     store.set(LS_WALLET, String(getWallet() - sk.price));
     const list = (store.get(LS_SKINS) || '').split(',').filter(Boolean);
     list.push(sk.id);
@@ -3448,6 +3494,9 @@
       charsMsg.className = 'chars-msg ok';
     } else if (owned[sk.id]) {
       dlgOpen(sk, 'Usar ' + sk.name + '?', '', false, () => useSkin(sk));
+    } else if (sk.mission) { // earned only by playing: show the requirement and the progress
+      dlgOpen(sk, '🎯 Missão: ' + sk.mission.card, sk.mission.text + (sk.mission.scope === 'run' ? ' (numa partida só)' : ' (soma todas as partidas)'), false, null);
+      beep(440, 0.05, 'sine', 0.04);
     } else if (getWallet() < sk.price) {
       const miss = sk.price - getWallet();
       dlgOpen(sk, sk.name + ' custa ' + sk.price + ' moedas', 'Faltam ' + miss + (miss === 1 ? ' moeda.' : ' moedas.'), true, null);
@@ -3483,8 +3532,11 @@
     for (const sk of SKINS) if (owned[sk.id]) nOwned++;
     const cnt = document.getElementById('charsCount');
     if (cnt) cnt.textContent = nOwned + ' de ' + SKINS.length + ' personagens liberados';
-    const list = SKINS.filter((sk) => charsFilter === 'all' || (charsFilter === 'mine' ? !!owned[sk.id] : String(sk.rarity || 0) === charsFilter));
-    list.sort((p, q) => p.price - q.price || (p.rarity || 0) - (q.rarity || 0));
+    const list = SKINS.filter((sk) => charsFilter === 'all' || (charsFilter === 'mine' ? !!owned[sk.id]
+      : (charsFilter === 'mission' ? !!sk.mission : String(sk.rarity || 0) === charsFilter)));
+    // free one first, then the mission characters, then by price
+    const rank = (sk) => (sk.mission ? 1 : (sk.price === 0 ? 0 : 2));
+    list.sort((p, q) => rank(p) - rank(q) || p.price - q.price || (p.rarity || 0) - (q.rarity || 0));
     for (const sk of list) {
       const r = sk.rarity || 0;
       const b = document.createElement('button');
@@ -3494,9 +3546,19 @@
       b.appendChild(cv);
       if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
       const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = sk.name; b.appendChild(nm);
-      const st = document.createElement('div'); st.className = 'st';
-      st.textContent = sk === skin ? 'Em uso' : (owned[sk.id] ? 'Usar' : '🪙 ' + sk.price);
-      b.appendChild(st);
+      if (sk.mission) { const mt = document.createElement('div'); mt.className = 'mtag'; mt.textContent = '🎯 Missão'; b.appendChild(mt); }
+      if (sk.mission && !owned[sk.id]) { // requirement + progress bar instead of a price
+        const mp = missionProgress(sk);
+        const rq = document.createElement('div'); rq.className = 'mreq'; rq.textContent = sk.mission.card; b.appendChild(rq);
+        const bar = document.createElement('div'); bar.className = 'mbar';
+        const fill = document.createElement('i'); fill.style.width = Math.round(100 * mp.cur / mp.goal) + '%'; bar.appendChild(fill);
+        b.appendChild(bar);
+        const pv = document.createElement('div'); pv.className = 'mval'; pv.textContent = missionProgressText(sk, mp, true); b.appendChild(pv);
+      } else {
+        const st = document.createElement('div'); st.className = 'st';
+        st.textContent = sk === skin ? 'Em uso' : (owned[sk.id] ? 'Usar' : '🪙 ' + sk.price);
+        b.appendChild(st);
+      }
       b.addEventListener('click', function (e) { e.stopPropagation(); onCharTap(sk); }, false);
       charsList.appendChild(b);
       try { drawSkinPreview(cv, sk); } catch (err) { logErr('preview', err); }
@@ -4813,6 +4875,177 @@
   const RARITY_COLORS = ['#b8c2d0', '#4fb3ff', '#c77dff', '#ffc53a'];
   let skin = SKINS[0];
 
+  // --- Mission characters: unlocked only by playing (no price, cannot be bought) ---
+  // Every number is here for tuning. scope 'run' = done inside ONE run (the menu shows the best run so far);
+  // scope 'life' = added up over all runs (saved in the player's stats).
+  // stat:
+  //   fall        metres fallen in one drop (from the top of the jump) and then saved by an elastic launch
+  //   meters      height reached in the run
+  //   wallKicks   wall kicks in the run
+  //   coins       coins in the run
+  //   sameHits    hits in a row on the SAME structure (wall, platform or non-fatal obstacle), with at least one
+  //               elastic launch between every two hits; a different structure restarts the count at 1;
+  //               touching the same one again without an elastic in between does not count (and does not reset)
+  //   ufoKills    UFOs defeated in the run (blue: stomp / hit from above / super jump; red: shield combos)
+  //   nightRuns   runs that reached MISSION_NIGHT_M metres (lifetime)
+  //   blueBirds   blue birds defeated (lifetime)
+  //   totalMeters height of every run added up (lifetime, counted at the end of each run)
+  // `text` = full requirement (dialog), `card` = short version for the character card.
+  const MISSION_NIGHT_M = 420; // where the "Noite" scenery starts
+  const MISSIONS = {
+    black: { scope: 'life', stat: 'nightRuns', goal: 10,
+      text: 'Chegue à Noite (420 m) em 10 partidas diferentes.', card: 'Chegue à Noite em 10 partidas' },
+    red: { scope: 'life', stat: 'blueBirds', goal: 150,
+      text: 'Derrote 150 pássaros azuis (pisão, golpe por cima ou super pulo), somando todas as partidas.', card: 'Derrote 150 pássaros azuis' },
+    // the camera never scrolls down, so one drop is at most ~60% of the screen (~27 m on a short phone, 40 m at 844 px)
+    oniAbismo: { scope: 'run', stat: 'fall', goal: 24, unit: ' m',
+      text: 'Despenque 24 m de uma vez só (do alto do pulo) e se salve com um elástico lá embaixo.', card: 'Despenque 24 m e se salve' },
+    oniMontanha: { scope: 'run', stat: 'meters', goal: 280, unit: ' m',
+      text: 'Atravesse as Montanhas: chegue a 280 m numa partida.', card: 'Chegue a 280 m numa partida' },
+    oniVendaval: { scope: 'run', stat: 'wallKicks', goal: 30,
+      text: 'Dê 30 chutes na parede numa mesma partida.', card: '30 chutes na parede numa partida' },
+    oniFloresta: { scope: 'life', stat: 'totalMeters', goal: 25000, unit: ' m',
+      text: 'Escale 25.000 m somando a altura de todas as partidas.', card: 'Escale 25.000 m no total' },
+    pirata: { scope: 'run', stat: 'coins', goal: 100,
+      text: 'Junte 100 moedas numa única partida.', card: '100 moedas numa partida' },
+    samuraiCego: { scope: 'run', stat: 'sameHits', goal: 5,
+      text: 'Acerte a MESMA estrutura (parede, plataforma ou obstáculo) 5 vezes seguidas, com um elástico entre cada batida. Bater em outra estrutura recomeça a contagem.',
+      card: 'Mesma estrutura 5x seguidas' },
+    oniLua: { scope: 'run', stat: 'ufoKills', goal: 1,
+      text: 'Derrote um disco voador: o azul com pisão ou golpe por cima, o vermelho com um combo de escudo.', card: 'Derrote um disco voador' }
+  };
+  // Attach to the characters: mission characters have no price and are never bought
+  for (const sk of SKINS) if (MISSIONS[sk.id]) { sk.mission = MISSIONS[sk.id]; sk.price = 0; }
+
+  // --- Mission tracking: lifetime stats (saved) + this run's counters; unlocks mission characters ---
+  // Read-only hooks from the game (they never change gameplay): structure hits, elastic launches, kills,
+  // and a check every few frames. Config in config/missions.js.
+  const LS_STATS = 'ninjaJump_stats';
+  const RUN_STATS = ['fall', 'meters', 'wallKicks', 'coins', 'sameHits', 'ufoKills'];
+  let lifeStats = null;
+  function loadLifeStats() {
+    let s = null;
+    try { s = JSON.parse(store.get(LS_STATS) || 'null'); } catch (e) { s = null; }
+    if (!s || typeof s !== 'object') s = {};
+    const n = (v) => Math.max(0, +v || 0);
+    const best = s.best && typeof s.best === 'object' ? s.best : {};
+    lifeStats = { runs: n(s.runs), totalMeters: n(s.totalMeters), blueBirds: n(s.blueBirds), nightRuns: n(s.nightRuns), ufoKills: n(s.ufoKills), best: {} };
+    for (const k of RUN_STATS) lifeStats.best[k] = n(best[k]);
+    // records that existed before the missions count too
+    lifeStats.best.meters = Math.max(lifeStats.best.meters, n(store.get(LS_METERS)));
+    lifeStats.best.coins = Math.max(lifeStats.best.coins, n(store.get(LS_COINS)));
+    return lifeStats;
+  }
+  function saveLifeStats() { if (lifeStats) store.set(LS_STATS, JSON.stringify(lifeStats)); }
+  function stats() { return lifeStats || loadLifeStats(); }
+
+  const runMission = { fall: 0, sameHits: 0, ufoKills: 0, apexY: 0, streakId: null, streakN: 0, launched: false, night: false, unlocked: [] };
+  let hazardUid = 0;
+  function missionResetRun() {
+    runMission.fall = 0; runMission.sameHits = 0; runMission.ufoKills = 0;
+    runMission.apexY = ninja ? ninja.y : 0;
+    runMission.streakId = null; runMission.streakN = 0; runMission.launched = false;
+    runMission.night = false; runMission.unlocked = [];
+    hideUnlockToast();
+  }
+  function runValue(stat) {
+    if (stat === 'meters') return bestHeight;
+    if (stat === 'wallKicks') return debugStats.wallKicks;
+    if (stat === 'coins') return runCoins;
+    return runMission[stat] || 0;
+  }
+  // Progress shown in the menu: lifetime total, or the best single run (including the one being played)
+  function missionProgress(sk, live) {
+    const M = sk.mission, s = stats();
+    let cur = M.scope === 'life' ? (s[M.stat] || 0) : Math.max(s.best[M.stat] || 0, live ? runValue(M.stat) : 0);
+    cur = Math.floor(cur);
+    return { cur: Math.min(cur, M.goal), goal: M.goal, done: cur >= M.goal };
+  }
+  function missionCheck(live) {
+    let owned = null;
+    for (const sk of SKINS) {
+      if (!sk.mission) continue;
+      if (!owned) owned = ownedSkins();
+      if (owned[sk.id]) continue;
+      if (missionProgress(sk, live).done) { missionUnlock(sk); owned = null; }
+    }
+  }
+  function missionUnlock(sk) {
+    const list = (store.get(LS_SKINS) || '').split(',').filter(Boolean);
+    if (list.indexOf(sk.id) < 0) list.push(sk.id);
+    store.set(LS_SKINS, list.join(','));
+    saveLifeStats();
+    runMission.unlocked.push(sk.name);
+    showUnlockToast(sk);
+    beep(784, 0.08, 'sine', 0.07);
+    beep(1175, 0.14, 'triangle', 0.06);
+  }
+
+  // '37/150', '18/30 m' (per-run goals: the best run so far)
+  function missionProgressText(sk, mp, short) {
+    const M = sk.mission, u = M.unit || '';
+    const fmt = (v) => String(v).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const v = fmt(mp.cur) + '/' + fmt(mp.goal) + u;
+    if (short) return v;
+    return (M.scope === 'run' ? 'Melhor partida: ' : 'Progresso: ') + v;
+  }
+
+  // --- hooks called by the game ---
+  function missionHit(id) { // a structure was hit (wall kick, or a fresh bump on a platform / obstacle)
+    if (state !== 'playing') return;
+    if (id === runMission.streakId) {
+      if (!runMission.launched) return; // same structure again without an elastic in between: ignored
+      runMission.streakN++;
+    } else {
+      runMission.streakId = id;
+      runMission.streakN = 1;
+    }
+    runMission.launched = false;
+    if (runMission.streakN > runMission.sameHits) runMission.sameHits = runMission.streakN;
+  }
+  function missionLaunch() { // elastic launch: ends a fall (measured from the top of the jump)
+    if (state !== 'playing') return;
+    runMission.launched = true;
+    const fall = (ninja.y - runMission.apexY) * METERS_PER_PX;
+    if (fall > runMission.fall) runMission.fall = fall;
+    runMission.apexY = ninja.y;
+  }
+  function missionKill(hz) {
+    if (state !== 'playing') return;
+    if (hz.type === 'ufo') { runMission.ufoKills++; stats().ufoKills++; }
+    else if (hz.type === 'flyer' && hz.color !== 'red') stats().blueBirds++;
+  }
+  function missionTick() { // every frame while playing: cheap; full check every 10 frames
+    if (ninja.vy < 0 && !ninja.dead) runMission.apexY = ninja.y; // still rising: the fall starts at the top
+    if (frame % 10 !== 0) return;
+    if (!runMission.night && bestHeight >= MISSION_NIGHT_M) { runMission.night = true; stats().nightRuns++; }
+    missionCheck(true);
+  }
+  // End of a run: bank the run into the lifetime stats, then a last check (lifetime goals finish here)
+  function missionEndRun() {
+    const s = stats();
+    for (const k of RUN_STATS) { const v = Math.floor(runValue(k)); if (v > s.best[k]) s.best[k] = v; }
+    s.totalMeters += bestHeight;
+    s.runs++;
+    saveLifeStats();
+    missionCheck(false);
+  }
+
+  // --- "Novo personagem liberado" notice (in game; also listed on the game-over screen) ---
+  let toastTimer = 0;
+  function showUnlockToast(sk) {
+    const el = document.getElementById('unlockToast');
+    if (!el) return;
+    el.textContent = '🎉 Novo personagem liberado: ' + sk.name + '!';
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideUnlockToast, 3600);
+  }
+  function hideUnlockToast() {
+    const el = document.getElementById('unlockToast');
+    if (el) el.classList.remove('show');
+  }
+
   // --- Character accessories (procedural, drawn with the sprite; config/skins.js says what each one wears) ---
   // All parts are a few small paths in sprite space (+x = the way he faces, head centre (0, headY),
   // head radius ~11.5, body ellipse 8.2 x 7.4 at (0, bodyY)). They are drawn by the shared sprite helpers,
@@ -5419,6 +5652,7 @@
     p.wallSide = side;
     p.wallX = FX.textures ? (side < 0 ? FX.wallWidth : W - FX.wallWidth) : (side < 0 ? 0 : W); // foot on the drawn wall
     debugStats.wallKicks++;
+    missionHit(side < 0 ? 'wallL' : 'wallR');
   }
 
   /** Wall-kick envelope: plant the wall-side leg, push, lean toward the rebound, then relax. */
