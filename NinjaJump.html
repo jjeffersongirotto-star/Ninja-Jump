@@ -224,17 +224,35 @@
     background: rgba(255,255,255,.08); border: 1px solid rgba(255,215,0,.3);
     border-radius: 999px; padding: 6px 16px; margin-bottom: 20px;
   }
-  .chars { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; max-width: 360px; }
+  /* Character grid: 3 per row, scrolls inside its own box (26+ characters) while wallet/filters/Voltar stay put */
+  .chars {
+    display: flex; justify-content: center; flex-wrap: wrap; align-content: flex-start; margin-bottom: 8px;
+    width: 348px; max-width: 100%; max-height: 52vh; max-height: calc(100vh - 330px); min-height: 200px;
+    overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;
+    border-radius: 14px; padding: 6px 0 2px;
+  }
+  .chars-filter { display: flex; flex-wrap: nowrap; justify-content: center; margin: -8px 0 6px; max-width: 100%; overflow-x: auto; }
+  .chip {
+    pointer-events: auto; font: inherit; font-size: 11.5px; font-weight: 800; color: rgba(255,255,255,.75); cursor: pointer; flex: none;
+    background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 999px;
+    padding: 5px 7px; margin: 2px; -webkit-tap-highlight-color: transparent;
+  }
+  .chip.on { color: #1a1a2a; background: #ffd700; border-color: #ffd700; }
+  .chars-count { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.6); margin-bottom: 4px; }
+  .char .rar { position: absolute; top: 5px; left: 0; right: 0; font-size: 9px; font-weight: 900; letter-spacing: .5px; text-transform: uppercase; }
+  .char.r1 { border-color: rgba(79,179,255,.45); }
+  .char.r2 { border-color: rgba(199,125,255,.55); }
+  .char.r3 { border-color: rgba(255,197,58,.7); background: rgba(255,197,58,.08); }
   .char {
-    pointer-events: auto; position: relative; width: 104px; margin: 0 5px 12px; padding: 8px 4px 10px;
+    pointer-events: auto; position: relative; width: 104px; margin: 0 4px 10px; padding: 14px 4px 8px;
     border-radius: 16px; border: 2px solid rgba(255,255,255,.15); background: rgba(255,255,255,.07);
     color: #fff; font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
   .char.sel { border-color: #ffd700; background: rgba(255,215,0,.12); box-shadow: 0 0 14px rgba(255,215,0,.3); }
-  .char canvas { display: block; margin: 0 auto; width: 84px; height: 84px; }
-  .char.locked canvas { filter: brightness(.42) saturate(.7); }
-  .char .lock { position: absolute; top: 36px; left: 0; right: 0; font-size: 26px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
-  .char .nm { font-size: 12px; font-weight: 700; margin-top: 4px; }
+  .char canvas { display: block; margin: 0 auto; width: 72px; height: 72px; }
+  .char.locked canvas { filter: brightness(.72) saturate(.8); } /* locked but still recognisable */
+  .char .lock { position: absolute; top: 18px; right: 8px; font-size: 16px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
+  .char .nm { font-size: 11.5px; font-weight: 700; margin-top: 3px; line-height: 1.15; min-height: 27px; display: flex; align-items: center; justify-content: center; }
   .char .st { font-size: 12px; font-weight: 800; margin-top: 3px; color: rgba(255,255,255,.6); }
   .char.locked .st { color: #ffd700; }
   .char.sel .st { color: #4dff88; }
@@ -394,6 +412,8 @@
   }
   @keyframes dlgIn { from { transform: scale(.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .dlg-pic { display: block; width: 84px; height: 84px; margin: 0 auto 6px; }
+  .dlg-rar { font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+  .dlg-desc { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.75); line-height: 1.35; margin: -2px 0 8px; }
   .dlg-text { font-size: 19px; font-weight: 800; line-height: 1.3; margin-bottom: 6px; }
   .dlg-sub { font-size: 14px; font-weight: 700; color: #ffd700; min-height: 18px; margin-bottom: 16px; }
   .dlg-sub.bad { color: #ff9c8a; }
@@ -452,6 +472,15 @@
     </div>
     <div class="screen hidden" id="scrChars">
       <div class="wallet">🪙 <span id="walletVal2">0</span></div>
+      <div class="chars-filter" id="charsFilter" role="tablist">
+        <button class="chip on" data-f="all">Todos</button>
+        <button class="chip" data-f="mine">Meus</button>
+        <button class="chip" data-f="0">Comum</button>
+        <button class="chip" data-f="1">Raro</button>
+        <button class="chip" data-f="2">Épico</button>
+        <button class="chip" data-f="3">Lendário</button>
+      </div>
+      <div class="chars-count" id="charsCount"></div>
       <div class="chars" id="charsList"></div>
       <div class="chars-msg" id="charsMsg"></div>
       <button class="btn btn-sec" data-back="1">Voltar</button>
@@ -498,7 +527,9 @@
   <div class="dlg hidden" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgText">
     <div class="dlg-box">
       <canvas class="dlg-pic" id="dlgPic"></canvas>
+      <div class="dlg-rar" id="dlgRar"></div>
       <div class="dlg-text" id="dlgText"></div>
+      <div class="dlg-desc" id="dlgDesc"></div>
       <div class="dlg-sub" id="dlgSub"></div>
       <div class="dlg-btns" id="dlgBtns">
         <button class="btn btn-sec dlg-no" id="dlgNo">Não</button>
@@ -3154,6 +3185,7 @@
       }
       pickupPowerups();
       updateCombo();
+      skinTrail(); // cosmetic particles of the chosen character
     } else ninja.deathSpin += 0.22;
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i];
@@ -3358,6 +3390,9 @@
     dlgYesFn = yesFn || null;
     document.getElementById('dlgBtns').className = 'dlg-btns' + (yesFn ? '' : ' hidden');
     document.getElementById('dlgOkRow').className = 'dlg-btns' + (yesFn ? ' hidden' : '');
+    const rar = document.getElementById('dlgRar'), desc = document.getElementById('dlgDesc');
+    if (rar) { const r = sk.rarity || 0; rar.textContent = RARITY_NAMES[r]; rar.style.color = RARITY_COLORS[r]; }
+    if (desc) desc.textContent = sk.desc || '';
     const pic = document.getElementById('dlgPic');
     try { drawSkinPreview(pic, sk); } catch (err) { logErr('preview', err); }
     dlgEl.classList.remove('hidden');
@@ -3413,13 +3448,40 @@
       dlgOpen(sk, 'Comprar ' + sk.name + ' por ' + sk.price + ' moedas?', 'Você tem ' + getWallet() + ' moedas.', false, () => buySkin(sk));
     }
   }
+  // Grid of characters: filter chips (Todos / Meus / by rarity), sorted by price inside the list,
+  // scrolls in its own box. Previews come from a per-character cache (drawn once).
+  let charsFilter = 'all';
+  function initCharsFilter() {
+    const bar = document.getElementById('charsFilter');
+    if (!bar) return;
+    const chips = bar.querySelectorAll('.chip');
+    for (let i = 0; i < chips.length; i++) {
+      chips[i].addEventListener('click', function (e) {
+        e.stopPropagation();
+        charsFilter = this.getAttribute('data-f');
+        for (let j = 0; j < chips.length; j++) chips[j].className = 'chip' + (chips[j] === this ? ' on' : '');
+        beep(520, 0.03, 'sine', 0.04);
+        renderChars();
+        if (charsList) charsList.scrollTop = 0;
+      }, false);
+    }
+  }
   function renderChars() {
     if (!charsList) return;
     const owned = ownedSkins();
+    const keepScroll = charsList.scrollTop;
     charsList.innerHTML = '';
-    for (const sk of SKINS) {
+    let nOwned = 0;
+    for (const sk of SKINS) if (owned[sk.id]) nOwned++;
+    const cnt = document.getElementById('charsCount');
+    if (cnt) cnt.textContent = nOwned + ' de ' + SKINS.length + ' personagens liberados';
+    const list = SKINS.filter((sk) => charsFilter === 'all' || (charsFilter === 'mine' ? !!owned[sk.id] : String(sk.rarity || 0) === charsFilter));
+    list.sort((p, q) => p.price - q.price || (p.rarity || 0) - (q.rarity || 0));
+    for (const sk of list) {
+      const r = sk.rarity || 0;
       const b = document.createElement('button');
-      b.className = 'char' + (owned[sk.id] ? '' : ' locked') + (sk === skin ? ' sel' : '');
+      b.className = 'char r' + r + (owned[sk.id] ? '' : ' locked') + (sk === skin ? ' sel' : '');
+      const rl = document.createElement('div'); rl.className = 'rar'; rl.textContent = RARITY_NAMES[r]; rl.style.color = RARITY_COLORS[r]; b.appendChild(rl);
       const cv = document.createElement('canvas');
       b.appendChild(cv);
       if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
@@ -3431,11 +3493,26 @@
       charsList.appendChild(b);
       try { drawSkinPreview(cv, sk); } catch (err) { logErr('preview', err); }
     }
+    charsList.scrollTop = keepScroll;
   }
   // Draw a character standing still on a small canvas (swaps the global ctx/ninja/skin, then restores)
+  const previewCache = {};
   function drawSkinPreview(cv, sk) {
     const size = 84, r = Math.min(window.devicePixelRatio || 1, 2.5);
     cv.width = Math.round(size * r); cv.height = Math.round(size * r);
+    const out = cv.getContext('2d');
+    if (!out) return;
+    const key = sk.id + '@' + r;
+    let pc = previewCache[key];
+    if (!pc) {
+      pc = document.createElement('canvas');
+      pc.width = cv.width; pc.height = cv.height;
+      renderSkinPreview(pc, sk, size, r);
+      previewCache[key] = pc;
+    }
+    out.drawImage(pc, 0, 0);
+  }
+  function renderSkinPreview(cv, sk, size, r) {
     const c = cv.getContext('2d');
     if (!c) return;
     const saved = { ctx: ctx, ninja: ninja, skin: skin, elastic: elastic, stretch: stretch };
@@ -3445,8 +3522,12 @@
       ctx = c; skin = sk; elastic = null; stretch = 0;
       ninja = { x: 0, y: 0, vx: 0, vy: 0, facing: 1, spinning: 0 };
       ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0; ninjaPose.hero = 0; ninjaPose.air = 0; ninjaPose.lean = 0;
-      c.setTransform(r * 2, 0, 0, r * 2, 0, 0);
-      drawNinjaSprite(size / 4, size / 4 - 1);
+      // characters with horns / ears / hats are drawn a bit smaller so nothing is cut off at the top
+      const A = sk.acc, tall = !!(A && (A.horns || A.ears || A.hat || A.antenna || (A.crest && (A.crest.style === 'fin' || A.crest.style === 'blade'))));
+      const k = tall ? 1.7 : 2, cx = size / (2 * k), cy = tall ? 27.5 : size / 4 - 1;
+      c.setTransform(r * k, 0, 0, r * k, 0, 0);
+      if (sk.aura && FX.glow) { c.save(); c.globalCompositeOperation = 'lighter'; drawGlow(cx, cy + 1, 19, sk.aura, 0.45); c.restore(); }
+      drawNinjaSprite(cx, cy);
     } finally {
       ctx = saved.ctx; ninja = saved.ninja; skin = saved.skin; elastic = saved.elastic; stretch = saved.stretch;
       for (const k in pose) ninjaPose[k] = pose[k];
@@ -4513,23 +4594,28 @@
     ctx.restore();
   }
 
-  // Characters (skins): same sprite, different palette. `price` in coins (0 = owned from the start).
+  // Characters (skins): same sprite, different palette + optional procedural accessories (render/skins.js).
+  // `price` in coins (0 = owned from the start), `rarity` 0 comum, 1 raro, 2 épico, 3 lendário.
+  // Everything here is cosmetic: no character changes the gameplay.
+  // Optional fields: `desc` (one line, pt-BR), `acc` (accessories, see render/skins.js), `trail` { kind, color }
+  // (small particles while moving fast: smoke, fire, bubble, leaf, spark, star), `aura` (soft glow colour),
+  // `alpha` (see-through sprite). Original characters, only INSPIRED by styles (no trademarked names/designs).
   const SKINS = [
-    { id: 'white', name: 'Ninja Branco', price: 0,
+    { id: 'white', name: 'Ninja Branco', price: 0, rarity: 0, desc: 'O clássico: faixa preta, roupa branca e muita mola nas pernas.',
       out: '#1b1b26', rim: 'rgba(160,215,255,0.95)',
       body: ['#ffffff', '#e9edf3', '#a4adbf'], head: ['#ffffff', '#eef1f6', '#bfc6d4', '#939cb0'],
       limb: '#f4f5f8', limbBack: '#d9dce4', foot: '#e3e6ee', footBack: '#cfd3dc', hand: '#e3e6ee',
       limbShade: 'rgba(110,120,150,0.45)', limbHi: 'rgba(255,255,255,0.85)', spec: 'rgba(255,255,255,0.95)',
       band: '#15151c', bandGrad: ['#3d4052', '#17171f', '#07070b'], visor: ['#363c55', '#0e1018'], eye: '#ffffff',
       occl: 'rgba(40,45,75,0.2)' },
-    { id: 'black', name: 'Ninja Sombra', price: 500,
+    { id: 'black', name: 'Ninja Sombra', price: 500, rarity: 0, desc: 'Some no escuro da noite; só os olhos aparecem.',
       out: '#05050a', rim: 'rgba(150,170,220,0.75)',
       body: ['#6b7080', '#383b46', '#17181e'], head: ['#737888', '#454956', '#272a33', '#141519'],
       limb: '#3c3f4a', limbBack: '#2b2d36', foot: '#34363f', footBack: '#25272f', hand: '#3c3f4a',
       limbShade: 'rgba(0,0,0,0.45)', limbHi: 'rgba(255,255,255,0.3)', spec: 'rgba(255,255,255,0.5)',
       band: '#0a0a0e', bandGrad: ['#4a4d5c', '#1c1d24', '#050507'], visor: ['#7c86a3', '#3a4157'], eye: '#ffffff',
       occl: 'rgba(0,0,0,0.3)' },
-    { id: 'red', name: 'Ninja Rubro', price: 500,
+    { id: 'red', name: 'Ninja Rubro', price: 500, rarity: 0, desc: 'Vermelho de coragem, do capuz até a ponta da faixa.',
       out: '#1a0a0c', rim: 'rgba(255,190,170,0.9)',
       body: ['#ff9a90', '#e3282e', '#8c0f15'], head: ['#ffa69d', '#ea3a40', '#b81c23', '#7a0b11'],
       limb: '#2c2c35', limbBack: '#202028', foot: '#26262e', footBack: '#1b1b22', hand: '#2c2c35',
@@ -4537,7 +4623,559 @@
       band: '#111116', bandGrad: ['#3d4052', '#17171f', '#07070b'], visor: ['#363c55', '#0e1018'], eye: '#ffffff',
       occl: 'rgba(60,0,0,0.25)' }
   ];
+
+  // Builds a full palette from a few key colours (all #rrggbb), so each new character stays short
+  function skinPal(o) {
+    const m = o.main, hc = o.headCol || m, l = o.limb || shadeHex(m, -0.35), f = o.foot || shadeHex(l, -0.12);
+    const p = {
+      out: '#120c16', rim: 'rgba(255,255,255,0.6)',
+      body: [shadeHex(m, 0.45), m, shadeHex(m, -0.45)],
+      head: [shadeHex(hc, 0.55), shadeHex(hc, 0.15), shadeHex(hc, -0.2), shadeHex(hc, -0.45)],
+      limb: l, limbBack: shadeHex(l, -0.25), foot: f, footBack: shadeHex(f, -0.3), hand: o.hand || l,
+      limbShade: 'rgba(0,0,0,0.4)', limbHi: 'rgba(255,255,255,0.35)', spec: 'rgba(255,255,255,0.8)',
+      band: o.band, bandGrad: [shadeHex(o.band, 0.35), o.band, shadeHex(o.band, -0.5)],
+      visor: ['#363c55', '#0e1018'], eye: '#ffffff', occl: 'rgba(0,0,0,0.25)'
+    };
+    for (const k in o) p[k] = o[k];
+    return p;
+  }
+  SKINS.push(
+    // --- Clã Oni: demônios elementais, cada um com seu exército ninja ---
+    skinPal({ id: 'oniAbismo', name: 'Oni do Abismo', price: 600, rarity: 0,
+      desc: 'Líder do exército das sombras: seus ninjas atravessam paredes como fumaça.',
+      main: '#3a2a5c', limb: '#241a38', band: '#0d0a14', eye: '#ffe14d', rim: 'rgba(190,160,255,0.7)',
+      acc: { horns: { style: 'small', col: '#d9d2e9' }, eyeGlow: '#ffe14d', body: { pattern: 'smoke', col: '#7a5cff' } },
+      trail: { kind: 'smoke', color: '#7a5cff' } }),
+    skinPal({ id: 'oniMontanha', name: 'Oni da Montanha', price: 700, rarity: 0,
+      desc: 'Pesado como rocha: seus ninjas nunca recuam nem um passo.',
+      main: '#8a6f52', limb: '#4a3b2c', band: '#2e241a', eye: '#ffb35a',
+      acc: { horns: { style: 'big', col: '#cfc6b4' }, pads: { col: '#9aa0a8', rock: true }, body: { pattern: 'cracks', col: '#4a3b2c' } },
+      trail: { kind: 'smoke', color: '#c9b79a' } }),
+    skinPal({ id: 'oniVendaval', name: 'Oni do Vendaval', price: 800, rarity: 0,
+      desc: 'Seus ninjas correm no vento e somem num redemoinho.',
+      main: '#7fc89a', limb: '#3f6b58', band: '#2c4a3e', rim: 'rgba(230,255,240,0.8)',
+      acc: { horns: { style: 'small', col: '#f2fff4' }, back: [{ type: 'scarf', col: '#e9fff0' }], body: { pattern: 'swirl', col: '#e9fff0' } },
+      trail: { kind: 'leaf', color: '#b9f0a0' } }),
+    skinPal({ id: 'oniFloresta', name: 'Oni da Floresta', price: 800, rarity: 0,
+      desc: 'Seus ninjas brotam do chão e se escondem entre as folhas.',
+      main: '#4f8a3a', limb: '#2f4a22', band: '#5a3a1e', eye: '#d6ff7a',
+      acc: { horns: { style: 'antler', col: '#7a5230', leaf: '#7fd04a' }, eyeGlow: '#d6ff7a', body: { pattern: 'leaves', col: '#8fd45a' } },
+      trail: { kind: 'leaf', color: '#7fd04a' } }),
+    skinPal({ id: 'oniChama', name: 'Oni da Chama', price: 1200, rarity: 1,
+      desc: 'Comanda ninjas de brasa que deixam pegadas de fogo.',
+      main: '#e8501f', limb: '#3a1410', band: '#2a0a06', eye: '#ffd23f', rim: 'rgba(255,210,120,0.9)',
+      acc: { horns: { style: 'big', col: '#2a1a14' }, eyeGlow: '#ffb030', body: { pattern: 'flames', col: '#ffc040' } },
+      trail: { kind: 'fire', color: '#ff8a2a' } }),
+    skinPal({ id: 'oniMare', name: 'Oni da Maré', price: 1200, rarity: 1,
+      desc: 'Seu exército surge das ondas, escorregadio como água.',
+      main: '#1f8fb8', limb: '#0f3c5a', band: '#0a2238', eye: '#9ff6ff', rim: 'rgba(170,240,255,0.9)',
+      acc: { crest: { style: 'fin', col: '#6fe0ff' }, eyeGlow: '#7fefff', body: { pattern: 'scales', col: '#9fe6ff' } },
+      trail: { kind: 'bubble', color: '#bff3ff' } }),
+    skinPal({ id: 'oniTrovao', name: 'Oni do Trovão', price: 1500, rarity: 1,
+      desc: 'Cada passo é um estalo: seu exército ataca na velocidade do raio.',
+      main: '#2b2f6b', limb: '#181a3c', band: '#e0b020', eye: '#fff36a', rim: 'rgba(255,240,140,0.8)',
+      acc: { horns: { style: 'bolt', col: '#ffd23f' }, eyeGlow: '#fff36a', body: { pattern: 'bolt', col: '#ffd23f' } },
+      trail: { kind: 'spark', color: '#fff36a' } }),
+    skinPal({ id: 'oniAco', name: 'Oni de Aço', price: 1600, rarity: 1,
+      desc: 'Armadura de aço temperado; seu exército ressoa como um gongo.',
+      main: '#8f9aa8', headCol: '#b8c0cc', limb: '#4a525e', band: '#2a2f38', eye: '#ff5a4a', rim: 'rgba(230,240,255,0.95)',
+      acc: { crest: { style: 'blade', col: '#dfe5ee' }, eyeGlow: '#ff5a4a', pads: { col: '#c3cad4' }, body: { pattern: 'plates', col: '#5a636f' } },
+      trail: { kind: 'spark', color: '#ffd27f' } }),
+    skinPal({ id: 'oniLua', name: 'Oni da Lua', price: 2200, rarity: 2,
+      desc: 'Só aparece à noite; seu exército se move entre os raios do luar.',
+      main: '#3a3f7a', headCol: '#aab0d8', limb: '#23264d', band: '#1a1c3a', eye: '#ffffff', rim: 'rgba(210,225,255,0.95)',
+      acc: { crest: { style: 'moon', col: '#f4f1d0' }, eyeGlow: '#cfe3ff', body: { pattern: 'stars', col: '#e8ecff' } },
+      trail: { kind: 'star', color: '#e8ecff' }, aura: '#9fb4ff' }),
+    skinPal({ id: 'oniCeu', name: 'Oni do Céu', price: 2400, rarity: 2,
+      desc: 'Plana acima das nuvens com um exército de ninjas alados.',
+      main: '#6fb8f5', limb: '#2d5f9a', band: '#2d5f9a', visor: ['#eaf5ff', '#a9cdf0'], eye: '#1d3b66', rim: 'rgba(255,255,255,0.95)',
+      acc: { horns: { style: 'small', col: '#ffffff' }, back: [{ type: 'wings', col: '#ffffff' }], body: { pattern: 'clouds', col: '#ffffff' } },
+      trail: { kind: 'leaf', color: '#ffffff' }, aura: '#bfe3ff' }),
+    skinPal({ id: 'oniImperador', name: 'Imperador Oni', price: 5000, rarity: 3,
+      desc: 'Senhor de todos os clãs oni. Dizem que nunca caiu de nenhuma parede.',
+      main: '#2a1420', limb: '#160a12', band: '#c9a227', eye: '#ff3a3a', rim: 'rgba(255,200,90,0.9)',
+      acc: { horns: { style: 'crown', col: '#e8c048' }, eyeGlow: '#ff3a3a', collar: { col: '#c9a227' },
+        back: [{ type: 'cloak', col: '#6a0a18', lining: '#c9a227' }], body: { pattern: 'royal', col: '#e8c048' } },
+      trail: { kind: 'fire', color: '#ff4a3a' }, aura: '#ff3a3a' }),
+    // --- Ninjas de vila escondida (estilo anime de ninja) ---
+    skinPal({ id: 'raposa', name: 'Ninja Raposa', price: 1500, rarity: 1,
+      desc: 'Macacão laranja, coragem sem fim e um espírito de raposa guardado lá dentro.',
+      main: '#ff8a1f', limb: '#f07a12', foot: '#1d2a4a', hand: '#f4d2a8', band: '#1f3a7a', eye: '#7fd0ff',
+      acc: { ears: { style: 'fox', col: '#ff8a1f', inner: '#fff1d6' }, crest: { style: 'plate', col: '#c9d2e0', sym: 'swirl' },
+        back: [{ type: 'tails', n: 1, col: '#ff8a1f', tip: '#fff6e6' }], body: { pattern: 'jumpsuit', col: '#1d2a4a' } },
+      trail: { kind: 'star', color: '#ffb347' } }),
+    skinPal({ id: 'lotus', name: 'Olhar de Lótus', price: 1300, rarity: 1,
+      desc: 'Olhos claros que enxergam através das paredes; luta com toques suaves.',
+      main: '#e4dcf3', limb: '#6a5a8a', band: '#4a3a6a', visor: ['#f6f2ff', '#cfc4ec'], eye: '#a898ff', rim: 'rgba(255,255,255,0.95)',
+      acc: { crest: { style: 'plate', col: '#c9d2e0', sym: 'lotus' }, eyeGlow: '#c8bcff', body: { pattern: 'lotus', col: '#b58ad8' } },
+      trail: { kind: 'leaf', color: '#ffc4e6' } }),
+    skinPal({ id: 'luaRubra', name: 'Renegado da Lua Rubra', price: 3000, rarity: 2,
+      desc: 'Deixou a vila para trás. Seu manto de luas vermelhas assusta até os oni.',
+      main: '#17171f', limb: '#22222c', band: '#3a3a46', eye: '#ff2a3a', rim: 'rgba(255,120,130,0.6)',
+      acc: { crest: { style: 'plate', col: '#9aa0aa', sym: 'scratch' }, eyeGlow: '#ff2a3a', collar: { col: '#17171f', high: true },
+        back: [{ type: 'cloak', col: '#17171f', lining: '#b0142a', moons: true }], body: { pattern: 'moons', col: '#c0142a' } },
+      trail: { kind: 'leaf', color: '#c0142a' } }),
+    // --- Cinema / anime / games (inspirações, personagens originais) ---
+    skinPal({ id: 'pirata', name: 'Ninja Pirata', price: 900, rarity: 0,
+      desc: 'Trocou o navio pela parede, mas não larga o chapéu nem o tapa-olho.',
+      main: '#2a4a7a', limb: '#3a2a1a', band: '#c0392b', eye: '#ffffff',
+      acc: { hat: { style: 'tricorn', col: '#1d1d22', trim: '#e8c048' }, patch: '#0b0b0e', body: { pattern: 'coat', col: '#e8c048' } },
+      trail: { kind: 'star', color: '#ffd700' } }),
+    skinPal({ id: 'leques', name: 'Kunoichi dos Leques', price: 1200, rarity: 1,
+      desc: 'Abre os leques e o vento faz o resto.',
+      main: '#d6337a', limb: '#5a1a3a', band: '#2a0a1a', eye: '#ffffff', rim: 'rgba(255,190,220,0.9)',
+      acc: { back: [{ type: 'fans', col: '#ffd23f', col2: '#d6337a' }], hair: { col: '#2a0a1a' }, body: { pattern: 'sash', col: '#ffd23f' } },
+      trail: { kind: 'leaf', color: '#ffb3d9' } }),
+    skinPal({ id: 'robo', name: 'Robô Ninja', price: 1500, rarity: 1,
+      desc: 'Modelo NJ-01: parafusos apertados, sensores ligados, pulo calibrado.',
+      main: '#c9ced8', headCol: '#dfe3ea', limb: '#6a7280', band: '#e8323c', visor: ['#1a1f2a', '#05070a'], eye: '#ff3a3a',
+      acc: { antenna: { col: '#9aa0aa', tip: '#ff3a3a' }, eyeGlow: '#ff3a3a', bolts: '#8a909c', body: { pattern: 'panel', col: '#7a8290' } },
+      trail: { kind: 'spark', color: '#7af0ff' } }),
+    skinPal({ id: 'samuraiCego', name: 'Samurai Cego', price: 1800, rarity: 1,
+      desc: 'Não vê, mas ouve cada moeda caindo. Sua bengala esconde uma lâmina.',
+      main: '#6f7684', limb: '#3f434c', band: '#2a2c33',
+      acc: { hat: { style: 'kasa', col: '#d9b56a' }, blind: '#efe9dc', back: [{ type: 'sword', col: '#a07a4a', blade: '#dfe5ee' }], body: { pattern: 'kimono', col: '#3f434c' } },
+      trail: { kind: 'spark', color: '#ffffff' } }),
+    skinPal({ id: 'panda', name: 'Mestre Panda', price: 2000, rarity: 2,
+      desc: 'Guerreiro fofinho do kung fu: ninguém espera um chute desses.',
+      main: '#2a2a30', headCol: '#f6f6f6', limb: '#1d1d22', band: '#c0392b', visor: ['#1d1d22', '#0a0a0e'], rim: 'rgba(255,255,255,0.8)',
+      acc: { ears: { style: 'panda', col: '#1d1d22' }, body: { pattern: 'belly', col: '#f2f2f2' } },
+      trail: { kind: 'leaf', color: '#8fd14f' } }),
+    skinPal({ id: 'fantasma', name: 'Ninja Fantasma', price: 2500, rarity: 2,
+      desc: 'Atravessa as nuvens sem fazer barulho... e às vezes nem aparece no espelho.',
+      main: '#bfe6ff', headCol: '#e8f6ff', limb: '#9fc8e6', band: '#6a8fb0', visor: ['#2a3f55', '#0e1824'], eye: '#4adfff', alpha: 0.78,
+      rim: 'rgba(255,255,255,0.95)',
+      acc: { eyeGlow: '#4adfff', back: [{ type: 'wisp', col: '#d8f2ff' }] },
+      trail: { kind: 'smoke', color: '#cfefff' }, aura: '#9fe0ff' }),
+    skinPal({ id: 'ciber', name: 'Ciber Ninja', price: 2600, rarity: 2,
+      desc: 'Metade ninja, metade máquina: os circuitos brilham quando ele acelera.',
+      main: '#20242c', limb: '#2c313b', band: '#00b8d4', visor: ['#00323a', '#001418'], eye: '#00f0ff', rim: 'rgba(0,230,255,0.8)',
+      acc: { eyeGlow: '#00f0ff', pads: { col: '#3a404c', neon: '#00e5ff' }, crest: { style: 'visorline', col: '#00e5ff' }, body: { pattern: 'circuit', col: '#00e5ff' } },
+      trail: { kind: 'spark', color: '#00e5ff' }, aura: '#00e5ff' }),
+    skinPal({ id: 'monge', name: 'Monge Estelar', price: 3500, rarity: 2,
+      desc: 'Monge de uma galáxia distante; sua lâmina de luz zumbe no escuro.',
+      main: '#8a6a48', limb: '#4a3624', band: '#3a2a1a', eye: '#cfefff',
+      acc: { hood: { col: '#6b4f33' }, back: [{ type: 'sword', col: '#3a3f4a', blade: '#4adfff', glow: true }], body: { pattern: 'robe', col: '#d9c9a8' } },
+      trail: { kind: 'star', color: '#9fe8ff' }, aura: '#4adfff' }),
+    skinPal({ id: 'dragao', name: 'Mestre Dragão', price: 5000, rarity: 3,
+      desc: 'Guardião ancestral da montanha de jade. Raríssimo.',
+      main: '#1f9a6a', limb: '#145a40', band: '#c9a227', eye: '#ffe14d', rim: 'rgba(255,230,140,0.9)',
+      acc: { horns: { style: 'dragon', col: '#e8c048' }, whiskers: '#e8c048', eyeGlow: '#ffe14d',
+        back: [{ type: 'dtail', col: '#1f9a6a', col2: '#e8c048' }], body: { pattern: 'scales', col: '#e8c048' } },
+      trail: { kind: 'spark', color: '#ffd23f' }, aura: '#ffd23f' })
+  );
+  const RARITY_NAMES = ['Comum', 'Raro', 'Épico', 'Lendário'];
+  const RARITY_COLORS = ['#b8c2d0', '#4fb3ff', '#c77dff', '#ffc53a'];
   let skin = SKINS[0];
+
+  // --- Character accessories (procedural, drawn with the sprite; config/skins.js says what each one wears) ---
+  // All parts are a few small paths in sprite space (+x = the way he faces, head centre (0, headY),
+  // head radius ~11.5, body ellipse 8.2 x 7.4 at (0, bodyY)). They are drawn by the shared sprite helpers,
+  // so the normal pose, wall kick, spin, hero pose, combos and the rocket all show them. Cosmetic only.
+  function accPath(pts) { ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.closePath(); }
+  function accFill(col, outline) {
+    ctx.fillStyle = col; ctx.fill();
+    if (outline !== false) { ctx.strokeStyle = skin.out; ctx.lineWidth = 1.1; ctx.stroke(); }
+  }
+
+  // Behind the body (drawn right after the headband tails). bdx = the side "behind" him (-1 normally).
+  function drawAccBack(bodyY, headY, spd, wave, bdx) {
+    const A = skin.acc;
+    if (!A || !A.back) return;
+    for (const b of A.back) {
+      if (b.type === 'tails') {
+        for (let i = 0; i < (b.n || 1); i++) {
+          const a = (i - ((b.n || 1) - 1) / 2) * 0.45;
+          const len = 15 + spd * 0.45, sway = wave * 1.2 + Math.sin(frame * 0.12 + i) * 1.5;
+          const x0 = bdx * 5, y0 = bodyY + 5, x1 = bdx * (len + 2), y1 = bodyY - 6 + sway + a * 10;
+          ctx.beginPath();
+          ctx.moveTo(x0, y0 - 2.5);
+          ctx.quadraticCurveTo(bdx * len * 0.55, y0 + 6 + a * 4, x1, y1);
+          ctx.quadraticCurveTo(bdx * len * 0.6, y0 - 4 + a * 4, x0, y0 + 2.5);
+          ctx.closePath();
+          accFill(b.col);
+          ctx.fillStyle = b.tip;
+          ctx.beginPath(); ctx.ellipse(x1 - bdx * 2.2, y1 + 0.6, 3.2, 2.2, bdx * 0.5, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (b.type === 'scarf') {
+        const len = 20 + spd * 0.9, y0 = headY + 10;
+        for (let k = 0; k < 2; k++) {
+          const ly = y0 + k * 3.5, w2 = wave * (1.3 - k * 0.4), l = len * (1 - k * 0.25);
+          ctx.beginPath();
+          ctx.moveTo(bdx * 2, ly - 1.8);
+          ctx.quadraticCurveTo(bdx * l * 0.5, ly - 3 + w2, bdx * l, ly + w2 * 1.4);
+          ctx.lineTo(bdx * (l - 1.5), ly + 3.2 + w2 * 1.4);
+          ctx.quadraticCurveTo(bdx * l * 0.5, ly + 2 + w2 * 0.6, bdx * 2, ly + 1.8);
+          ctx.closePath();
+          accFill(k ? shadeHex(b.col, -0.15) : b.col);
+        }
+      } else if (b.type === 'cloak') {
+        const fl = wave * 0.6 + spd * 0.25;
+        ctx.beginPath();
+        ctx.moveTo(-7, bodyY - 6);
+        ctx.lineTo(7, bodyY - 6);
+        ctx.quadraticCurveTo(bdx * -8, bodyY + 10, bdx * (6 + fl * 0.4), bodyY + 15 + fl * 0.3);
+        ctx.lineTo(bdx * (13 + fl), bodyY + 12 + fl * 0.5);
+        ctx.quadraticCurveTo(bdx * 12, bodyY + 2, -7 * -bdx, bodyY - 6);
+        ctx.closePath();
+        accFill(b.col);
+        ctx.strokeStyle = b.lining; ctx.lineWidth = 1.4;
+        ctx.beginPath(); ctx.moveTo(bdx * (6 + fl * 0.4), bodyY + 14.2 + fl * 0.3); ctx.lineTo(bdx * (12.6 + fl), bodyY + 11.4 + fl * 0.5); ctx.stroke();
+        if (b.moons) drawCrescent(bdx * (9 + fl * 0.6), bodyY + 6, 2.6, '#c0142a', bdx);
+      } else if (b.type === 'fans') {
+        for (let k = 0; k < 2; k++) {
+          const cx = bdx * (5 + k * 3), cy = bodyY - 3 - k * 5, rot = bdx * (0.5 + k * 0.5) - Math.PI / 2;
+          ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+          ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 10, -0.75, 0.75); ctx.closePath();
+          accFill(b.col);
+          ctx.strokeStyle = b.col2; ctx.lineWidth = 0.9;
+          ctx.beginPath(); for (let r = -2; r <= 2; r++) { const a = r * 0.35; ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 9.5, Math.sin(a) * 9.5); } ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, 0, 9.5, -0.72, 0.72); ctx.stroke();
+          ctx.restore();
+        }
+      } else if (b.type === 'sword') {
+        // over the shoulder: handle up/front, blade down/back
+        const hx = 5, hy = headY + 3, ex = bdx * 13, ey = bodyY + 13;
+        if (b.glow) {
+          ctx.save();
+          ctx.lineCap = 'round';
+          if (FX.glow) { ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = b.blade; ctx.globalAlpha *= 0.35; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(hx - 3.5, hy + 4); ctx.lineTo(ex, ey); ctx.stroke(); }
+          ctx.restore();
+          ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 1.6; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(hx - 3.5, hy + 4); ctx.lineTo(ex, ey); ctx.stroke();
+        } else {
+          ctx.strokeStyle = skin.out; ctx.lineWidth = 3.4; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(hx - 3.5, hy + 4); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.strokeStyle = b.blade; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.moveTo(hx - 3.5, hy + 4); ctx.lineTo(ex, ey); ctx.stroke();
+        }
+        ctx.strokeStyle = b.col; ctx.lineWidth = 2.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(hx - 3.5, hy + 4); ctx.stroke();
+      } else if (b.type === 'wings') {
+        const flap = Math.sin(frame * 0.18) * 0.25 + Math.min(0.3, spd * 0.02);
+        for (let k = 0; k < 2; k++) {
+          ctx.save();
+          ctx.translate(bdx * 4, bodyY - 4);
+          ctx.rotate(bdx * (0.9 - k * 0.45 + flap));
+          ctx.beginPath(); ctx.ellipse(bdx * 8, 0, 10 - k * 2, 4.2, 0, 0, Math.PI * 2);
+          accFill(k ? shadeHex(b.col, -0.12) : b.col);
+          ctx.strokeStyle = 'rgba(120,150,190,0.6)'; ctx.lineWidth = 0.8;
+          ctx.beginPath(); ctx.moveTo(bdx * 4, 1.5); ctx.lineTo(bdx * 15, 1); ctx.moveTo(bdx * 6, -1.5); ctx.lineTo(bdx * 14, -1.8); ctx.stroke();
+          ctx.restore();
+        }
+      } else if (b.type === 'dtail') {
+        const len = 24 + spd * 0.5, x0 = bdx * 4, y0 = bodyY + 6;
+        const mx = bdx * len * 0.5, my = y0 + 8 + wave, ex = bdx * len, ey = y0 - 4 - wave;
+        ctx.lineCap = 'round';
+        ctx.strokeStyle = skin.out; ctx.lineWidth = 6.4;
+        ctx.beginPath(); ctx.moveTo(x0, y0); ctx.quadraticCurveTo(mx, my, ex, ey); ctx.stroke();
+        ctx.strokeStyle = b.col; ctx.lineWidth = 4.4; ctx.stroke();
+        ctx.fillStyle = b.col2;
+        for (let i = 1; i <= 4; i++) {
+          const t = i / 5, it = 1 - t;
+          const px = it * it * x0 + 2 * it * t * mx + t * t * ex, py = it * it * y0 + 2 * it * t * my + t * t * ey;
+          accPath([px - 1.6, py - 1.5, px, py - 5, px + 1.6, py - 1.5]); ctx.fill();
+        }
+        ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+      } else if (b.type === 'wisp') {
+        ctx.save();
+        ctx.globalAlpha *= 0.7;
+        ctx.beginPath();
+        ctx.moveTo(-7, bodyY + 3);
+        ctx.quadraticCurveTo(bdx * -2 + wave, bodyY + 22, bdx * (10 + wave), bodyY + 24);
+        ctx.quadraticCurveTo(bdx * 4, bodyY + 14, 7, bodyY + 3);
+        ctx.closePath();
+        ctx.fillStyle = b.col; ctx.fill();
+        ctx.restore();
+      }
+    }
+  }
+  function drawCrescent(x, y, r, col, dir) {
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath(); ctx.arc(x, y, r + 0.7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = skin.body[1];
+    ctx.beginPath(); ctx.arc(x + (dir || 1) * r * 0.55, y - r * 0.3, r * 0.8, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Body pattern, clipped to the body ellipse (drawn over the shaded body, under the belt)
+  function drawAccBody(bodyY) {
+    const A = skin.acc, B = A && A.body;
+    if (!B) return;
+    const c = B.col, y = bodyY;
+    ctx.save();
+    ctx.beginPath(); ctx.ellipse(0, y, 8.2, 7.4, 0, 0, Math.PI * 2); ctx.clip();
+    ctx.fillStyle = c; ctx.strokeStyle = c; ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+    const p = B.pattern;
+    if (p === 'smoke') {
+      ctx.globalAlpha *= 0.4;
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-5 + i * 5, y + 5 - (i % 2) * 3, 3 + (i % 2), 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'cracks') {
+      ctx.globalAlpha *= 0.7;
+      ctx.beginPath(); ctx.moveTo(-3, y - 7); ctx.lineTo(-1, y - 2); ctx.lineTo(-4, y + 2); ctx.moveTo(-1, y - 2); ctx.lineTo(3, y + 1); ctx.lineTo(2, y + 6); ctx.stroke();
+    } else if (p === 'swirl') {
+      ctx.globalAlpha *= 0.7;
+      ctx.beginPath(); for (let a = 0; a < 9; a += 0.4) { const r = a * 0.7; ctx.lineTo(Math.cos(a) * r, y + Math.sin(a) * r * 0.9); } ctx.stroke();
+    } else if (p === 'leaves') {
+      for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.ellipse(-4 + i * 4, y - 2 + (i % 2) * 4, 2.6, 1.2, 0.6 - i * 0.5, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'flames') {
+      ctx.beginPath(); ctx.moveTo(-9, y + 8);
+      for (let i = 0; i < 4; i++) { const x = -9 + i * 4.5; ctx.quadraticCurveTo(x + 1, y + 1, x + 2.2, y - 3 - (i % 2) * 2.5); ctx.quadraticCurveTo(x + 3, y + 2, x + 4.5, y + 8); }
+      ctx.closePath(); ctx.globalAlpha *= 0.85; ctx.fill();
+    } else if (p === 'scales') {
+      ctx.globalAlpha *= 0.6; ctx.lineWidth = 0.9;
+      for (let r = 0; r < 4; r++) for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * 3.6 + (r % 2) * 1.8, y - 5 + r * 3.4, 1.8, 0, Math.PI); ctx.stroke(); }
+    } else if (p === 'bolt') {
+      accPath([-1, y - 8, -4, y, -0.5, y, -3, y + 8, 4, y - 2, 0.5, y - 2, 3, y - 8]); ctx.fill();
+    } else if (p === 'plates') {
+      ctx.globalAlpha *= 0.8;
+      ctx.fillRect(-9, y - 2.5, 18, 1); ctx.fillRect(-9, y + 3.5, 18, 1);
+      ctx.fillStyle = '#e9edf3'; for (const x of [-5, 0, 5]) { ctx.beginPath(); ctx.arc(x, y - 4.5, 0.8, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'stars') {
+      for (const s of [[-4, -3, 1.4], [3, -4, 1], [1, 3, 1.6], [-3, 4, 0.9]]) { drawStarShape(s[0], y + s[1], s[2] * 1.6, 4, 0.4, 0.3); ctx.fill(); }
+    } else if (p === 'clouds') {
+      ctx.globalAlpha *= 0.85;
+      for (const s of [[-4, 4], [3, -2]]) { ctx.beginPath(); ctx.arc(s[0] - 2, y + s[1], 2.2, 0, Math.PI * 2); ctx.arc(s[0] + 0.5, y + s[1] - 1, 2.8, 0, Math.PI * 2); ctx.arc(s[0] + 3, y + s[1], 2, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'royal') {
+      ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.moveTo(-6, y - 7); ctx.lineTo(0, y + 1); ctx.lineTo(6, y - 7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(0, y + 1, 1.4, 0, Math.PI * 2); ctx.fill();
+    } else if (p === 'jumpsuit') {
+      ctx.fillRect(-9, y - 8, 18, 4.5); // dark shoulders
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(-0.4, y - 3.5, 0.8, 6); // zipper
+    } else if (p === 'lotus') {
+      for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + (i - 2) * 0.55; ctx.beginPath(); ctx.ellipse(Math.cos(a) * 2.2, y + Math.sin(a) * 2.2, 2.4, 1.1, a, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'moons') {
+      drawCrescent(-3.5, y - 2.5, 2.2, c, 1); drawCrescent(3.5, y + 3, 2.4, c, 1);
+    } else if (p === 'coat') {
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath(); ctx.moveTo(-4, y - 8); ctx.lineTo(1, y + 1); ctx.moveTo(5, y - 8); ctx.lineTo(1, y + 1); ctx.stroke();
+      for (const yy of [y + 3, y + 6]) { ctx.beginPath(); ctx.arc(2, yy, 0.9, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'sash') {
+      ctx.save(); ctx.translate(0, y); ctx.rotate(-0.6); ctx.fillRect(-10, -1.3, 20, 2.6); ctx.restore();
+    } else if (p === 'panel') {
+      roundRect(-3.5, y - 5, 7, 5, 1.2); ctx.fill();
+      ctx.fillStyle = (frame >> 4) % 2 ? '#5aff9a' : '#ff5a4a'; ctx.beginPath(); ctx.arc(-1.5, y - 2.5, 0.8, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd23f'; ctx.beginPath(); ctx.arc(1.5, y - 2.5, 0.8, 0, Math.PI * 2); ctx.fill();
+    } else if (p === 'kimono') {
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(-5, y - 8); ctx.lineTo(2, y + 2); ctx.moveTo(5, y - 8); ctx.lineTo(-0.5, y - 1); ctx.stroke();
+    } else if (p === 'belly') {
+      ctx.beginPath(); ctx.ellipse(1.5, y + 1.5, 5, 5.2, 0, 0, Math.PI * 2); ctx.fill();
+    } else if (p === 'circuit') {
+      ctx.lineWidth = 0.9;
+      ctx.beginPath(); ctx.moveTo(-8, y - 2); ctx.lineTo(-3, y - 2); ctx.lineTo(-1, y - 5); ctx.lineTo(4, y - 5);
+      ctx.moveTo(-6, y + 4); ctx.lineTo(0, y + 4); ctx.lineTo(2, y + 1); ctx.lineTo(8, y + 1); ctx.stroke();
+      for (const s of [[-3, -2], [4, -5], [0, 4], [2, 1]]) { ctx.beginPath(); ctx.arc(s[0], y + s[1], 0.9, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'robe') {
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(-5, y - 8); ctx.lineTo(0, y + 1); ctx.lineTo(5, y - 8); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // Over the body: shoulder pads, collar
+  function drawAccBodyTop(bodyY) {
+    const A = skin.acc;
+    if (!A) return;
+    if (A.pads) {
+      for (const sx of [-1, 1]) {
+        const x = sx * 6.8, y = bodyY - 4.6;
+        if (A.pads.rock) accPath([x - 3.6, y + 1.5, x - 2.6, y - 2.4, x + 0.4, y - 3.4, x + 3.4, y - 1.6, x + 3.6, y + 1.8]);
+        else { ctx.beginPath(); ctx.ellipse(x, y, 3.8, 2.6, sx * 0.35, 0, Math.PI * 2); }
+        accFill(A.pads.col);
+        if (A.pads.neon) { ctx.strokeStyle = A.pads.neon; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.5, sx * 0.35, Math.PI, Math.PI * 2); ctx.stroke(); }
+      }
+    }
+    if (A.collar) {
+      const h = A.collar.high ? 5 : 3;
+      ctx.beginPath();
+      ctx.moveTo(-6.5, bodyY - 5.5); ctx.quadraticCurveTo(0, bodyY - 7.5 - h, 6.5, bodyY - 5.5);
+      ctx.quadraticCurveTo(0, bodyY - 3.5, -6.5, bodyY - 5.5);
+      accFill(A.collar.col);
+    }
+  }
+
+  // Head, before the visor (hood, hair, forehead plate, crests)
+  function drawAccHeadMid(headY, hr, visorX, vw, va) {
+    const A = skin.acc;
+    if (!A) return;
+    if (A.hood) {
+      ctx.beginPath();
+      ctx.arc(0, headY - 0.5, hr + 1.4, 0, Math.PI * 2);
+      roundRect(visorX - 8.2 * vw - 1, headY - 4.2, 16.4 * vw + 2, 12.5, 5);
+      ctx.fillStyle = A.hood.col;
+      ctx.fill('evenodd');
+      ctx.strokeStyle = skin.out; ctx.lineWidth = 1.4;
+      ctx.beginPath(); ctx.arc(0, headY - 0.5, hr + 1.4, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = shadeHex(A.hood.col, -0.35); ctx.lineWidth = 1;
+      roundRect(visorX - 8.2 * vw - 1, headY - 4.2, 16.4 * vw + 2, 12.5, 5); ctx.stroke();
+    }
+    if (A.hair) { // bun + ribbon at the back of the head
+      ctx.beginPath(); ctx.arc(-8.5, headY - 8, 4, 0, Math.PI * 2); accFill(A.hair.col);
+      ctx.fillStyle = skin.body[1]; ctx.fillRect(-9.5, headY - 9, 2.5, 2.5);
+    }
+    if (A.crest) {
+      const C = A.crest;
+      if (C.style === 'plate' && va > 0.2) {
+        const px = visorX * 0.9, py = headY - 6.3;
+        roundRect(px - 4.6 * vw, py - 2.3, 9.2 * vw, 4.6, 1.2);
+        accFill(C.col);
+        ctx.strokeStyle = '#2a3040'; ctx.lineWidth = 0.8;
+        if (C.sym === 'swirl') { ctx.beginPath(); for (let a = 0; a < 7; a += 0.5) ctx.lineTo(px + Math.cos(a) * a * 0.27 * vw, py + Math.sin(a) * a * 0.27); ctx.stroke(); }
+        else if (C.sym === 'lotus') { for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.ellipse(px + i * 1.4 * vw, py + 0.3, 0.8 * vw, 1.6, i * 0.5, 0, Math.PI * 2); ctx.stroke(); } }
+        else if (C.sym === 'scratch') {
+          ctx.beginPath(); ctx.moveTo(px - 1.5 * vw, py + 1.4); ctx.lineTo(px, py - 1.4); ctx.lineTo(px + 1.5 * vw, py + 1.4); ctx.stroke();
+          ctx.strokeStyle = '#c0142a'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(px - 4 * vw, py); ctx.lineTo(px + 4 * vw, py); ctx.stroke();
+        }
+      } else if (C.style === 'fin') {
+        accPath([-6, headY - 9, 1, headY - 19, 3, headY - 10.5]); accFill(C.col);
+        ctx.strokeStyle = 'rgba(255,255,255,0.6)'; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(-3, headY - 10); ctx.lineTo(0.5, headY - 16); ctx.stroke();
+      } else if (C.style === 'moon' && va > 0.2) {
+        ctx.fillStyle = C.col; ctx.beginPath(); ctx.arc(visorX * 0.8, headY - 6.2, 3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = skin.bandGrad[1]; ctx.beginPath(); ctx.arc(visorX * 0.8 + 1.4, headY - 7, 2.5, 0, Math.PI * 2); ctx.fill();
+      } else if (C.style === 'blade') {
+        accPath([-7, headY - 9.5, 2, headY - 20, 4.5, headY - 10.5]); accFill(C.col);
+      }
+    }
+  }
+  // Head, after the visor (horns, ears, hats, antenna, blindfold, patch, glowing eyes, whiskers)
+  function drawAccHeadTop(headY, hr, visorX, vw, va) {
+    const A = skin.acc;
+    if (!A) return;
+    const H = A.horns;
+    if (H) {
+      const c = H.col;
+      if (H.style === 'small') { for (const s of [-1, 1]) { accPath([s * 3.4, headY - 9.5, s * 6.2, headY - 16, s * 7.6, headY - 8.2]); accFill(c); } }
+      else if (H.style === 'big') {
+        for (const s of [-1, 1]) {
+          ctx.beginPath(); ctx.moveTo(s * 4, headY - 9.5);
+          ctx.quadraticCurveTo(s * 9, headY - 14, s * 13.5, headY - 20);
+          ctx.quadraticCurveTo(s * 11, headY - 11, s * 9, headY - 6.5); ctx.closePath(); accFill(c);
+        }
+      } else if (H.style === 'bolt') { for (const s of [-1, 1]) { accPath([s * 4, headY - 9.5, s * 7.5, headY - 14, s * 6, headY - 14.5, s * 9.5, headY - 20, s * 7.5, headY - 13, s * 9, headY - 12.5, s * 8, headY - 7.5]); accFill(c); } }
+      else if (H.style === 'antler') {
+        ctx.strokeStyle = c; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        for (const s of [-1, 1]) {
+          ctx.beginPath(); ctx.moveTo(s * 4.5, headY - 9); ctx.lineTo(s * 8, headY - 17); ctx.lineTo(s * 7, headY - 21);
+          ctx.moveTo(s * 7, headY - 14); ctx.lineTo(s * 11.5, headY - 16.5); ctx.stroke();
+          ctx.fillStyle = H.leaf; ctx.beginPath(); ctx.ellipse(s * 12, headY - 18, 2.6, 1.3, s * 0.7, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (H.style === 'crown') {
+        ctx.beginPath(); ctx.moveTo(-8, headY - 7.5);
+        const xs = [-8, -5.5, -3, 0, 3, 5.5, 8], hs = [0, 6, 2, 9, 2, 6, 0];
+        for (let i = 0; i < xs.length; i++) ctx.lineTo(xs[i], headY - 8.5 - hs[i]);
+        ctx.lineTo(8, headY - 6.5); ctx.quadraticCurveTo(0, headY - 9.5, -8, headY - 6.5); ctx.closePath();
+        accFill(c);
+        ctx.fillStyle = '#ff3a3a'; ctx.beginPath(); ctx.arc(0, headY - 10.5, 1.3, 0, Math.PI * 2); ctx.fill();
+      } else if (H.style === 'dragon') {
+        for (const s of [0, 1]) {
+          const ox = s * -3;
+          ctx.beginPath(); ctx.moveTo(3 + ox, headY - 9.5);
+          ctx.quadraticCurveTo(-4 + ox, headY - 15, -13 + ox, headY - 17.5);
+          ctx.quadraticCurveTo(-6 + ox, headY - 11, -2 + ox, headY - 8); ctx.closePath();
+          accFill(s ? shadeHex(c, -0.2) : c);
+        }
+      }
+    }
+    const E = A.ears;
+    if (E) {
+      if (E.style === 'fox') {
+        for (const s of [-1, 1]) {
+          accPath([s * 3, headY - 9.5, s * 8.5, headY - 19, s * 10, headY - 6.5]); accFill(E.col);
+          accPath([s * 4.8, headY - 10, s * 8.2, headY - 16, s * 8.8, headY - 8.5]); accFill(E.inner, false);
+        }
+      } else if (E.style === 'panda') {
+        for (const s of [-1, 1]) { ctx.beginPath(); ctx.arc(s * 8, headY - 8.5, 4, 0, Math.PI * 2); accFill(E.col); }
+      }
+    }
+    const T = A.hat;
+    if (T) {
+      if (T.style === 'kasa') {
+        ctx.beginPath(); ctx.moveTo(-18, headY - 3.5); ctx.lineTo(0, headY - 15.5); ctx.lineTo(18, headY - 3.5);
+        ctx.quadraticCurveTo(0, headY - 6, -18, headY - 3.5); ctx.closePath(); accFill(T.col);
+        ctx.strokeStyle = shadeHex(T.col, -0.3); ctx.lineWidth = 0.7;
+        ctx.beginPath(); for (let i = -3; i <= 3; i++) { ctx.moveTo(0, headY - 15); ctx.lineTo(i * 5.5, headY - 4.6 - Math.abs(i) * 0.1); } ctx.stroke();
+      } else if (T.style === 'tricorn') {
+        ctx.beginPath(); ctx.moveTo(-15, headY - 5);
+        ctx.quadraticCurveTo(-9, headY - 18, 0, headY - 15); ctx.quadraticCurveTo(9, headY - 18, 15, headY - 5);
+        ctx.quadraticCurveTo(0, headY - 9.5, -15, headY - 5); ctx.closePath(); accFill(T.col);
+        ctx.strokeStyle = T.trim; ctx.lineWidth = 1.2;
+        ctx.beginPath(); ctx.moveTo(-14, headY - 5.6); ctx.quadraticCurveTo(0, headY - 10, 14, headY - 5.6); ctx.stroke();
+        ctx.fillStyle = '#f2f2f2'; ctx.beginPath(); ctx.arc(1, headY - 12, 1.7, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    if (A.antenna) {
+      ctx.strokeStyle = A.antenna.col; ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(1, headY - 11); ctx.lineTo(3, headY - 19); ctx.stroke();
+      const on = (frame >> 4) % 2 === 0;
+      if (on && FX.glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlow(3, headY - 19.5, 6, A.antenna.tip, 0.8); ctx.restore(); }
+      ctx.fillStyle = on ? A.antenna.tip : shadeHex(A.antenna.tip, -0.5);
+      ctx.beginPath(); ctx.arc(3, headY - 19.5, 1.7, 0, Math.PI * 2); ctx.fill();
+    }
+    if (A.bolts) {
+      ctx.fillStyle = A.bolts;
+      ctx.beginPath(); ctx.arc(-hr + 1.2, headY + 1.5, 2.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = skin.out; ctx.lineWidth = 0.8; ctx.stroke();
+    }
+    if (va > 0.2) {
+      if (A.blind) {
+        roundRect(visorX - 9.2 * vw, headY - 1.3, 18.4 * vw, 5.6, 2);
+        accFill(A.blind);
+        ctx.strokeStyle = 'rgba(0,0,0,0.15)'; ctx.lineWidth = 0.6;
+        ctx.beginPath(); ctx.moveTo(visorX - 8 * vw, headY + 1.5); ctx.lineTo(visorX + 8 * vw, headY + 1.5); ctx.stroke();
+      }
+      if (A.patch) {
+        ctx.strokeStyle = A.patch; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(-hr + 1, headY - 4); ctx.lineTo(visorX + 6 * vw, headY + 4.5); ctx.stroke();
+        ctx.fillStyle = A.patch; ctx.beginPath(); ctx.ellipse(visorX + 3.2 * vw, headY + 2.2, 2.8 * Math.max(0.5, vw), 3, 0, 0, Math.PI * 2); ctx.fill();
+      }
+      if (A.crest && A.crest.style === 'visorline') {
+        ctx.strokeStyle = A.crest.col; ctx.lineWidth = 0.9;
+        ctx.beginPath(); ctx.moveTo(visorX - 7 * vw, headY + 5.6); ctx.lineTo(visorX + 7 * vw, headY + 5.6); ctx.stroke();
+      }
+      if (A.eyeGlow && FX.glow && !A.blind) {
+        ctx.save(); ctx.globalCompositeOperation = 'lighter';
+        const a = 0.55 * va * (0.85 + 0.15 * Math.sin(frame * 0.15));
+        drawGlow(visorX - 3 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
+        if (!A.patch) drawGlow(visorX + 3.2 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
+        ctx.restore();
+      }
+      if (A.whiskers) {
+        ctx.strokeStyle = A.whiskers; ctx.lineWidth = 1; ctx.lineCap = 'round';
+        const w = Math.sin(frame * 0.1) * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(visorX + 6 * vw, headY + 4.5); ctx.quadraticCurveTo(visorX + 12, headY + 7, visorX + 13, headY + 12 + w);
+        ctx.moveTo(visorX - 6 * vw, headY + 4.5); ctx.quadraticCurveTo(visorX - 11, headY + 7, visorX - 12, headY + 12 - w);
+        ctx.stroke();
+      }
+    }
+  }
+
+  // Cosmetic trail while moving fast (a few small particles; budget shared with FX.maxParticles)
+  function skinTrail() {
+    const T = skin.trail;
+    if (!T || !FX.particles || !ninja || ninja.dead || state !== 'playing') return;
+    if (frame % 3 !== 0 || particles.length > FX.maxParticles - 40) return;
+    const sp = Math.abs(ninja.vx) + Math.abs(ninja.vy);
+    if (sp < 3.5) return;
+    const p = { x: ninja.x + (Math.random() - 0.5) * 10, y: ninja.y + 4 + (Math.random() - 0.5) * 10,
+      vx: -ninja.vx * 0.08 + (Math.random() - 0.5) * 0.6, vy: -ninja.vy * 0.08 + (Math.random() - 0.5) * 0.6,
+      life: 20 + Math.random() * 10, max: 30, color: T.color, size: 2 + Math.random() * 1.8 };
+    if (T.kind === 'fire') { if (FX.glow) p.fire = true; else p.dust = true; p.size = 2.6 + Math.random() * 1.6; }
+    else if (T.kind === 'spark') { p.spark = true; p.size = 1.3; p.vx *= 2; p.vy *= 2; }
+    else if (T.kind === 'star') { p.star = true; p.size = 2.6 + Math.random() * 1.4; p.rot = Math.random() * 6; p.vr = 0.15; }
+    else { p.dust = true; if (T.kind === 'smoke') { p.size = 3 + Math.random() * 2.5; p.life = 26; p.max = 26; } }
+    particles.push(p);
+  }
+  // Soft cosmetic aura behind rare characters (one pre-rendered glow sprite)
+  function drawSkinAura(x, y) {
+    if (!skin.aura || !FX.glow || (ninja && ninja.dead)) return;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    drawGlow(x, y + 2, 34, skin.aura, 0.32 + 0.08 * Math.sin(frame * 0.08));
+    ctx.restore();
+  }
 
   // --- Ninja sprite (Bomberman-style white ninja, shaded for a 3D look) ---
   // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
@@ -4706,6 +5344,7 @@
 
     ctx.save();
     ctx.translate(x, y);
+    if (skin.alpha) ctx.globalAlpha *= skin.alpha; // see-through characters (ghost)
     let rot = 0;
     if (kick) { ctx.rotate(kick.lean); rot += kick.lean; }
     if (Math.abs(p.lean) > 0.004) { ctx.rotate(p.lean); rot += p.lean; } // tilts into the side motion
@@ -4760,6 +5399,7 @@
     // Headband tails (behind everything)
     const knotX = -9.5, knotY = headY - 4;
     drawNinjaTails(knotX, knotY, tailLen, tailDy, wave, ripple);
+    if (skin.acc) drawAccBack(bodyY, headY, spd, wave, -1); // character accessories behind the body
 
     // Legs (side-view squat): thighs rotate FORWARD (+x = facing, mirrored by the
     // facing scale), shins angle back down to feet kept together. Back leg is drawn
@@ -4867,6 +5507,7 @@
     const vy = ninja.vy;
     ctx.save();
     ctx.translate(x, y);
+    if (skin.alpha) ctx.globalAlpha *= skin.alpha;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     // speed streaks below him while he shoots up (world space)
@@ -4899,6 +5540,7 @@
     const kX = 9.5 * (-0.6 * c - 0.8 * s), kd = -0.8 * c + 0.6 * s;
     const knotX = lerp(-9.5, kX, b), knotY = headY - 4;
     drawNinjaTails(knotX, knotY, 9 + spd * 0.45, Math.max(-8, Math.min(10, -vy * 0.55)) + 3, wave);
+    if (skin.acc) drawAccBack(bodyY, headY, spd, wave, lerp(-1, kX / 9.5, b)); // accessories follow the turn
     // project the limbs
     const parts = [];
     for (const name in HERO_JOINTS) {
@@ -4996,6 +5638,7 @@
     ctx.beginPath();
     ctx.ellipse(0, bodyY, 8.2, 7.4, 0, 0, Math.PI * 2);
     ctx.stroke();
+    if (skin.acc) drawAccBody(bodyY);
 
     // Belt + knot tails
     const beltY = bodyY + 1.5;
@@ -5022,7 +5665,7 @@
     ctx.beginPath();
     ctx.arc(bk - 0.8 * bd, beltY - 0.6, 0.6, 0, Math.PI * 2);
     ctx.fill();
-
+    if (skin.acc) drawAccBodyTop(bodyY);
   }
   // Head, headband, knot and visor. visorX = visor centre, vw = visor width factor, va = visor alpha
   function drawNinjaHead(headY, hr, facing, knotX, knotY, visorX, vw, va) {
@@ -5098,7 +5741,8 @@
 
     // Face visor (glossy dark rounded slot) with eyes, shifted toward facing side
     const vxc = visorX, vyc = headY + 2.2;
-    if (va <= 0.01) return;
+    if (skin.acc) drawAccHeadMid(headY, hr, visorX, vw, va);
+    if (va > 0.01) {
     if (va < 1) { ctx.save(); ctx.globalAlpha *= va; }
     const vg = ctx.createLinearGradient(0, vyc - 3.6, 0, vyc + 3.8);
     vg.addColorStop(0, skin.visor[0]);
@@ -5119,7 +5763,8 @@
     ctx.ellipse(vxc + 3.2 * vw, vyc, 1.5 * Math.min(1, 0.4 + vw * 0.6), 2.3 * blink, 0, 0, Math.PI * 2);
     ctx.fill();
     if (va < 1) ctx.restore();
-
+    }
+    if (skin.acc) drawAccHeadTop(headY, hr, visorX, vw, va);
   }
 
   function roundRect(x, y, w, h, r) {
@@ -6013,6 +6658,7 @@
 
   // Behind the ninja: combo aura, rocket flame + magnet aura
   function drawNinjaFxBack(x, y) {
+    drawSkinAura(x, y);
     if (ninja.combo && !ninja.dead) drawComboAura(x, y);
     if (ninja.rocketT > 0 && !ninja.dead) {
       // twin jet pack on his back: nozzles peek out on both sides, flames point down
@@ -6541,6 +7187,13 @@
   function overlayScrolls(target) {
     if (state === 'playing' && !paused) return false;
     if (!overlay || overlay.classList.contains('hidden') || !target || !overlay.contains(target)) return false;
+    // a scrolling box inside the menu (the character grid) may scroll too, even when the menu itself fits
+    for (let el = target; el && el !== overlay; el = el.parentNode) {
+      if (el.nodeType === 1 && el.scrollHeight > el.clientHeight + 1) {
+        const oy = window.getComputedStyle ? getComputedStyle(el).overflowY : '';
+        if (oy === 'auto' || oy === 'scroll') return true;
+      }
+    }
     return overlay.scrollHeight > overlay.clientHeight + 1;
   }
   function bindPageGuards() {
@@ -6589,6 +7242,7 @@
   function bindMenus() {
     onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
     initDialog();
+    initCharsFilter();
     onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });
     onBtn('pauseOptionsBtn', function () { optionsBack = 'pause'; showScreen('options'); });
     onBtn('resumeBtn', resumeWithCountdown);

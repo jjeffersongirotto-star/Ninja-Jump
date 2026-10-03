@@ -250,6 +250,7 @@ function update(dt) {
     }
     pickupPowerups();
     updateCombo();
+    skinTrail(); // cosmetic particles of the chosen character
   } else ninja.deathSpin += 0.22;
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i];

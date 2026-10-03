@@ -165,6 +165,7 @@ function drawNinjaSprite(x, y) {
 
   ctx.save();
   ctx.translate(x, y);
+  if (skin.alpha) ctx.globalAlpha *= skin.alpha; // see-through characters (ghost)
   let rot = 0;
   if (kick) { ctx.rotate(kick.lean); rot += kick.lean; }
   if (Math.abs(p.lean) > 0.004) { ctx.rotate(p.lean); rot += p.lean; } // tilts into the side motion
@@ -219,6 +220,7 @@ function drawNinjaSprite(x, y) {
   // Headband tails (behind everything)
   const knotX = -9.5, knotY = headY - 4;
   drawNinjaTails(knotX, knotY, tailLen, tailDy, wave, ripple);
+  if (skin.acc) drawAccBack(bodyY, headY, spd, wave, -1); // character accessories behind the body
 
   // Legs (side-view squat): thighs rotate FORWARD (+x = facing, mirrored by the
   // facing scale), shins angle back down to feet kept together. Back leg is drawn
@@ -326,6 +328,7 @@ function drawHeroNinja(x, y) {
   const vy = ninja.vy;
   ctx.save();
   ctx.translate(x, y);
+  if (skin.alpha) ctx.globalAlpha *= skin.alpha;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   // speed streaks below him while he shoots up (world space)
@@ -358,6 +361,7 @@ function drawHeroNinja(x, y) {
   const kX = 9.5 * (-0.6 * c - 0.8 * s), kd = -0.8 * c + 0.6 * s;
   const knotX = lerp(-9.5, kX, b), knotY = headY - 4;
   drawNinjaTails(knotX, knotY, 9 + spd * 0.45, Math.max(-8, Math.min(10, -vy * 0.55)) + 3, wave);
+  if (skin.acc) drawAccBack(bodyY, headY, spd, wave, lerp(-1, kX / 9.5, b)); // accessories follow the turn
   // project the limbs
   const parts = [];
   for (const name in HERO_JOINTS) {
@@ -455,6 +459,7 @@ function drawNinjaTorso(bodyY, facing, spd, wave, bk) {
   ctx.beginPath();
   ctx.ellipse(0, bodyY, 8.2, 7.4, 0, 0, Math.PI * 2);
   ctx.stroke();
+  if (skin.acc) drawAccBody(bodyY);
 
   // Belt + knot tails
   const beltY = bodyY + 1.5;
@@ -481,7 +486,7 @@ function drawNinjaTorso(bodyY, facing, spd, wave, bk) {
   ctx.beginPath();
   ctx.arc(bk - 0.8 * bd, beltY - 0.6, 0.6, 0, Math.PI * 2);
   ctx.fill();
-
+  if (skin.acc) drawAccBodyTop(bodyY);
 }
 // Head, headband, knot and visor. visorX = visor centre, vw = visor width factor, va = visor alpha
 function drawNinjaHead(headY, hr, facing, knotX, knotY, visorX, vw, va) {
@@ -557,7 +562,8 @@ function drawNinjaHead(headY, hr, facing, knotX, knotY, visorX, vw, va) {
 
   // Face visor (glossy dark rounded slot) with eyes, shifted toward facing side
   const vxc = visorX, vyc = headY + 2.2;
-  if (va <= 0.01) return;
+  if (skin.acc) drawAccHeadMid(headY, hr, visorX, vw, va);
+  if (va > 0.01) {
   if (va < 1) { ctx.save(); ctx.globalAlpha *= va; }
   const vg = ctx.createLinearGradient(0, vyc - 3.6, 0, vyc + 3.8);
   vg.addColorStop(0, skin.visor[0]);
@@ -578,7 +584,8 @@ function drawNinjaHead(headY, hr, facing, knotX, knotY, visorX, vw, va) {
   ctx.ellipse(vxc + 3.2 * vw, vyc, 1.5 * Math.min(1, 0.4 + vw * 0.6), 2.3 * blink, 0, 0, Math.PI * 2);
   ctx.fill();
   if (va < 1) ctx.restore();
-
+  }
+  if (skin.acc) drawAccHeadTop(headY, hr, visorX, vw, va);
 }
 
 function roundRect(x, y, w, h, r) {

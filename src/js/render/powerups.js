@@ -140,6 +140,7 @@ function hexA(hex, a) {
 
 // Behind the ninja: combo aura, rocket flame + magnet aura
 function drawNinjaFxBack(x, y) {
+  drawSkinAura(x, y);
   if (ninja.combo && !ninja.dead) drawComboAura(x, y);
   if (ninja.rocketT > 0 && !ninja.dead) {
     // twin jet pack on his back: nozzles peek out on both sides, flames point down
