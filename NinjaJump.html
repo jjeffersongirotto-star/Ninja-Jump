@@ -975,11 +975,16 @@
   // Placed rarely, only in the calm breather between two rooms (never inside or next to hazards).
   const POWERUPS = {
     fromMeters: 150,            // none below this altitude
-    everyRooms: [3, 5],         // rooms between two power-ups (random in this range)
+    everyRooms: [3, 6],         // rooms between two power-ups (random in this range)
+    // Combo pair: sometimes a power-up spot gets TWO different items on the same trail (the lower one first,
+    // the rocket always on top so he flies through the second one). With the longer gap above, the average
+    // number of items per room only goes from 0.25 to ~0.28 (+11%).
+    pairChance: 0.25,
+    pairs: [[['shield', 'rocket'], 0.3], [['magnet', 'rocket'], 0.3], [['shield', 'magnet'], 0.2], [['magnet', 'shield'], 0.2]],
     weights: { magnet: 0.4, shield: 0.35, rocket: 0.25 }, // never the same type twice in a row
     pickupRadius: 18,           // item radius for the pickup test (+ NINJA_R)
     // MAGNET: coins within `radius` px fly to him for `frames` (60 = 1 s); pull speed grows to `speed` px/frame.
-    magnet: { frames: 480, radius: 170, speed: 9 },
+    magnet: { frames: 600, radius: 170, speed: 9 },
     // SHIELD: absorbs ONE fatal hit (bubble breaks); then `graceFrames` of immunity to fatal hazards so he
     // can get away. Lasts until used. Picking another one while shielded does nothing extra (no stacking).
     shield: { graceFrames: 60, bounce: 4 },
@@ -989,7 +994,26 @@
     // gently with the softer post-bump gravity (HAZARDS.bumpFloat) so there is time to draw an elastic.
     // Super jump: a rocket picked during a super jump replaces it (spin ends, no stacking); no super jump can
     // start during a rocket (elastics are ignored while it flies). The short-elastic streak is kept.
-    rocket: { frames: 150, speed: 10.5, easeFrames: 26, releaseVy: 5, extendMax: 90, clearMargin: 40 }
+    rocket: { frames: 150, speed: 10.5, easeFrames: 26, releaseVy: 5, extendMax: 90, clearMargin: 40 },
+    // COMBOS: two effects active at the same time (rocket and super jump never overlap: the rocket replaces it).
+    // Each combo shows its name once when it starts and a coloured aura while it lasts.
+    combos: {
+      // magnet + rocket: magnet radius x radiusMult and pull speed x speedMult during the climb
+      magnetRocket: { label: 'Foguete Magnético!', color: '#ff5ad1', radiusMult: 2.3, speedMult: 1.6 },
+      // magnet + super jump: magnet radius x radiusMult and pull speed x speedMult during the super-jump ascent
+      // (he climbs up to ~35 px/frame, faster than any pull: coins in range are also carried along with him)
+      magnetSuper: { label: 'Super Ímã!', color: '#ff9de2', radiusMult: 1.7, speedMult: 2.2 },
+      // shield + rocket: rams flyers/UFOs on the way (red ones too): defeated, +HAZARDS.stomp.coins each.
+      // The shield is NOT used up; spikes/saws are still just flown through.
+      shieldRocket: { label: 'Aríete Blindado!', color: '#ffd23f' },
+      // shield + super jump: red flyers/UFOs are defeated (+coins) instead of knocked aside; shield kept
+      shieldSuper: { label: 'Super Aríete!', color: '#fff27a' },
+      // magnet + shield: every enemy defeated drops `dropCoins` extra coins (pulled in by the magnet); a red
+      // enemy that breaks the shield is defeated (+coins, and the drop) instead of only knocked aside
+      magnetShield: { label: 'Escudo Imantado!', color: '#b88bff', dropCoins: 4, dropSpread: 26 },
+      // all three at once (magnet + shield + rocket / super jump): every effect above together
+      triple: { label: 'Combo Triplo!', color: '#ffffff' }
+    }
   };
 
   // --- Game state (shared by every file) ---
@@ -1015,7 +1039,7 @@
     return { bounces: 0, supers: 0, wallKicks: 0, superFrame: -1, last: null, hits: {}, deaths: 0, deathBy: null, shieldBreaks: 0,
       stomps: { blue: 0, red: 0 }, upperHits: 0, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0,
       bonks: 0, ghostPlatforms: 0, snaps: 0, expired: 0, fallBounces: 0,
-      powerups: { magnet: 0, shield: 0, rocket: 0 }, shieldSaves: 0, rocketExtend: 0, dives: 0, teleports: 0, magnetCoins: 0 };
+      powerups: { magnet: 0, shield: 0, rocket: 0 }, shieldSaves: 0, rocketExtend: 0, combos: {}, comboKills: 0, comboDrops: 0, dives: 0, teleports: 0, magnetCoins: 0 };
   }
   const debugStats = freshDebugStats();
   function resetDebugStats() {
@@ -1222,7 +1246,7 @@
       dead: false, deathSpin: 0,
       floatT: 0, ghost: 0, still: 0, stillX: W / 2, stillY: groundY - NINJA_R, embedded: 0,
       bonks: 0, bonkedSinceLaunch: false, bonkT: 0,
-      magnetT: 0, shield: false, shieldPop: 0, invulnT: 0, rocketT: 0, rocketExt: 0  // power-ups
+      magnetT: 0, shield: false, shieldPop: 0, invulnT: 0, rocketT: 0, rocketExt: 0, combo: '', comboT: 0  // power-ups
     };
     resetDebugStats();
     camera = { y: 0 };
@@ -1814,15 +1838,26 @@
     if (breath > 0) {
       const bpx = breath / METERS_PER_PX, ex = entranceX(rows, width);
       const row = { m: m, kind: 'breather', items: [], coins: [] };
-      let powerAt = -1;
+      let powerAt = -1, power2At = -1;
       if (--sp.toPower <= 0 && m >= POWERUPS.fromMeters) {
-        const w = {};
-        for (const k in POWERUPS.weights) if (k !== sp.lastPower) w[k] = POWERUPS.weights[k];
-        const type = pickWeighted(rng, w);
-        sp.lastPower = type;
         sp.toPower = Math.floor(rr(rng, POWERUPS.everyRooms[0], POWERUPS.everyRooms[1] + 0.999));
         powerAt = 2;
-        row.power = { type: type, x: 0, yOff: 0 };
+        if (rng() < POWERUPS.pairChance) {
+          // combo pair: two different items on the trail, the lower one first (rocket always on top)
+          const pw = {}, list = POWERUPS.pairs;
+          for (let i = 0; i < list.length; i++) pw[i] = list[i][1];
+          const pair = list[+pickWeighted(rng, pw)][0];
+          row.power = { type: pair[0], x: 0, yOff: 0 };
+          row.power2 = { type: pair[1], x: 0, yOff: 0 };
+          sp.lastPower = pair[1];
+          power2At = 3;
+        } else {
+          const w = {};
+          for (const k in POWERUPS.weights) if (k !== sp.lastPower) w[k] = POWERUPS.weights[k];
+          const type = pickWeighted(rng, w);
+          sp.lastPower = type;
+          row.power = { type: type, x: 0, yOff: 0 };
+        }
       }
       if (rng() < HAZARDS.rooms.hintCoins || powerAt >= 0) {
         // trail: from one side of the entrance, rising toward it
@@ -1831,17 +1866,29 @@
         if (powerAt >= 0) { // the power-up takes a trail spot that is clear of every hazard's full area
           const near = (sp.lastRows || []).slice();
           for (const r of rows) for (const it of r.items) near.push({ item: it, y: -(start + r.dm) / METERS_PER_PX });
-          const order = [2, 1, 3, 0, 4];
-          powerAt = -1;
-          for (const i of order) {
-            const x = lerp(x0, ex, i / (fr.length - 1)), y = -m / METERS_PER_PX - bpx * fr[i];
-            if (powerSpotClear(near, x, y)) { powerAt = i; break; }
+          const spotOk = i => powerSpotClear(near, lerp(x0, ex, i / (fr.length - 1)), -m / METERS_PER_PX - bpx * fr[i]);
+          if (row.power2) {
+            // pair: lower item on spot 0-2, the upper one at least two spots above it
+            powerAt = -1; power2At = -1;
+            for (const i of [1, 0, 2]) {
+              if (!spotOk(i)) continue;
+              for (let j = i + 2; j < fr.length; j++) if (spotOk(j)) { powerAt = i; power2At = j; break; }
+              if (powerAt >= 0) break;
+            }
+            if (powerAt < 0) { row.power = row.power2; delete row.power2; } // no room for both: keep a single item
           }
-          if (powerAt < 0) { delete row.power; sp.toPower = 1; sp.lastPower = ''; } // try again at the next breather
+          if (!row.power2) {
+            const order = [2, 1, 3, 0, 4];
+            powerAt = -1; power2At = -1;
+            for (const i of order) if (spotOk(i)) { powerAt = i; break; }
+            if (powerAt < 0) { delete row.power; sp.toPower = 1; sp.lastPower = ''; } // try again at the next breather
+          }
         }
         for (let i = 0; i < fr.length; i++) {
           const x = lerp(x0, ex, i / (fr.length - 1)), yOff = -bpx * fr[i];
-          if (i === powerAt) { row.power.x = x; row.power.yOff = yOff; } else row.coins.push({ x: x, yOff: yOff });
+          if (i === powerAt) { row.power.x = x; row.power.yOff = yOff; }
+          else if (i === power2At) { row.power2.x = x; row.power2.yOff = yOff; }
+          else row.coins.push({ x: x, yOff: yOff });
         }
       } else if (rng() < 0.6) row.coins = coinCluster(rng, width);
       sp.queue.push(row);
@@ -1897,8 +1944,9 @@
     for (const c of row.coins) {
       coins.push({ x: c.x, y: wy + c.yOff, r: 10, collected: false, sparkle: Math.random() * Math.PI * 2 });
     }
-    if (row.power) {
-      powerups.push({ type: row.power.type, x: row.power.x, y: wy + row.power.yOff, r: POWERUPS.pickupRadius,
+    for (const pw of [row.power, row.power2]) {
+      if (!pw) continue;
+      powerups.push({ type: pw.type, x: pw.x, y: wy + pw.yOff, r: POWERUPS.pickupRadius,
         bob: Math.random() * Math.PI * 2, taken: false });
     }
   }
@@ -2054,7 +2102,9 @@
         if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
           // super jump: platforms are intangible (like when falling); blue enemies are defeated (+stomp.coins),
           // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
+          // Combo shield + super jump: red ones are defeated too.
           if (hz.type === 'platform') ghostPlatform(hz);
+          else if (hz.color === 'red' && comboRams()) comboDefeat(hz);
           else if (hz.color === 'red') knockAside(hz);
           else defeatEnemy(hz);
           continue;
@@ -2160,6 +2210,7 @@
     runCoins += ST.coins;
     countHit(hz.kind + ':defeated');
     floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
+    if (comboDrops()) dropComboCoins(hz); // magnet + shield combo: extra coins burst out
     burst(hz.x, hz.y, '#ffffff', 12, 3.2);
     burst(hz.x, hz.y, '#8fd3ff', 10, 3);
     burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
@@ -2631,9 +2682,15 @@
     ninja.vx = dx * SH.bounce;
     ninja.vy = Math.min(dy * SH.bounce, ninja.vy < 0 ? ninja.vy * 0.5 : 0);
     ninja.floatT = HAZARDS.bumpFloat.frames;
-    if ((hz.type === 'flyer' || hz.type === 'ufo') && !hz.dv) knockAside(hz);
+    const magnetCombo = ninja.magnetT > 0 && (hz.type === 'flyer' || hz.type === 'ufo');
+    if (magnetCombo) { // magnet + shield combo: the bubble pops on it and takes it down, coins burst out
+      debugStats.comboKills++;
+      countHit(hz.kind + ':shieldKill');
+      defeatEnemy(hz);
+      dropComboCoins(hz);
+    } else if ((hz.type === 'flyer' || hz.type === 'ufo') && !hz.dv) knockAside(hz);
     else hz.cool = Math.max(hz.cool, SH.graceFrames);
-    if (hz.dv && hz.dv.st !== 'idle') { hz.dv.st = 'back'; hz.dv.t = 0; } // diving bat bounces off and flies back
+    if (!magnetCombo && hz.dv && hz.dv.st !== 'idle') { hz.dv.st = 'back'; hz.dv.t = 0; } // diving bat bounces off and flies back
     hz.hit = 1;
     shake = Math.max(shake, 7);
     // bubble shards
@@ -2651,14 +2708,87 @@
 
   // MAGNET: coins nearby fly to him
   function magnetPull(c) {
-    const MG = POWERUPS.magnet;
+    const MG = POWERUPS.magnet, rad = magnetRadius();
     const dx = ninja.x - c.x, dy = ninja.y - c.y, d = Math.hypot(dx, dy);
-    if (d > MG.radius || d < 1) return;
+    if (d > rad || d < 1) return;
     if (!c.pulled) { c.pulled = true; debugStats.magnetCoins++; }
-    const spd = 2 + MG.speed * (1 - d / MG.radius);
+    const C = POWERUPS.combos;
+    const spd = (2 + MG.speed * (1 - d / rad)) * (ninja.rocketT > 0 ? C.magnetRocket.speedMult : (ninja.superSpin ? C.magnetSuper.speedMult : 1));
     const k = Math.min(1, spd / d);
     c.x += dx * k;
     c.y += dy * k;
+    if (ninja.superSpin && ninja.rocketT <= 0) { c.x += ninja.vx; c.y += ninja.vy; } // super magnet: carried along, he can't outrun them
+  }
+  // --- Combos (tuning: POWERUPS.combos) ---
+  function comboFlags() {
+    const sup = !!(ninja.superSpin && !ninja.dead);
+    return { m: ninja.magnetT > 0, s: !!ninja.shield, r: ninja.rocketT > 0, u: sup };
+  }
+  // Which combo is active now (for the label/aura); effects use the flags directly
+  function activeCombo() {
+    if (!ninja || ninja.dead) return '';
+    const f = comboFlags(), boost = f.r || f.u;
+    if (f.m && f.s && boost) return 'triple';
+    if (f.s && f.r) return 'shieldRocket';
+    if (f.m && f.r) return 'magnetRocket';
+    if (f.s && f.u) return 'shieldSuper';
+    if (f.m && f.u) return 'magnetSuper';
+    if (f.m && f.s) return 'magnetShield';
+    return '';
+  }
+  function comboRams() { return !!(ninja.shield && (ninja.rocketT > 0 || (ninja.superSpin && !ninja.dead))); }
+  function comboDrops() { return ninja.magnetT > 0 && !!ninja.shield; }
+  function updateCombo() {
+    const id = activeCombo();
+    if (id && id !== ninja.combo) {
+      const C = POWERUPS.combos[id];
+      debugStats.combos[id] = (debugStats.combos[id] || 0) + 1;
+      floaters.push({ x: ninja.x, y: ninja.y - 50, life: 80, text: C.label, color: C.color, noCoin: true, big: true, follow: true });
+      rings.push({ x: ninja.x, y: ninja.y, r: 14, life: 0.8, color: C.color });
+      rings.push({ x: ninja.x, y: ninja.y, r: 26, life: 0.6, color: '#ffffff' });
+      burst(ninja.x, ninja.y, C.color, 14, 3.5);
+      beep(784, 0.07, 'triangle', 0.07);
+      beep(1175, 0.08, 'triangle', 0.06);
+      beep(1568, 0.14, 'sine', 0.05);
+      ninja.comboT = 0;
+    }
+    ninja.combo = id;
+    if (id) ninja.comboT++;
+  }
+  // Rocket + shield: ram flyers/UFOs along this frame's path (spikes/saws are still flown through)
+  function rocketRam(x0, y0) {
+    const steps = Math.max(1, Math.ceil(Math.hypot(ninja.x - x0, ninja.y - y0) / 4));
+    for (const hz of hazards) {
+      if (!hz.alive || hz.dying > 0 || (hz.type !== 'flyer' && hz.type !== 'ufo')) continue;
+      if (Math.abs(hz.y - ninja.y) > 90) continue;
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        if (hazardContact(hz, x0 + (ninja.x - x0) * t, y0 + (ninja.y - y0) * t)) { comboDefeat(hz); break; }
+      }
+    }
+  }
+  // An enemy defeated by a combo ram (red ones too)
+  function comboDefeat(hz) {
+    debugStats.comboKills++;
+    countHit(hz.kind + ':ram');
+    shake = Math.max(shake, 5);
+    const C = POWERUPS.combos[ninja.combo] || POWERUPS.combos.shieldRocket;
+    rings.push({ x: hz.x, y: hz.y, r: 8, life: 0.6, color: C.color });
+    defeatEnemy(hz);
+  }
+  // Magnet + shield: a defeated enemy bursts into extra coins (the magnet pulls them in)
+  function dropComboCoins(hz) {
+    const MS = POWERUPS.combos.magnetShield;
+    for (let i = 0; i < MS.dropCoins; i++) {
+      const a = (i / MS.dropCoins) * Math.PI * 2 + 0.4;
+      coins.push({ x: hz.x + Math.cos(a) * MS.dropSpread, y: hz.y + Math.sin(a) * MS.dropSpread, r: 10, collected: false,
+        sparkle: Math.random() * Math.PI * 2, drop: true });
+    }
+    debugStats.comboDrops += MS.dropCoins;
+  }
+  function magnetRadius() {
+    const C = POWERUPS.combos;
+    return POWERUPS.magnet.radius * (ninja.rocketT > 0 ? C.magnetRocket.radiusMult : (ninja.superSpin ? C.magnetSuper.radiusMult : 1));
   }
   function tickPowerTimers() {
     if (ninja.magnetT > 0) ninja.magnetT--;
@@ -2909,17 +3039,23 @@
     if (!ninja.dead) {
       if (ninja.ghost > 0) ninja.ghost--;
       tickPowerTimers();
-      if (ninja.rocketT > 0) { // rocket: passes through every hazard
+      if (ninja.rocketT > 0) { // rocket: passes through every hazard (with a shield it rams flyers/UFOs: combo)
+        if (ninja.shield) rocketRam(prevX, prevY);
         ninja.still = 0; ninja.embedded = 0; ninja.stillX = ninja.x; ninja.stillY = ninja.y;
       } else {
         collideHazards(prevX, prevY, onBand);
         antiStuck();
       }
       pickupPowerups();
+      updateCombo();
     } else ninja.deathSpin += 0.22;
     for (let i = floaters.length - 1; i >= 0; i--) {
       const f = floaters[i];
-      f.y -= 0.9; f.life--;
+      if (f.follow) { // combo name: rides along above the ninja (the rocket would leave it behind), kept on screen
+        f.x = Math.max(105, Math.min(W - 89, ninja.x + 8));
+        f.y = ninja.y - 50 - (80 - f.life) * 0.25;
+      } else f.y -= 0.9;
+      f.life--;
       if (f.life <= 0) floaters.splice(i, 1);
     }
 
@@ -4926,12 +5062,14 @@
       }
       // with the coin icon: text ends just left of the coin (so '+10' doesn't run into it)
       const withCoin = !!(coinSprite && !f.noCoin);
+      if (f.big) ctx.font = 'bold 20px system-ui, -apple-system, Roboto, sans-serif';
       ctx.textAlign = withCoin ? 'right' : 'center';
       const tx = withCoin ? f.x + 2 : f.x - 8;
       ctx.strokeStyle = f.noCoin ? 'rgba(10,15,40,0.75)' : 'rgba(60,40,0,0.7)';
       ctx.strokeText(f.text, tx, y);
       ctx.fillStyle = f.color || '#ffe066';
       ctx.fillText(f.text, tx, y);
+      if (f.big) ctx.font = 'bold 16px system-ui, -apple-system, Roboto, sans-serif';
     }
     ctx.restore();
   }
@@ -5072,8 +5210,45 @@
     }
   }
 
-  // Behind the ninja: rocket flame + magnet aura
+  // Combo aura: soft glow in the combo colour + rotating arc segments (triple: the three colours)
+  const COMBO_ARCS = { triple: ['#ff5a5a', '#3fc7f0', '#ffa53a'] };
+  function drawComboAura(x, y) {
+    const id = ninja.combo, C = POWERUPS.combos[id];
+    if (!C) return;
+    const k = Math.min(1, (ninja.comboT || 0) / 10);
+    const pulse = 0.5 + 0.5 * Math.sin(frame * 0.2);
+    const R = NINJA_R + 16 + pulse * 2;
+    ctx.save();
+    const g = ctx.createRadialGradient(x, y, NINJA_R * 0.6, x, y, R + 10);
+    g.addColorStop(0, 'rgba(255,255,255,0)');
+    g.addColorStop(0.6, hexA(C.color, 0.22 * k));
+    g.addColorStop(1, hexA(C.color, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, R + 10, 0, Math.PI * 2); ctx.fill();
+    const cols = COMBO_ARCS[id] || [C.color, '#ffffff', C.color];
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 3; i++) {
+      const a = frame * 0.11 + i * Math.PI * 2 / 3;
+      ctx.strokeStyle = hexA(cols[i], 0.85 * k);
+      ctx.beginPath(); ctx.arc(x, y, R, a, a + 1.25); ctx.stroke();
+    }
+    // little sparks orbiting the other way
+    ctx.fillStyle = hexA(C.color === '#ffffff' ? '#fff3a0' : C.color, 0.9 * k);
+    for (let i = 0; i < 4; i++) {
+      const a = -frame * 0.07 + i * Math.PI / 2;
+      ctx.beginPath(); ctx.arc(x + Math.cos(a) * (R + 5), y + Math.sin(a) * (R + 5), 1.8, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+  function hexA(hex, a) {
+    const n = parseInt(hex.slice(1), 16);
+    return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+  }
+
+  // Behind the ninja: combo aura, rocket flame + magnet aura
   function drawNinjaFxBack(x, y) {
+    if (ninja.combo && !ninja.dead) drawComboAura(x, y);
     if (ninja.rocketT > 0 && !ninja.dead) {
       // twin jet pack on his back: nozzles peek out on both sides, flames point down
       const ease = Math.min(1, ninja.rocketT / POWERUPS.rocket.easeFrames);
@@ -5109,7 +5284,7 @@
         for (let i = 0; i < 2; i++) {
           const k = ((frame * 0.02 + i * 0.5) % 1);
           ctx.globalAlpha = (1 - k) * (0.5 + 0.5 * left);
-          ctx.beginPath(); ctx.arc(x, y, NINJA_R + 6 + k * 40, 0, Math.PI * 2); ctx.stroke();
+          ctx.beginPath(); ctx.arc(x, y, NINJA_R + 6 + k * 40 * magnetRadius() / POWERUPS.magnet.radius, 0, Math.PI * 2); ctx.stroke();
         }
         ctx.restore();
       }
@@ -5185,6 +5360,20 @@
       drawPowerBadge(it[0]);
       ctx.restore();
       x += 44;
+    }
+    // active combo: its name under the chips
+    const C = POWERUPS.combos[ninja.combo];
+    if (C && list.length > 1) {
+      ctx.save();
+      ctx.font = 'bold 13px system-ui, -apple-system, Roboto, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(10,12,35,0.7)';
+      ctx.strokeText(C.label.replace('!', ''), 13, powerHudY + 31); // under the chips (clear of the altitude bar)
+      ctx.fillStyle = C.color;
+      ctx.fillText(C.label.replace('!', ''), 13, powerHudY + 31);
+      ctx.restore();
     }
   }
 

@@ -97,8 +97,45 @@ function drawPowerups() {
   }
 }
 
-// Behind the ninja: rocket flame + magnet aura
+// Combo aura: soft glow in the combo colour + rotating arc segments (triple: the three colours)
+const COMBO_ARCS = { triple: ['#ff5a5a', '#3fc7f0', '#ffa53a'] };
+function drawComboAura(x, y) {
+  const id = ninja.combo, C = POWERUPS.combos[id];
+  if (!C) return;
+  const k = Math.min(1, (ninja.comboT || 0) / 10);
+  const pulse = 0.5 + 0.5 * Math.sin(frame * 0.2);
+  const R = NINJA_R + 16 + pulse * 2;
+  ctx.save();
+  const g = ctx.createRadialGradient(x, y, NINJA_R * 0.6, x, y, R + 10);
+  g.addColorStop(0, 'rgba(255,255,255,0)');
+  g.addColorStop(0.6, hexA(C.color, 0.22 * k));
+  g.addColorStop(1, hexA(C.color, 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, R + 10, 0, Math.PI * 2); ctx.fill();
+  const cols = COMBO_ARCS[id] || [C.color, '#ffffff', C.color];
+  ctx.lineWidth = 3;
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    const a = frame * 0.11 + i * Math.PI * 2 / 3;
+    ctx.strokeStyle = hexA(cols[i], 0.85 * k);
+    ctx.beginPath(); ctx.arc(x, y, R, a, a + 1.25); ctx.stroke();
+  }
+  // little sparks orbiting the other way
+  ctx.fillStyle = hexA(C.color === '#ffffff' ? '#fff3a0' : C.color, 0.9 * k);
+  for (let i = 0; i < 4; i++) {
+    const a = -frame * 0.07 + i * Math.PI / 2;
+    ctx.beginPath(); ctx.arc(x + Math.cos(a) * (R + 5), y + Math.sin(a) * (R + 5), 1.8, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+function hexA(hex, a) {
+  const n = parseInt(hex.slice(1), 16);
+  return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + Math.max(0, Math.min(1, a)).toFixed(3) + ')';
+}
+
+// Behind the ninja: combo aura, rocket flame + magnet aura
 function drawNinjaFxBack(x, y) {
+  if (ninja.combo && !ninja.dead) drawComboAura(x, y);
   if (ninja.rocketT > 0 && !ninja.dead) {
     // twin jet pack on his back: nozzles peek out on both sides, flames point down
     const ease = Math.min(1, ninja.rocketT / POWERUPS.rocket.easeFrames);
@@ -134,7 +171,7 @@ function drawNinjaFxBack(x, y) {
       for (let i = 0; i < 2; i++) {
         const k = ((frame * 0.02 + i * 0.5) % 1);
         ctx.globalAlpha = (1 - k) * (0.5 + 0.5 * left);
-        ctx.beginPath(); ctx.arc(x, y, NINJA_R + 6 + k * 40, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.arc(x, y, NINJA_R + 6 + k * 40 * magnetRadius() / POWERUPS.magnet.radius, 0, Math.PI * 2); ctx.stroke();
       }
       ctx.restore();
     }
@@ -210,5 +247,19 @@ function drawPowerHud() {
     drawPowerBadge(it[0]);
     ctx.restore();
     x += 44;
+  }
+  // active combo: its name under the chips
+  const C = POWERUPS.combos[ninja.combo];
+  if (C && list.length > 1) {
+    ctx.save();
+    ctx.font = 'bold 13px system-ui, -apple-system, Roboto, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(10,12,35,0.7)';
+    ctx.strokeText(C.label.replace('!', ''), 13, powerHudY + 31); // under the chips (clear of the altitude bar)
+    ctx.fillStyle = C.color;
+    ctx.fillText(C.label.replace('!', ''), 13, powerHudY + 31);
+    ctx.restore();
   }
 }

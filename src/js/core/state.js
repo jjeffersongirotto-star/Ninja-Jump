@@ -21,7 +21,7 @@ function freshDebugStats() {
   return { bounces: 0, supers: 0, wallKicks: 0, superFrame: -1, last: null, hits: {}, deaths: 0, deathBy: null, shieldBreaks: 0,
     stomps: { blue: 0, red: 0 }, upperHits: 0, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0,
     bonks: 0, ghostPlatforms: 0, snaps: 0, expired: 0, fallBounces: 0,
-    powerups: { magnet: 0, shield: 0, rocket: 0 }, shieldSaves: 0, rocketExtend: 0, dives: 0, teleports: 0, magnetCoins: 0 };
+    powerups: { magnet: 0, shield: 0, rocket: 0 }, shieldSaves: 0, rocketExtend: 0, combos: {}, comboKills: 0, comboDrops: 0, dives: 0, teleports: 0, magnetCoins: 0 };
 }
 const debugStats = freshDebugStats();
 function resetDebugStats() {

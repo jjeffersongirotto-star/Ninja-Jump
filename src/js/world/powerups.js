@@ -115,9 +115,15 @@ function breakShield(hz) {
   ninja.vx = dx * SH.bounce;
   ninja.vy = Math.min(dy * SH.bounce, ninja.vy < 0 ? ninja.vy * 0.5 : 0);
   ninja.floatT = HAZARDS.bumpFloat.frames;
-  if ((hz.type === 'flyer' || hz.type === 'ufo') && !hz.dv) knockAside(hz);
+  const magnetCombo = ninja.magnetT > 0 && (hz.type === 'flyer' || hz.type === 'ufo');
+  if (magnetCombo) { // magnet + shield combo: the bubble pops on it and takes it down, coins burst out
+    debugStats.comboKills++;
+    countHit(hz.kind + ':shieldKill');
+    defeatEnemy(hz);
+    dropComboCoins(hz);
+  } else if ((hz.type === 'flyer' || hz.type === 'ufo') && !hz.dv) knockAside(hz);
   else hz.cool = Math.max(hz.cool, SH.graceFrames);
-  if (hz.dv && hz.dv.st !== 'idle') { hz.dv.st = 'back'; hz.dv.t = 0; } // diving bat bounces off and flies back
+  if (!magnetCombo && hz.dv && hz.dv.st !== 'idle') { hz.dv.st = 'back'; hz.dv.t = 0; } // diving bat bounces off and flies back
   hz.hit = 1;
   shake = Math.max(shake, 7);
   // bubble shards
@@ -135,14 +141,87 @@ function breakShield(hz) {
 
 // MAGNET: coins nearby fly to him
 function magnetPull(c) {
-  const MG = POWERUPS.magnet;
+  const MG = POWERUPS.magnet, rad = magnetRadius();
   const dx = ninja.x - c.x, dy = ninja.y - c.y, d = Math.hypot(dx, dy);
-  if (d > MG.radius || d < 1) return;
+  if (d > rad || d < 1) return;
   if (!c.pulled) { c.pulled = true; debugStats.magnetCoins++; }
-  const spd = 2 + MG.speed * (1 - d / MG.radius);
+  const C = POWERUPS.combos;
+  const spd = (2 + MG.speed * (1 - d / rad)) * (ninja.rocketT > 0 ? C.magnetRocket.speedMult : (ninja.superSpin ? C.magnetSuper.speedMult : 1));
   const k = Math.min(1, spd / d);
   c.x += dx * k;
   c.y += dy * k;
+  if (ninja.superSpin && ninja.rocketT <= 0) { c.x += ninja.vx; c.y += ninja.vy; } // super magnet: carried along, he can't outrun them
+}
+// --- Combos (tuning: POWERUPS.combos) ---
+function comboFlags() {
+  const sup = !!(ninja.superSpin && !ninja.dead);
+  return { m: ninja.magnetT > 0, s: !!ninja.shield, r: ninja.rocketT > 0, u: sup };
+}
+// Which combo is active now (for the label/aura); effects use the flags directly
+function activeCombo() {
+  if (!ninja || ninja.dead) return '';
+  const f = comboFlags(), boost = f.r || f.u;
+  if (f.m && f.s && boost) return 'triple';
+  if (f.s && f.r) return 'shieldRocket';
+  if (f.m && f.r) return 'magnetRocket';
+  if (f.s && f.u) return 'shieldSuper';
+  if (f.m && f.u) return 'magnetSuper';
+  if (f.m && f.s) return 'magnetShield';
+  return '';
+}
+function comboRams() { return !!(ninja.shield && (ninja.rocketT > 0 || (ninja.superSpin && !ninja.dead))); }
+function comboDrops() { return ninja.magnetT > 0 && !!ninja.shield; }
+function updateCombo() {
+  const id = activeCombo();
+  if (id && id !== ninja.combo) {
+    const C = POWERUPS.combos[id];
+    debugStats.combos[id] = (debugStats.combos[id] || 0) + 1;
+    floaters.push({ x: ninja.x, y: ninja.y - 50, life: 80, text: C.label, color: C.color, noCoin: true, big: true, follow: true });
+    rings.push({ x: ninja.x, y: ninja.y, r: 14, life: 0.8, color: C.color });
+    rings.push({ x: ninja.x, y: ninja.y, r: 26, life: 0.6, color: '#ffffff' });
+    burst(ninja.x, ninja.y, C.color, 14, 3.5);
+    beep(784, 0.07, 'triangle', 0.07);
+    beep(1175, 0.08, 'triangle', 0.06);
+    beep(1568, 0.14, 'sine', 0.05);
+    ninja.comboT = 0;
+  }
+  ninja.combo = id;
+  if (id) ninja.comboT++;
+}
+// Rocket + shield: ram flyers/UFOs along this frame's path (spikes/saws are still flown through)
+function rocketRam(x0, y0) {
+  const steps = Math.max(1, Math.ceil(Math.hypot(ninja.x - x0, ninja.y - y0) / 4));
+  for (const hz of hazards) {
+    if (!hz.alive || hz.dying > 0 || (hz.type !== 'flyer' && hz.type !== 'ufo')) continue;
+    if (Math.abs(hz.y - ninja.y) > 90) continue;
+    for (let i = 1; i <= steps; i++) {
+      const t = i / steps;
+      if (hazardContact(hz, x0 + (ninja.x - x0) * t, y0 + (ninja.y - y0) * t)) { comboDefeat(hz); break; }
+    }
+  }
+}
+// An enemy defeated by a combo ram (red ones too)
+function comboDefeat(hz) {
+  debugStats.comboKills++;
+  countHit(hz.kind + ':ram');
+  shake = Math.max(shake, 5);
+  const C = POWERUPS.combos[ninja.combo] || POWERUPS.combos.shieldRocket;
+  rings.push({ x: hz.x, y: hz.y, r: 8, life: 0.6, color: C.color });
+  defeatEnemy(hz);
+}
+// Magnet + shield: a defeated enemy bursts into extra coins (the magnet pulls them in)
+function dropComboCoins(hz) {
+  const MS = POWERUPS.combos.magnetShield;
+  for (let i = 0; i < MS.dropCoins; i++) {
+    const a = (i / MS.dropCoins) * Math.PI * 2 + 0.4;
+    coins.push({ x: hz.x + Math.cos(a) * MS.dropSpread, y: hz.y + Math.sin(a) * MS.dropSpread, r: 10, collected: false,
+      sparkle: Math.random() * Math.PI * 2, drop: true });
+  }
+  debugStats.comboDrops += MS.dropCoins;
+}
+function magnetRadius() {
+  const C = POWERUPS.combos;
+  return POWERUPS.magnet.radius * (ninja.rocketT > 0 ? C.magnetRocket.radiusMult : (ninja.superSpin ? C.magnetSuper.radiusMult : 1));
 }
 function tickPowerTimers() {
   if (ninja.magnetT > 0) ninja.magnetT--;
