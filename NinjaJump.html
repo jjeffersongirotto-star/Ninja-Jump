@@ -1062,6 +1062,31 @@
     }
   };
 
+  // --- Visual effects: ALL tuning lives here (purely cosmetic, gameplay never depends on it) ---
+  // Everything heavy is pre-rendered once (per screen size / stage) into small offscreen canvases and only
+  // blitted per frame: glow sprites instead of shadowBlur, cached skyline strips, wall strips and texture
+  // tiles. Each feature can be switched off here. On slow phones the adaptive quality (world/setup.js)
+  // also sheds effects: 1st drop = no vignette / far layers, 2nd drop = no wall details.
+  const FX = {
+    shake: true,          // screen shake on strong hits (false = never shakes)
+    shakeScale: 0.7,      // x every shake amount (kept subtle)
+    shakeMax: 9,          // px cap
+    glow: true,           // soft glow sprites on coins, items, elastics, rocket fire, combo light on the walls
+    vignette: true,       // dark edges
+    vignetteAlpha: 0.38,  // darkness at the corners
+    particles: true,      // extra particles: wall-kick dust, defeat sparks, coin flip, rocket embers
+    maxParticles: 260,    // hard cap (oldest removed first)
+    parallax: true,       // extra far layers: ridge (day), skyline (sunset/night), galaxy band (space)
+    textures: true,       // textured walls/platforms per stage (stone, bamboo, ice, metal)
+    wallWidth: 6,         // px of textured wall shown at each screen edge (the edge IS the wall)
+    // stage materials by altitude (m): crossfade over `blend` m around each change
+    materials: [[0, 'stone'], [280, 'bamboo'], [430, 'ice'], [700, 'metal']],
+    blend: 30,
+    // ninja motion: lean with side speed, tuck when rising, arms up when falling, flutter with speed
+    ninjaLean: 0.16,      // max body tilt (rad) from side speed
+    ninjaAirEase: 0.14    // how fast the rise/fall in-between pose follows the vertical speed
+  };
+
   // --- Game state (shared by every file) ---
   let state = 'menu';
   let ninja, camera, elastic, drawing;
@@ -1182,6 +1207,7 @@
     sideKey = '';
     if (hillsFar.length === 0 && W > 0) seedScenery();
     try { buildCoinSprite(); } catch (e) { coinSprite = null; }
+    fxWarmSoon();
   }
 
   // The HTML layer (HUD, menus) follows the play column and the same scale
@@ -1315,6 +1341,8 @@
     floaters = [];
     ninjaPose.wallKick = 0;
     ninjaPose.hero = 0;
+    ninjaPose.air = 0;
+    ninjaPose.lean = 0;
     updateStreakHud();
     seedScenery();
     spawnAhead();
@@ -2260,6 +2288,8 @@
     burst(hz.x, hz.y, '#ffffff', 12, 3.2);
     burst(hz.x, hz.y, '#8fd3ff', 10, 3);
     burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
+    fxSparks(hz.x, hz.y, '#fff6a8', 10, 6);
+    fxSparks(hz.x, hz.y, '#8fd3ff', 6, 4.5);
     beep(660, 0.07, 'triangle', 0.08);
     beep(990, 0.09, 'sine', 0.06);
   }
@@ -2273,6 +2303,7 @@
     countHit(hz.kind + ':knocked');
     shake = Math.max(shake, 4);
     burst(hz.x - dir * 10, hz.y, '#ffb0a0', 10, 3);
+    fxSparks(hz.x - dir * 10, hz.y, '#ffd0c4', 6, 5);
     rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.6, color: '#ffd0c4' });
     beep(300, 0.08, 'square', 0.06);
     beep(200, 0.1, 'triangle', 0.05);
@@ -2435,6 +2466,7 @@
       debugStats.shieldBreaks++;
       burst(hz.x, hz.y, '#fff6a8', 16, 5);
       burst(hz.x, hz.y, hz.color === 'red' ? '#ff5a4a' : '#c9ced8', 10, 4);
+      fxSparks(hz.x, hz.y, '#fff6a8', 10, 6);
       rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.7, color: '#fff6a8' });
       beep(520, 0.08, 'square', 0.06);
       return;
@@ -2457,6 +2489,7 @@
     shake = 14;
     burst(ninja.x, ninja.y, '#ff4444', 16, 5);
     burst(ninja.x, ninja.y, '#ffffff', 8, 3);
+    fxSparks(ninja.x, ninja.y, '#ff8a6a', 10, 6);
     beep(120, 0.2, 'sawtooth', 0.1);
     debugStats.deaths++;
     debugStats.deathBy = hz.kind;
@@ -2675,7 +2708,7 @@
       for (let i = 0; i < 2; i++) {
         particles.push({ x: ninja.x + (Math.random() - 0.5) * 8, y: ninja.y + NINJA_R + 6, vx: (Math.random() - 0.5) * 1.4,
           vy: 2.5 + Math.random() * 2, life: 18 + Math.random() * 10, max: 28, size: 3 + Math.random() * 3,
-          color: Math.random() < 0.5 ? '#ffd27f' : (Math.random() < 0.5 ? '#ff7a3d' : 'rgba(255,255,255,0.8)') });
+          color: Math.random() < 0.5 ? '#ffd27f' : (Math.random() < 0.5 ? '#ff7a3d' : '#fff1c9'), fire: FX.glow });
       }
     }
   }
@@ -2908,12 +2941,12 @@
     if (ninja.x < NINJA_R) {
       const into = -ninja.vx;
       ninja.x = NINJA_R; ninja.vx = Math.abs(ninja.vx) * 0.5;
-      if (into > WALL_KICK_MIN_SPEED && !onBand) startWallKick(-1);
+      if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(-1); fxWallDust(-1, ninja.y); }
     }
     if (ninja.x > W - NINJA_R) {
       const into = ninja.vx;
       ninja.x = W - NINJA_R; ninja.vx = -Math.abs(ninja.vx) * 0.5;
-      if (into > WALL_KICK_MIN_SPEED && !onBand) startWallKick(1);
+      if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(1); fxWallDust(1, ninja.y); }
     }
 
     // Ground (start of the run): idle hops. Only while the ground is on screen — once the camera has
@@ -3142,6 +3175,7 @@
         c.collected = true;
         runCoins++;
         burst(c.x, c.y, atmosCache.accent, 10, 3);
+        fxCoinPickup(c);
         beep(880, 0.06, 'sine', 0.07);
         beep(1320, 0.08, 'triangle', 0.05);
       }
@@ -3151,10 +3185,15 @@
       const p = particles[i];
       p.x += p.vx; p.y += p.vy;
       if (p.star) { p.vy += 0.035; p.vx *= 0.975; p.vy *= 0.975; p.rot += p.vr; }
+      else if (p.spark) { p.vx *= 0.9; p.vy = p.vy * 0.9 + 0.06; }
+      else if (p.coin) p.vy *= 0.93;
+      else if (p.fire) { p.vx *= 0.94; p.vy *= 0.94; }
+      else if (p.dust) { p.vx *= 0.9; p.vy = p.vy * 0.9 + 0.03; }
       else p.vy += 0.08;
       p.life--;
       if (p.life <= 0) particles.splice(i, 1);
     }
+    fxCap(); // global particle budget (FX.maxParticles)
     for (let i = rings.length - 1; i >= 0; i--) {
       const r = rings[i];
       r.r += 2 + 7 * r.life;
@@ -3405,7 +3444,7 @@
     try {
       ctx = c; skin = sk; elastic = null; stretch = 0;
       ninja = { x: 0, y: 0, vx: 0, vy: 0, facing: 1, spinning: 0 };
-      ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0; ninjaPose.hero = 0;
+      ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0; ninjaPose.hero = 0; ninjaPose.air = 0; ninjaPose.lean = 0;
       c.setTransform(r * 2, 0, 0, r * 2, 0, 0);
       drawNinjaSprite(size / 4, size / 4 - 1);
     } finally {
@@ -3473,6 +3512,516 @@
     showScreen('main');
   }
 
+  // --- Visual effects layer (purely cosmetic; tuning in config/fx.js) ---
+  // Performance rules followed here (Android Chrome / APK WebView):
+  // - no shadowBlur anywhere: glows are ONE pre-rendered radial sprite per colour, blitted with 'lighter'
+  // - the vignette, far skyline strips, galaxy band and stage texture tiles are drawn once into small
+  //   offscreen canvases (rebuilt only on resize / quality change) and then only copied each frame
+  // - wall/platform details are a handful of small shapes, only for what is on screen
+  function fxCanvas(w, h) {
+    try {
+      const cv = document.createElement('canvas');
+      cv.width = Math.max(1, Math.ceil(w)); cv.height = Math.max(1, Math.ceil(h));
+      const c = cv.getContext('2d');
+      return c ? { cv, c } : null;
+    } catch (e) { return null; }
+  }
+  // Small deterministic random (same textures and skylines every run)
+  function fxRng(seed) {
+    let s = seed >>> 0;
+    return function () { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  }
+  function fxHash(n) { const x = Math.sin(n * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+
+  // ---- Glow sprites ----
+  // Colours that fade between stages (elastic, accent) are quantized to 16 levels per channel so the
+  // cache stays small; it is simply emptied if it ever grows past 96 sprites (64x64 each).
+  let glowCache = {};
+  let glowCount = 0;
+  function glowKey(col) {
+    if (col.length !== 7 || col.charAt(0) !== '#') return col;
+    const c = hexToRgb(col);
+    return rgbToHex((c[0] >> 4) * 17, (c[1] >> 4) * 17, (c[2] >> 4) * 17);
+  }
+  function glowSprite(col) {
+    let g = glowCache[col];
+    if (g !== undefined) return g;
+    const key = glowKey(col);
+    g = glowCache[key];
+    if (g !== undefined) { glowCache[col] = g; return g; }
+    if (glowCount > 96) { glowCache = {}; glowCount = 0; }
+    const S = 64, o = fxCanvas(S, S);
+    g = null;
+    if (o) {
+      const c = o.c, rg = c.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+      rg.addColorStop(0, 'rgba(255,255,255,1)');
+      rg.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+      rg.addColorStop(0.6, 'rgba(255,255,255,0.14)');
+      rg.addColorStop(1, 'rgba(255,255,255,0)');
+      c.fillStyle = rg; c.fillRect(0, 0, S, S);
+      c.globalCompositeOperation = 'source-in';
+      c.fillStyle = key; c.fillRect(0, 0, S, S);
+      g = o.cv;
+    }
+    glowCache[key] = g; glowCache[col] = g; glowCount += 2;
+    return g;
+  }
+  // Caller sets globalCompositeOperation = 'lighter' (batch several glows inside one save/restore)
+  function drawGlow(x, y, r, col, a, ry) {
+    const spr = glowSprite(col);
+    if (!spr || a <= 0.01) return;
+    const h = ry || r;
+    ctx.globalAlpha = Math.min(1, a);
+    ctx.drawImage(spr, x - r, y - h, r * 2, h * 2);
+  }
+
+  // ---- Vignette ----
+  // Four narrow edge gradients (left/right/top/bottom; the corners overlap = darker corners), filled
+  // straight into the low-res background layer. A full-screen radial pass cost ~1.5 ms in software
+  // rendering; these strips cover well under half the screen and reuse cached gradient objects.
+  let vigG = null, vigKey = '', vigCtx = null;
+  function drawVignette() {
+    if (!FX.vignette || !W || !H || qualityLevel >= 1) return; // the first thing dropped on slow phones
+    const sw = Math.round(W * 0.13), sh = Math.round(H * 0.1), a = FX.vignetteAlpha;
+    const key = W + 'x' + H + ':' + a;
+    if (vigKey !== key || vigCtx !== ctx) {
+      vigKey = key; vigCtx = ctx;
+      const mk = (x0, y0, x1, y1, k) => { const g = ctx.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, 'rgba(6,6,24,' + (a * k).toFixed(3) + ')'); g.addColorStop(0.45, 'rgba(6,6,24,' + (a * k * 0.3).toFixed(3) + ')'); g.addColorStop(1, 'rgba(6,6,24,0)'); return g; };
+      vigG = [mk(0, 0, sw, 0, 0.75), mk(W, 0, W - sw, 0, 0.75), mk(0, 0, 0, sh, 0.65), mk(0, H, 0, H - sh, 0.85)];
+    }
+    ctx.fillStyle = vigG[0]; ctx.fillRect(0, 0, sw, H);
+    ctx.fillStyle = vigG[1]; ctx.fillRect(W - sw, 0, sw, H);
+    ctx.fillStyle = vigG[2]; ctx.fillRect(0, 0, W, sh);
+    ctx.fillStyle = vigG[3]; ctx.fillRect(0, H - sh, W, sh);
+  }
+
+  // ---- Stage materials ----
+  // Returns the main material at this altitude and the next one with its blend weight (0 = none)
+  const fxMat = { a: 'stone', b: 'stone', t: 0 };
+  function materialAt(meters) {
+    const M = FX.materials, bl = FX.blend;
+    let i = 0;
+    while (i < M.length - 1 && meters >= M[i + 1][0] - bl / 2) i++;
+    const cur = M[i][1];
+    let t = 0, prev = cur;
+    if (i > 0) { t = 1 - smoothstep(M[i][0] - bl / 2, M[i][0] + bl / 2, meters); prev = M[i - 1][1]; }
+    fxMat.a = cur; fxMat.b = prev; fxMat.t = t;
+    return fxMat;
+  }
+  function materialName(meters) { const m = materialAt(meters); return m.t > 0.5 ? m.b : m.a; }
+
+  const TILE = 64;
+  const tileCache = {};
+  let tileDpr = 0;
+  // texture tile `name` (orient 'v' = rotated for walls), drawn once at the current screen density
+  function stageTile(name, orient) {
+    const k = Math.min(3, Math.max(1, dpr || 1));
+    if (tileDpr !== k) { for (const n in tileCache) delete tileCache[n]; tileDpr = k; }
+    const key = name + (orient || '');
+    if (tileCache[key] !== undefined) return tileCache[key];
+    const o = fxCanvas(TILE * k, TILE * k);
+    let res = null;
+    if (o) {
+      const c = o.c;
+      c.scale(k, k);
+      if (orient === 'v') { c.translate(TILE, 0); c.rotate(Math.PI / 2); }
+      paintTile(c, name);
+      try { res = { cv: o.cv, k: k, pat: ctx.createPattern(o.cv, 'repeat') }; } catch (e) { res = null; }
+    }
+    tileCache[key] = res;
+    return res;
+  }
+  function paintTile(c, name) {
+    const T = TILE, r = fxRng(name.length * 977 + name.charCodeAt(0) * 31);
+    if (name === 'stone') {
+      c.fillStyle = '#8c8f9c'; c.fillRect(0, 0, T, T);
+      const rows = 4, bh = T / rows;
+      for (let y = 0; y < rows; y++) {
+        const off = (y % 2) * 16;
+        for (let x = -32; x < T; x += 32) {
+          const v = (r() - 0.5) * 0.22;
+          c.fillStyle = shadeHex('#8c8f9c', v);
+          c.fillRect(x + off + 1, y * bh + 1, 30, bh - 2);
+          c.fillStyle = 'rgba(255,255,255,0.13)'; c.fillRect(x + off + 1, y * bh + 1, 30, 1.5);
+          c.fillStyle = 'rgba(20,20,40,0.18)'; c.fillRect(x + off + 1, y * bh + bh - 3, 30, 2);
+        }
+      }
+      c.fillStyle = 'rgba(30,30,50,0.35)';
+      for (let y = 0; y <= rows; y++) c.fillRect(0, y * bh - 0.75, T, 1.5);
+      for (let i = 0; i < 40; i++) { c.fillStyle = r() < 0.5 ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.12)'; c.fillRect(r() * T, r() * T, 1.2, 1.2); }
+      c.strokeStyle = 'rgba(25,25,45,0.45)'; c.lineWidth = 0.9;
+      for (let i = 0; i < 2; i++) { // cracks
+        let x = 8 + r() * 48, y = 4 + r() * 50;
+        c.beginPath(); c.moveTo(x, y);
+        for (let j = 0; j < 4; j++) { x += (r() - 0.5) * 9; y += 2 + r() * 4; c.lineTo(x, y); }
+        c.stroke();
+      }
+      c.fillStyle = 'rgba(90,150,60,0.35)'; // moss specks
+      for (let i = 0; i < 6; i++) { c.beginPath(); c.arc(r() * T, r() * T, 1 + r() * 2, 0, Math.PI * 2); c.fill(); }
+    } else if (name === 'bamboo') {
+      c.fillStyle = '#6d5a2c'; c.fillRect(0, 0, T, T);
+      const n = 4, sh = T / n;
+      for (let i = 0; i < n; i++) {
+        const y = i * sh, g = c.createLinearGradient(0, y, 0, y + sh);
+        const base = i % 2 ? '#c9a95a' : '#b7a04f';
+        g.addColorStop(0, shadeHex(base, 0.35)); g.addColorStop(0.45, base); g.addColorStop(1, shadeHex(base, -0.35));
+        c.fillStyle = g; c.fillRect(0, y + 0.6, T, sh - 1.2);
+        const nx = (i * 23 + 9) % T; // nodes
+        for (let x = nx - T; x < T * 2; x += 32) {
+          c.fillStyle = 'rgba(60,40,10,0.55)'; c.fillRect(x, y + 0.6, 2, sh - 1.2);
+          c.fillStyle = 'rgba(255,240,190,0.45)'; c.fillRect(x + 2, y + 0.6, 1, sh - 1.2);
+        }
+        c.fillStyle = 'rgba(255,255,255,0.08)';
+        for (let j = 0; j < 4; j++) c.fillRect(r() * T, y + 2 + r() * (sh - 4), 6 + r() * 10, 0.7);
+      }
+    } else if (name === 'ice') {
+      const g = c.createLinearGradient(0, 0, T, T);
+      g.addColorStop(0, '#d9f3ff'); g.addColorStop(0.5, '#a9d8f0'); g.addColorStop(1, '#c6e9fa');
+      c.fillStyle = g; c.fillRect(0, 0, T, T);
+      c.strokeStyle = 'rgba(255,255,255,0.55)'; c.lineWidth = 2;
+      for (let i = -1; i < 3; i++) { c.beginPath(); c.moveTo(i * 32 - 8, T); c.lineTo(i * 32 + 40, 0); c.stroke(); }
+      c.strokeStyle = 'rgba(70,130,180,0.4)'; c.lineWidth = 0.8;
+      for (let i = 0; i < 3; i++) {
+        let x = r() * T, y = r() * T;
+        c.beginPath(); c.moveTo(x, y);
+        for (let j = 0; j < 3; j++) { x += (r() - 0.5) * 16; y += (r() - 0.5) * 16; c.lineTo(x, y); }
+        c.stroke();
+      }
+      c.fillStyle = '#ffffff';
+      for (let i = 0; i < 8; i++) c.fillRect(r() * T, r() * T, 1.3, 1.3);
+    } else { // metal
+      c.fillStyle = '#69727f'; c.fillRect(0, 0, T, T);
+      for (let y = 0; y < T; y += 2) { c.fillStyle = (y / 2) % 2 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.05)'; c.fillRect(0, y, T, 1); }
+      c.fillStyle = 'rgba(15,20,30,0.55)'; c.fillRect(0, 31, T, 1.5); c.fillRect(31, 0, 1.5, T);
+      c.fillStyle = 'rgba(255,255,255,0.18)'; c.fillRect(0, 32.5, T, 1); c.fillRect(32.5, 0, 1, T);
+      for (let y = 6; y < T; y += 32) for (let x = 6; x < T; x += 32) {
+        for (const d of [[0, 0], [20, 0], [0, 20], [20, 20]]) {
+          c.fillStyle = 'rgba(10,15,25,0.5)'; c.beginPath(); c.arc(x + d[0] + 0.5, y + d[1] + 0.6, 1.8, 0, Math.PI * 2); c.fill();
+          c.fillStyle = '#b8c2cf'; c.beginPath(); c.arc(x + d[0], y + d[1], 1.4, 0, Math.PI * 2); c.fill();
+        }
+      }
+    }
+  }
+  // Fill the current path-builder `pathFn` with the tile pattern anchored at (ax, ay) (world-scrolled)
+  function fillTextured(name, orient, ax, ay, pathFn) {
+    const t = stageTile(name, orient);
+    if (!t || !t.pat) return false;
+    ctx.save();
+    // snap the pattern origin to whole device pixels so the tile is copied 1:1 (cheap, crisp)
+    ctx.translate(Math.round(ax * t.k) / t.k, Math.round(ay * t.k) / t.k);
+    ctx.scale(1 / t.k, 1 / t.k);
+    ctx.fillStyle = t.pat;
+    pathFn(t.k, ax, ay);
+    ctx.fill();
+    ctx.restore();
+    return true;
+  }
+
+  // ---- Walls: the screen edges are the walls the ninja kicks off; now they show the stage material ----
+  // Each material's wall is pre-rendered once into a tall strip (wall width x screen height + one tile),
+  // so a frame only copies it (drawImage) at the scroll offset instead of filling with a pattern.
+  const wallStrips = {};
+  let wallKey = '';
+  function wallStrip(name) {
+    const k = Math.min(3, Math.max(1, dpr || 1)), ww = FX.wallWidth;
+    const key = W + 'x' + H + '@' + k + ':' + ww;
+    if (wallKey !== key) { for (const n in wallStrips) delete wallStrips[n]; wallKey = key; }
+    if (wallStrips[name] !== undefined) return wallStrips[name];
+    const t = stageTile(name, 'v'), hh = H + TILE * 2;
+    const o = t && t.pat ? fxCanvas(ww * k, hh * k) : null;
+    let res = null;
+    if (o) {
+      o.c.fillStyle = o.c.createPattern(t.cv, 'repeat');
+      o.c.fillRect(0, 0, o.cv.width, o.cv.height);
+      res = { cv: o.cv, w: ww, h: hh };
+    }
+    wallStrips[name] = res;
+    return res;
+  }
+  function drawWalls(meters) {
+    if (!FX.textures) return;
+    const ww = FX.wallWidth, cam = camera.y;
+    const m = materialAt(meters);
+    const off = -(((cam % TILE) + TILE) % TILE) - TILE; // scrolls with the world
+    for (let pass = 0; pass < 2; pass++) {
+      const name = pass === 0 ? m.a : m.b;
+      if (pass === 1 && (m.t < 0.02 || m.b === m.a)) break;
+      const st = wallStrip(name);
+      if (!st) continue;
+      ctx.globalAlpha = pass === 0 ? 1 : m.t;
+      ctx.drawImage(st.cv, 0, off, ww, st.h);
+      ctx.drawImage(st.cv, W - ww, off, ww, st.h);
+    }
+    ctx.globalAlpha = 1;
+    // inner edges: thin lit line + soft contact shadow on the play area
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    ctx.fillRect(ww - 1, 0, 1, H); ctx.fillRect(W - ww, 0, 1, H);
+    ctx.fillStyle = 'rgba(0,0,15,0.16)';
+    ctx.fillRect(ww, 0, 3, H); ctx.fillRect(W - ww - 3, 0, 3, H);
+    if (qualityLevel < 2) drawWallDetails(materialName(meters), ww, cam);
+  }
+  // World-anchored details along the walls (deterministic per 160 px of height)
+  function drawWallDetails(name, ww, cam) {
+    const step = 160, first = Math.floor(cam / step) - 1, last = Math.floor((cam + H) / step) + 1;
+    for (let k = first; k <= last; k++) {
+      const h = fxHash(k), side = h < 0.5 ? 0 : 1;
+      const y = k * step + fxHash(k + 0.5) * 120 - cam;
+      const x = side ? W - ww : ww, dir = side ? -1 : 1;
+      if (name === 'stone') {
+        if (h % 0.5 < 0.33) { // moss hanging over the edge
+          ctx.fillStyle = '#5f9a3e';
+          ctx.beginPath(); ctx.ellipse(x, y, 4, 9, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#86c25a';
+          ctx.beginPath(); ctx.ellipse(x + dir * 1, y - 2, 2.2, 5, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillRect(x + dir * 1 - 0.5, y + 6, 1, 5);
+        }
+      } else if (name === 'bamboo') {
+        if (k % 2 === 0) { // paper lantern on a bracket
+          const lx = x + dir * 9, ly = y;
+          if (FX.glow) { ctx.globalCompositeOperation = 'lighter'; drawGlow(lx, ly, 26, '#ff9a4a', 0.45 + 0.08 * Math.sin(frame * 0.07 + k)); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
+          ctx.strokeStyle = '#3a2a14'; ctx.lineWidth = 1.5;
+          ctx.beginPath(); ctx.moveTo(x, ly - 9); ctx.lineTo(lx, ly - 9); ctx.lineTo(lx, ly - 6); ctx.stroke();
+          ctx.fillStyle = '#e8432f'; ctx.beginPath(); ctx.ellipse(lx, ly, 4.5, 6, 0, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#ffd27f'; ctx.fillRect(lx - 1.2, ly - 4, 2.4, 8);
+          ctx.fillStyle = '#3a2a14'; ctx.fillRect(lx - 2.5, ly - 6.5, 5, 1.5); ctx.fillRect(lx - 2.5, ly + 5, 5, 1.5);
+        } else { // leaf
+          ctx.fillStyle = '#7fae3c';
+          ctx.beginPath(); ctx.ellipse(x + dir * 5, y, 6, 1.8, dir * 0.5, 0, Math.PI * 2); ctx.fill();
+        }
+      } else if (name === 'ice') { // icicles pointing in + frost glint
+        ctx.fillStyle = 'rgba(225,248,255,0.9)';
+        ctx.beginPath(); ctx.moveTo(x, y - 6); ctx.lineTo(x + dir * 7, y - 2); ctx.lineTo(x, y + 1); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(x, y + 4); ctx.lineTo(x + dir * 4, y + 6); ctx.lineTo(x, y + 8); ctx.closePath(); ctx.fill();
+        const tw = 0.5 + 0.5 * Math.sin(frame * 0.09 + k * 2.1);
+        ctx.globalAlpha = tw; ctx.fillStyle = '#fff';
+        ctx.fillRect(x + dir * 3 - 0.5, y + 14 - 3, 1, 6); ctx.fillRect(x + dir * 3 - 3, y + 14 - 0.5, 6, 1);
+        ctx.globalAlpha = 1;
+      } else { // metal: blinking status light
+        const on = ((frame + k * 23) % 90) < 60;
+        const col = k % 3 === 0 ? '#ff5a4a' : '#5aff9a';
+        if (on && FX.glow) { ctx.globalCompositeOperation = 'lighter'; drawGlow(x + dir * 2, y, 12, col, 0.6); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; }
+        ctx.fillStyle = '#2a313c'; ctx.fillRect(x + (side ? -4 : 0), y - 4, 4, 8);
+        ctx.fillStyle = on ? col : shadeHex(col, -0.55);
+        ctx.beginPath(); ctx.arc(x + dir * 2, y, 1.6, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  // Combo aura / rocket fire light the wall the ninja is close to
+  function drawWallLight() {
+    if (!FX.glow || !ninja || ninja.dead) return;
+    let col = null;
+    if (ninja.combo && POWERUPS.combos && POWERUPS.combos[ninja.combo]) col = POWERUPS.combos[ninja.combo].color;
+    else if (ninja.rocketT > 0) col = '#ff9a4a';
+    if (!col || col.charAt(0) !== '#') return;
+    const y = ninja.y - camera.y, reach = 150;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const dl = ninja.x, dr = W - ninja.x;
+    const pulse = 0.85 + 0.15 * Math.sin(frame * 0.2);
+    if (dl < reach) { const a = (1 - dl / reach) * pulse; drawGlow(0, y, 70, col, a * 0.75, 130); drawGlow(0, y, 14, '#ffffff', a * 0.5, 70); }
+    if (dr < reach) { const a = (1 - dr / reach) * pulse; drawGlow(W, y, 70, col, a * 0.75, 130); drawGlow(W, y, 14, '#ffffff', a * 0.5, 70); }
+    ctx.restore();
+  }
+
+  // ---- Platform texture + stage details (called from drawPlatform) ----
+  function platformTexture(hz, x, y, w, h, r) {
+    if (!FX.textures) return false;
+    const name = materialName(worldToMeters(hz.y));
+    return fillTextured(name, '', x, y, function (k) { roundRect(0, 0, w * k, h * k, r * k); });
+  }
+  function platformDetails(hz, x, y, w, h) {
+    if (!FX.textures) return;
+    const name = materialName(worldToMeters(hz.y));
+    const seed = Math.floor(Math.abs(hz.x * 7.3 + hz.y * 0.37));
+    if (name === 'stone') { // moss tufts on top
+      ctx.fillStyle = '#6aa844';
+      for (let i = 0; i < 3; i++) {
+        const tx = x + 8 + fxHash(seed + i) * (w - 16), tw = 4 + fxHash(seed + i + 9) * 5;
+        ctx.beginPath(); ctx.ellipse(tx, y + 0.5, tw, 2.4, 0, Math.PI, 0); ctx.fill();
+      }
+      ctx.fillStyle = '#4f8a32';
+      const dx = x + 10 + fxHash(seed + 4) * (w - 20);
+      ctx.fillRect(dx, y + 1, 1.2, 4 + fxHash(seed + 5) * 4);
+    } else if (name === 'bamboo') { // rope lashings + a little lantern under it
+      ctx.fillStyle = 'rgba(70,45,15,0.85)';
+      ctx.fillRect(x + 7, y, 3, h); ctx.fillRect(x + w - 10, y, 3, h);
+      if (seed % 3 === 0) {
+        const lx = x + w * (0.3 + fxHash(seed) * 0.4), ly = y + h + 9;
+        if (FX.glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlow(lx, ly, 20, '#ff9a4a', 0.5); ctx.restore(); }
+        ctx.strokeStyle = '#3a2a14'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx, y + h); ctx.lineTo(lx, ly - 5); ctx.stroke();
+        ctx.fillStyle = '#e8432f'; ctx.beginPath(); ctx.ellipse(lx, ly, 3.6, 5, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#ffd27f'; ctx.fillRect(lx - 0.8, ly - 3, 1.6, 6);
+      }
+    } else if (name === 'ice') { // icicles hanging below + snow on top
+      ctx.fillStyle = 'rgba(255,255,255,0.85)';
+      ctx.beginPath(); ctx.ellipse(x + w / 2, y + 0.5, w / 2 - 4, 2.2, 0, Math.PI, 0); ctx.fill();
+      ctx.fillStyle = 'rgba(210,240,255,0.9)';
+      for (let i = 0; i < 4; i++) {
+        const ix = x + 8 + fxHash(seed + i * 3) * (w - 16), il = 4 + fxHash(seed + i * 5) * 7;
+        ctx.beginPath(); ctx.moveTo(ix - 2.2, y + h); ctx.lineTo(ix, y + h + il); ctx.lineTo(ix + 2.2, y + h); ctx.closePath(); ctx.fill();
+      }
+    } else { // metal: running light strip
+      const on = ((frame + seed) % 80) < 40;
+      ctx.fillStyle = on ? '#7af0ff' : '#2b5560';
+      ctx.fillRect(x + 6, y + h / 2 - 1, 4, 2); ctx.fillRect(x + w - 10, y + h / 2 - 1, 4, 2);
+      if (on && FX.glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlow(x + 8, y + h / 2, 9, '#7af0ff', 0.55); drawGlow(x + w - 8, y + h / 2, 9, '#7af0ff', 0.55); ctx.restore(); }
+    }
+  }
+
+  // ---- Far parallax layers (drawn inside the low-res background) ----
+  let farCache = {}, farDpr = 0, farW = 0;
+  function farStrip(kind) {
+    if (farDpr !== drawDpr || farW !== W) { farCache = {}; farDpr = drawDpr; farW = W; }
+    if (farCache[kind] !== undefined) return farCache[kind];
+    const sw = Math.ceil(W * 1.5), sh = kind === 'galaxy' ? Math.ceil(H * 0.6) : 200;
+    const o = fxCanvas(sw * drawDpr, sh * drawDpr);
+    let res = null;
+    if (o) {
+      const c = o.c; c.scale(drawDpr, drawDpr);
+      const r = fxRng(kind.length * 131 + 7);
+      if (kind === 'ridge') { // distant pale range (seamless: ends at the same height)
+        const pts = []; const n = 14;
+        for (let i = 0; i <= n; i++) pts.push(i === n ? pts[0] : 70 + r() * 90);
+        c.fillStyle = '#d6e4f2';
+        c.beginPath(); c.moveTo(0, sh);
+        for (let i = 0; i <= n; i++) c.lineTo(sw * i / n, sh - pts[i]);
+        c.lineTo(sw, sh); c.closePath(); c.fill();
+        c.fillStyle = 'rgba(255,255,255,0.55)'; // snowy tops
+        for (let i = 1; i < n; i++) if (pts[i] > pts[i - 1] && pts[i] > pts[i + 1] && pts[i] > 120) {
+          const px = sw * i / n, py = sh - pts[i];
+          c.beginPath(); c.moveTo(px, py); c.lineTo(px - 10, py + 12); c.lineTo(px + 9, py + 11); c.closePath(); c.fill();
+        }
+      } else if (kind === 'dusk' || kind === 'night') { // pagodas + city skyline
+        const night = kind === 'night';
+        const body = night ? '#0f1426' : '#3b2a52', win = night ? '#ffd774' : '#ff9e6a';
+        let x = 0;
+        while (x < sw) {
+          const bw = 18 + r() * 34, bh = 50 + r() * 120, pag = r() < 0.28;
+          const w2 = Math.min(bw, sw - x);
+          c.fillStyle = body;
+          if (pag) { // pagoda: stacked roofs
+            const tiers = 3 + Math.floor(r() * 3), th = bh / tiers;
+            for (let t = 0; t < tiers; t++) {
+              const ty = sh - (t + 1) * th, inset = t * 3;
+              c.fillRect(x + inset + 4, ty, w2 - inset * 2 - 8, th);
+              c.beginPath(); c.moveTo(x + inset - 4, ty + 4); c.lineTo(x + w2 / 2, ty - 6); c.lineTo(x + w2 - inset + 4, ty + 4); c.closePath(); c.fill();
+            }
+            c.fillRect(x + w2 / 2 - 0.75, sh - bh - 16, 1.5, 12);
+          } else {
+            c.fillRect(x, sh - bh, w2, bh);
+            if (r() < 0.3) c.fillRect(x + w2 * 0.6, sh - bh - 14, 1.5, 14); // antenna
+            c.fillStyle = win; // windows
+            for (let wy = sh - bh + 6; wy < sh - 6; wy += 9) for (let wx = x + 4; wx < x + w2 - 5; wx += 7) {
+              if (r() < (night ? 0.38 : 0.12)) { c.globalAlpha = 0.55 + r() * 0.45; c.fillRect(wx, wy, 3, 4); }
+            }
+            c.globalAlpha = 1;
+          }
+          x += w2 + (r() < 0.3 ? 2 + r() * 8 : 0);
+        }
+      } else { // galaxy band: soft diagonal glow + dust of tiny stars
+        c.save(); c.translate(sw / 2, sh / 2); c.rotate(-0.42); c.scale(1, 0.22);
+        const rg = c.createRadialGradient(0, 0, 0, 0, 0, sw * 0.6);
+        rg.addColorStop(0, 'rgba(255,240,255,0.55)'); rg.addColorStop(0.35, 'rgba(170,140,255,0.25)'); rg.addColorStop(1, 'rgba(80,60,160,0)');
+        c.fillStyle = rg; c.fillRect(-sw, -sw, sw * 2, sw * 2);
+        c.restore();
+        for (let i = 0; i < 260; i++) {
+          const t = (r() - 0.5) * sw * 1.1, d = (r() + r() + r() - 1.5) * 34;
+          const px = sw / 2 + Math.cos(-0.42) * t - Math.sin(-0.42) * d, py = sh / 2 + Math.sin(-0.42) * t + Math.cos(-0.42) * d;
+          c.fillStyle = r() < 0.2 ? 'rgba(200,190,255,0.9)' : 'rgba(255,255,255,0.75)';
+          c.fillRect(px, py, r() < 0.1 ? 1.6 : 0.8, r() < 0.1 ? 1.6 : 0.8);
+        }
+      }
+      res = { cv: o.cv, w: sw, h: sh };
+    }
+    farCache[kind] = res;
+    return res;
+  }
+  function blitStrip(s, ox, y, a) {
+    if (!s || a <= 0.02 || y > H || y + s.h < 0) return;
+    ctx.globalAlpha = a;
+    let x = -(((ox % s.w) + s.w) % s.w);
+    for (; x < W; x += s.w) ctx.drawImage(s.cv, x, y, s.w, s.h);
+    ctx.globalAlpha = 1;
+  }
+  // 'galaxy' = behind the planets, 'ridge' = behind the mountains (moves slower), 'mid' = skyline in front of
+  // the mountains/haze and behind the hills
+  function drawFarLayers(meters, at, layer) {
+    if (!FX.parallax || bgCacheOff || qualityLevel >= 1) return; // dropped (with the vignette) on slow phones
+    const cam = camera.y;
+    if (layer === 'galaxy') {
+      if (at.space > 0.05) blitStrip(farStrip('galaxy'), 0, H * 0.1 + ((meters - 700) * 0.04) % (H * 0.4), at.space * 0.75);
+    } else if (layer === 'ridge') {
+      if (at.hills > 0.05 && meters < 310) blitStrip(farStrip('ridge'), W * 0.3 - cam * 0.006, H * 0.62 - cam * 0.015 - 180, at.hills * 0.55 * (1 - smoothstep(170, 310, meters)));
+    } else {
+      const a = smoothstep(240, 310, meters) * (1 - smoothstep(640, 720, meters));
+      if (a > 0.02) {
+        const y = H - 190 + Math.max(0, meters - 330) * 0.25;
+        const night = smoothstep(380, 460, meters);
+        const ox = W * 0.2 - cam * 0.004;
+        if (night < 0.98) blitStrip(farStrip('dusk'), ox, y, a * (1 - night));
+        if (night > 0.02) blitStrip(farStrip('night'), ox, y, a * night);
+      }
+    }
+  }
+
+  // ---- Extra particles ----
+  function fxCap() {
+    const over = particles.length - FX.maxParticles;
+    if (over > 0) particles.splice(0, over);
+  }
+  function fxWallDust(side, y) {
+    if (!FX.particles) return;
+    const name = materialName(worldToMeters(y));
+    const x = side < 0 ? FX.wallWidth : W - FX.wallWidth, dir = side < 0 ? 1 : -1;
+    const col = name === 'stone' ? '#b3a68c' : name === 'bamboo' ? '#a9c25a' : name === 'ice' ? '#e3f7ff' : '#ffd27f';
+    for (let i = 0; i < 11; i++) {
+      const a = (Math.random() - 0.5) * 2.0;
+      const s = 1.4 + Math.random() * 2.6;
+      particles.push({ x, y: y + (Math.random() - 0.5) * 16, vx: dir * Math.cos(a) * s, vy: Math.sin(a) * s - 0.6,
+        life: 20 + Math.random() * 14, max: 34, color: col, size: 2 + Math.random() * 2.8, dust: true,
+        spark: name === 'metal' });
+    }
+    fxCap();
+  }
+  function fxSparks(x, y, col, n, speed) {
+    if (!FX.particles) return;
+    for (let i = 0; i < n; i++) {
+      const a = Math.random() * Math.PI * 2, s = speed * (0.6 + Math.random() * 0.8);
+      particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 12 + Math.random() * 10, max: 22,
+        color: col, size: 1.6, spark: true });
+    }
+    fxCap();
+  }
+  function fxCoinPickup(c) {
+    if (!FX.particles) return;
+    particles.push({ x: c.x, y: c.y, vx: 0, vy: -1.6, life: 24, max: 24, color: '#ffd700', size: c.r || 9, coin: true });
+    for (let i = 0; i < 5; i++) {
+      const a = i / 5 * Math.PI * 2;
+      particles.push({ x: c.x + Math.cos(a) * 6, y: c.y + Math.sin(a) * 6, vx: Math.cos(a) * 1.6, vy: Math.sin(a) * 1.6 - 0.4,
+        life: 18 + Math.random() * 8, max: 26, color: '#fff6a8', size: 3 + Math.random() * 1.5, star: true, rot: a, vr: 0.2 });
+    }
+    fxCap();
+  }
+
+  // Build every cached layer up front (after a resize / quality change) so nothing is generated in the
+  // middle of a run: texture tiles for all stages, far strips at the background resolution, glow sprites.
+  let fxWarmTimer = 0;
+  function fxWarmSoon() {
+    if (fxWarmTimer) clearTimeout(fxWarmTimer);
+    fxWarmTimer = setTimeout(function () {
+      fxWarmTimer = 0;
+      try {
+        for (const m of FX.materials) { stageTile(m[1], ''); stageTile(m[1], 'v'); if (W && H) wallStrip(m[1]); }
+        const keep = drawDpr;
+        drawDpr = Math.min(dpr, BG_MAX_DPR * uiScale);
+        if (FX.parallax) { farStrip('ridge'); farStrip('dusk'); farStrip('night'); farStrip('galaxy'); }
+        drawDpr = keep;
+        if (FX.glow) ['#ff9a4a', '#ff5a4a', '#5aff9a', '#7af0ff', '#ffd27f', '#ff7a3d', '#fff1c9', '#ff5a5a', '#3fc7f0', '#ffa53a'].forEach(glowSprite);
+      } catch (e) {}
+    }, 60);
+  }
+
   // --- Background drawing (parallax layers) ---
   // --- Background performance ---
   // The background (sky, hills, mountains, trees, clouds) was the main cost of every frame: many big
@@ -3524,13 +4073,13 @@
   // Draw the background into the low-resolution layer, then stretch it over the frame
   function renderBackground(meters) {
     const bgDpr = Math.min(dpr, BG_MAX_DPR * uiScale);
-    if (bgCacheOff || bgDpr >= dpr - 0.01) { drawDpr = dpr; drawBackground(meters); return; }
+    if (bgCacheOff || bgDpr >= dpr - 0.01) { drawDpr = dpr; drawBackground(meters); if (state !== 'menu') drawVignette(); return; }
     const bw = Math.ceil(W * bgDpr), bh = Math.ceil(H * bgDpr);
     try {
       if (!bgCanvas) { bgCanvas = document.createElement('canvas'); bgCtx = bgCanvas.getContext('2d'); }
       if (!bgCtx) throw new Error('no 2d context');
       if (bgCanvas.width !== bw || bgCanvas.height !== bh) { bgCanvas.width = bw; bgCanvas.height = bh; }
-    } catch (e) { bgCacheOff = true; drawDpr = dpr; drawBackground(meters); return; }
+    } catch (e) { bgCacheOff = true; drawDpr = dpr; drawBackground(meters); if (state !== 'menu') drawVignette(); return; }
     const main = ctx;
     ctx = bgCtx;
     drawDpr = bgDpr;
@@ -3538,6 +4087,7 @@
       bgCtx.setTransform(bgDpr, 0, 0, bgDpr, 0, 0);
       bgCtx.globalAlpha = 1;
       drawBackground(meters);
+      if (state !== 'menu') drawVignette(); // baked into the low-res layer: ~free (a full-screen blend on top cost ~5 ms in software)
     } finally {
       ctx = main;
       drawDpr = dpr;
@@ -3604,6 +4154,8 @@
       }
       ctx.globalAlpha = 1;
     }
+
+    drawFarLayers(meters, at, 'galaxy');
 
     // Planets (space)
     if (at.space > 0.15) {
@@ -3678,6 +4230,8 @@
       ctx.globalAlpha = 1;
     }
 
+    drawFarLayers(meters, at, 'ridge');
+
     // Mountains (far parallax)
     if (at.hills > 0.05) {
       ctx.globalAlpha = at.hills;
@@ -3702,6 +4256,8 @@
       ctx.fillRect(0, hzY - 80, W, 100);
       ctx.globalAlpha = 1;
     }
+
+    drawFarLayers(meters, at, 'mid');
 
     // Far hills (one vertical gradient per layer: lit tops, darker base)
     if (at.hills > 0.05) {
@@ -3909,6 +4465,17 @@
 
     ctx.save();
     ctx.lineCap = 'round';
+    if (FX.glow) { // wide additive light along the band + on the pegs (no shadowBlur)
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = col;
+      ctx.globalAlpha = 0.14 * al;
+      ctx.lineWidth = 22 * th;
+      elasticPath(x1, y1, x2, y2, cpx, cpy, curved);
+      ctx.stroke();
+      drawGlow(x1, y1, 16, col, 0.5 * al);
+      drawGlow(x2, y2, 16, col, 0.5 * al);
+      ctx.globalCompositeOperation = 'source-over';
+    }
     // Soft glow
     ctx.strokeStyle = col;
     ctx.globalAlpha = 0.3 * al;
@@ -3976,7 +4543,7 @@
   // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
   const NINJA_MAX_ARM = Math.PI / 3; // 60° hard limit
   const NINJA_LEG_LEN = 13;                  // thigh + shin, used by the wall-kick leg
-  const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0, hero: 0 };
+  const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0, hero: 0, air: 0, lean: 0 };
   let ninjaLightX = -1; // local x direction toward the light (world top-left), set per draw
 
   function updateNinjaPose() {
@@ -3999,6 +4566,12 @@
       relaxT = Math.min(1, (ninja.vy - 1.5) / 6);
     }
     p.relax += (relaxT - p.relax) * 0.12;
+    // In-between poses (smoothed, visual only): air = -1 rising fast .. +1 falling fast; lean from side speed
+    const free = !onBand && ninja && state === 'playing' && !ninja.dead;
+    const airT = free ? Math.max(-1, Math.min(1, ninja.vy / 8)) : 0;
+    p.air += (airT - p.air) * FX.ninjaAirEase;
+    const leanT = free && p.wallKick <= 0 && !ninja.spinning ? Math.max(-1, Math.min(1, ninja.vx / 9)) * FX.ninjaLean : 0;
+    p.lean += (leanT - p.lean) * 0.12;
     // Wall-kick timer (visual only)
     if (onBand) p.wallKick = 0;
     if (p.wallKick > 0) { p.wallKick -= 1 / WALL_KICK_FRAMES; if (p.wallKick < 0) p.wallKick = 0; }
@@ -4013,7 +4586,7 @@
     if (p.wallKick > 0.6 && p.wallSide === side) return;
     p.wallKick = 1;
     p.wallSide = side;
-    p.wallX = side < 0 ? 0 : W;
+    p.wallX = FX.textures ? (side < 0 ? FX.wallWidth : W - FX.wallWidth) : (side < 0 ? 0 : W); // foot on the drawn wall
     debugStats.wallKicks++;
   }
 
@@ -4135,6 +4708,7 @@
     ctx.translate(x, y);
     let rot = 0;
     if (kick) { ctx.rotate(kick.lean); rot += kick.lean; }
+    if (Math.abs(p.lean) > 0.004) { ctx.rotate(p.lean); rot += p.lean; } // tilts into the side motion
     if (stretch > 0.05 && onBand) {
       ctx.rotate(stretchDir);
       ctx.scale(1 + stretch * 0.15, 1 - stretch * 0.35);
@@ -4147,6 +4721,9 @@
     if (ninja && ninja.dead) { ctx.rotate(ninja.deathSpin); rot += ninja.deathSpin; }
     // Launch impulse: slight vertical stretch
     if (p.launch > 0.02) ctx.scale(1 - p.launch * 0.1, 1 + p.launch * 0.16);
+    // rise / fall in-between: a touch longer while shooting up, a touch squat at the fall's peak speed
+    const rise = Math.max(0, -p.air), fall = Math.max(0, p.air);
+    if (rise > 0.02 || fall > 0.02) ctx.scale(1 - rise * 0.035 + fall * 0.02, 1 + rise * 0.05 - fall * 0.025);
     if (ninja) ctx.scale(facing, 1);
 
     ctx.lineCap = 'round';
@@ -4174,22 +4751,25 @@
     const vx = ninja ? ninja.vx * facing : 0;
     const vy = ninja ? ninja.vy : 0;
     const spd = Math.min(16, Math.hypot(vx, vy));
-    const wave = Math.sin(frame * 0.35) * (1.5 + spd * 0.25);
-    const tailLen = 9 + spd * 0.45;
+    // flutter: faster and wider with speed, plus a smaller ripple travelling along the cloth
+    const wave = Math.sin(frame * (0.3 + spd * 0.025)) * (1.5 + spd * 0.3);
+    const ripple = Math.sin(frame * 0.9 + 1.3) * spd * 0.09;
+    const tailLen = 9 + spd * 0.55;
     const tailDy = Math.max(-8, Math.min(10, -vy * 0.55)) + 3;
 
     // Headband tails (behind everything)
     const knotX = -9.5, knotY = headY - 4;
-    drawNinjaTails(knotX, knotY, tailLen, tailDy, wave);
+    drawNinjaTails(knotX, knotY, tailLen, tailDy, wave, ripple);
 
     // Legs (side-view squat): thighs rotate FORWARD (+x = facing, mirrored by the
     // facing scale), shins angle back down to feet kept together. Back leg is drawn
     // behind the body; once crouching (or kicking a wall in front), the front leg is
     // drawn in front of the body so the forward knee reads clearly.
     const legTop = hipY;
-    const kneeFwd = c * 9.5;
-    const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5;
-    const ankleBack = c * 1.5;
+    // rising: knees tuck up a little; falling: feet trail slightly back (smoothed in-betweens)
+    const kneeFwd = c * 9.5 + rise * 3.2;
+    const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5 - rise * 1.6;
+    const ankleBack = c * 1.5 + fall * 1.8 - rise * 0.8;
     const kickFront = !!kick && kick.side * facing > 0;
     const backG = legGeom(-2.2, legTop, kneeFwd * 0.85, kneeY + 0.6, ankleBack, footY, 0.2, kick, !!kick && !kickFront, rot, facing);
     const frontG = legGeom(2.2, legTop, kneeFwd, kneeY, ankleBack, footY, 1.0, kick, kickFront, rot, facing);
@@ -4368,22 +4948,23 @@
   }
 
   // --- Shared sprite parts (normal pose and hero pose) ---
-  function drawNinjaTails(knotX, knotY, tailLen, tailDy, wave) {
+  function drawNinjaTails(knotX, knotY, tailLen, tailDy, wave, ripple) {
+    const rp = ripple || 0; // extra wiggle at the tips only = the cloth ripples along its length
     ctx.fillStyle = skin.band;
     ctx.strokeStyle = 'rgba(255,255,255,0.45)'; // light rim so tails read on night/space
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(knotX, knotY - 1.8);
-    ctx.quadraticCurveTo(knotX - tailLen * 0.5, knotY - 3 + wave, knotX - tailLen, knotY + tailDy - 2 + wave);
-    ctx.lineTo(knotX - tailLen + 1, knotY + tailDy + 2 + wave);
+    ctx.quadraticCurveTo(knotX - tailLen * 0.5, knotY - 3 + wave, knotX - tailLen, knotY + tailDy - 2 + wave + rp);
+    ctx.lineTo(knotX - tailLen + 1, knotY + tailDy + 2 + wave + rp);
     ctx.quadraticCurveTo(knotX - tailLen * 0.5, knotY + 1 + wave * 0.6, knotX, knotY + 1.8);
     ctx.closePath();
     ctx.stroke();
     ctx.fill();
     ctx.beginPath();
     ctx.moveTo(knotX, knotY);
-    ctx.quadraticCurveTo(knotX - tailLen * 0.4, knotY + 2 - wave * 0.8, knotX - tailLen * 0.8, knotY + tailDy + 5 - wave * 0.8);
-    ctx.lineTo(knotX - tailLen * 0.8 + 1.5, knotY + tailDy + 8 - wave * 0.8);
+    ctx.quadraticCurveTo(knotX - tailLen * 0.4, knotY + 2 - wave * 0.8, knotX - tailLen * 0.8, knotY + tailDy + 5 - wave * 0.8 - rp);
+    ctx.lineTo(knotX - tailLen * 0.8 + 1.5, knotY + tailDy + 8 - wave * 0.8 - rp);
     ctx.quadraticCurveTo(knotX - tailLen * 0.35, knotY + 4 - wave * 0.5, knotX + 0.5, knotY + 2.5);
     ctx.closePath();
     ctx.stroke();
@@ -4689,10 +5270,21 @@
     roundRect(x0, 0, ww, h, 7);
     ctx.fill();
     ctx.restore();
+    // Stage material (stone / bamboo / ice / metal tile, cached) + the same top-lit shading on top
+    const textured = platformTexture(hz, x0, y0, ww, h, 7);
+    if (textured) {
+      ctx.save();
+      ctx.translate(0, y0);
+      ctx.fillStyle = hzGrad('platOv' + h, () => stops(ctx.createLinearGradient(0, 0, 0, h), [0, 'rgba(255,255,255,0.2)', 0.45, 'rgba(255,255,255,0)', 1, 'rgba(10,15,40,0.42)']));
+      roundRect(x0, 0, ww, h, 7);
+      ctx.fill();
+      ctx.restore();
+      roundRect(x0, y0, ww, h, 7);
+    }
     ctx.save();
     ctx.clip();
     ctx.fillStyle = 'rgba(20,30,60,0.28)';
-    for (let sx = x0 + 34; sx < x1 - 12; sx += 38) ctx.fillRect(sx, y0 + 3, 1.5, h - 5);
+    if (!textured) for (let sx = x0 + 34; sx < x1 - 12; sx += 38) ctx.fillRect(sx, y0 + 3, 1.5, h - 5);
     ctx.fillStyle = 'rgba(255,255,255,0.35)';
     ctx.fillRect(x0, y0, ww, 2.5);
     ctx.fillStyle = 'rgba(0,0,0,0.22)';
@@ -4717,6 +5309,7 @@
       ctx.beginPath(); ctx.arc(x0 + 6, sy, 2.6, 0, Math.PI * 2); ctx.fill();
       ctx.beginPath(); ctx.arc(x1 - 6, sy, 2.6, 0, Math.PI * 2); ctx.fill();
     }
+    if (textured) platformDetails(hz, x0, y0, ww, h);
   }
 
   function drawWing(red, flap, back) {
@@ -5020,7 +5613,7 @@
 
   // --- Coins, ground, floaters and particles ---
   // Coin body is pre-rendered once per resize (gradient + emboss) and blitted each frame
-  let coinSprite = null;
+  let coinSprite = null, coinGlowSprite = null;
   function buildCoinSprite() {
     coinSprite = null;
     try {
@@ -5054,7 +5647,23 @@
       g.fillStyle = '#b07d0a';
       g.fillText('$', 0, 1);
       coinSprite = { cv, size: logical };
-    } catch (e) { coinSprite = null; }
+      // Same coin with its soft golden glow baked in (FX.glow): still ONE drawImage per coin
+      coinGlowSprite = null;
+      const glogical = logical + 26, gcv = document.createElement('canvas');
+      gcv.width = gcv.height = Math.ceil(glogical * sc);
+      const gg = gcv.getContext('2d');
+      if (gg) {
+        gg.scale(sc, sc);
+        const c0 = glogical / 2, hg = gg.createRadialGradient(c0, c0, r * 0.6, c0, c0, c0);
+        hg.addColorStop(0, 'rgba(255,214,80,0.62)');
+        hg.addColorStop(0.45, 'rgba(255,200,60,0.26)');
+        hg.addColorStop(1, 'rgba(255,190,40,0)');
+        gg.fillStyle = hg;
+        gg.fillRect(0, 0, glogical, glogical);
+        gg.drawImage(cv, 13, 13, logical, logical);
+        coinGlowSprite = { cv: gcv, size: glogical };
+      }
+    } catch (e) { coinSprite = null; coinGlowSprite = null; }
   }
 
   function drawCoin(c) {
@@ -5067,15 +5676,18 @@
     ctx.translate(x, y);
     const pulse = 1 + Math.sin(c.sparkle) * 0.1;
     ctx.scale(pulse, pulse);
-    ctx.fillStyle = at.accent;
-    ctx.globalAlpha = 0.3;
-    ctx.beginPath();
-    ctx.arc(0, 0, c.r + 4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    if (coinSprite) {
-      const s = coinSprite.size;
-      ctx.drawImage(coinSprite.cv, -s / 2, -s / 2, s, s);
+    if (!FX.glow) {
+      ctx.fillStyle = at.accent;
+      ctx.globalAlpha = 0.3;
+      ctx.beginPath();
+      ctx.arc(0, 0, c.r + 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    const spr = FX.glow && coinGlowSprite ? coinGlowSprite : coinSprite;
+    if (spr) {
+      const s = spr.size;
+      ctx.drawImage(spr.cv, -s / 2, -s / 2, s, s);
     } else {
       ctx.fillStyle = '#ffd700';
       ctx.beginPath();
@@ -5183,11 +5795,49 @@
     ctx.restore();
   }
 
+  // Sparks (short glowing streaks along their motion), rocket fire (glow sprites) and the flipping coin
+  function drawFxParticles(cam) {
+    ctx.save();
+    for (const p of particles) {
+      if (!p.coin) continue;
+      const a = Math.max(0, p.life / p.max), t = 1 - a;
+      const sx = Math.cos(t * Math.PI * 3);           // flip: the coin turns edge-on and back
+      ctx.globalAlpha = Math.min(1, a * 1.6);
+      if (coinSprite) {
+        const s = coinSprite.size * (1 + t * 0.25);
+        ctx.save();
+        ctx.translate(p.x, p.y - cam);
+        ctx.scale(Math.max(0.08, Math.abs(sx)), 1);
+        ctx.drawImage(coinSprite.cv, -s / 2, -s / 2, s, s);
+        ctx.restore();
+      }
+    }
+    ctx.restore();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    for (const p of particles) {
+      if (!(p.spark || p.fire)) continue;
+      const a = Math.max(0, p.life / p.max), y = p.y - cam;
+      if (p.fire) {
+        if (FX.glow) drawGlow(p.x, y, p.size * (1.6 + (1 - a) * 1.8), p.color, a * 0.85);
+        else { ctx.globalAlpha = a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, y, p.size * a, 0, Math.PI * 2); ctx.fill(); }
+      } else {
+        ctx.globalAlpha = Math.min(1, a * 1.4);
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = p.size * (0.6 + 0.6 * a);
+        ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.x - p.vx * 2.4, y - p.vy * 2.4); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   function drawParticles() {
     const cam = camera.y;
-    let hasStars = false;
+    let hasStars = false, hasFx = false;
     for (const p of particles) {
       if (p.star) { hasStars = true; continue; }
+      if (p.spark || p.fire || p.coin) { hasFx = true; continue; }
       const a = Math.max(0, p.life / p.max);
       ctx.globalAlpha = a;
       ctx.fillStyle = p.color;
@@ -5208,6 +5858,7 @@
       }
       ctx.restore();
     }
+    if (hasFx) drawFxParticles(cam);
     // Shockwave rings (super jump)
     for (const r of rings) {
       ctx.globalAlpha = Math.max(0, r.life) * 0.85;
@@ -5307,6 +5958,11 @@
       ctx.save();
       ctx.translate(p.x, y);
       const pulse = 0.5 + 0.5 * Math.sin(frame * 0.12 + p.bob);
+      if (FX.glow) { // soft light around the item (pre-rendered sprite)
+        ctx.globalCompositeOperation = 'lighter';
+        drawGlow(0, 0, 40 + pulse * 5, c[1], 0.38 + 0.18 * pulse);
+        ctx.globalCompositeOperation = 'source-over';
+      }
       ctx.globalAlpha = 0.25 + 0.2 * pulse;        // glow ring: "pick me up"
       ctx.fillStyle = c[1];
       ctx.beginPath(); ctx.arc(0, 0, 21 + pulse * 3, 0, Math.PI * 2); ctx.fill();
@@ -5494,8 +6150,9 @@
 
     ctx.save();
     shakeX = 0; shakeY = 0;
-    if (shake > 0.5) {
-      shakeX = (Math.random() - 0.5) * shake; shakeY = (Math.random() - 0.5) * shake;
+    const shakeAmt = FX.shake ? Math.min(shake * FX.shakeScale, FX.shakeMax) : 0;
+    if (shakeAmt > 0.35) {
+      shakeX = (Math.random() - 0.5) * shakeAmt; shakeY = (Math.random() - 0.5) * shakeAmt;
       ctx.translate(shakeX, shakeY);
     }
 
@@ -5519,6 +6176,8 @@
 
     if (state === 'playing' || state === 'gameover') {
       if (groundY) drawGround();
+      drawWalls(meters);
+      drawWallLight();
       for (const hz of hazards) if (hz.alive) drawHazard(hz);
       for (const c of coins) drawCoin(c);
       if (powerups.length) drawPowerups();

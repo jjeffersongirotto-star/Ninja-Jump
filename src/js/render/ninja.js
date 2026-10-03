@@ -2,7 +2,7 @@
 // Pose state: crouch 0..1 (eased), launch pulse, falling arm relax, wall-kick timer.
 const NINJA_MAX_ARM = Math.PI / 3; // 60° hard limit
 const NINJA_LEG_LEN = 13;                  // thigh + shin, used by the wall-kick leg
-const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0, hero: 0 };
+const ninjaPose = { crouch: 0, launch: 0, relax: 0, wasOnBand: false, forced: -1, wallKick: 0, wallSide: 0, wallX: 0, hero: 0, air: 0, lean: 0 };
 let ninjaLightX = -1; // local x direction toward the light (world top-left), set per draw
 
 function updateNinjaPose() {
@@ -25,6 +25,12 @@ function updateNinjaPose() {
     relaxT = Math.min(1, (ninja.vy - 1.5) / 6);
   }
   p.relax += (relaxT - p.relax) * 0.12;
+  // In-between poses (smoothed, visual only): air = -1 rising fast .. +1 falling fast; lean from side speed
+  const free = !onBand && ninja && state === 'playing' && !ninja.dead;
+  const airT = free ? Math.max(-1, Math.min(1, ninja.vy / 8)) : 0;
+  p.air += (airT - p.air) * FX.ninjaAirEase;
+  const leanT = free && p.wallKick <= 0 && !ninja.spinning ? Math.max(-1, Math.min(1, ninja.vx / 9)) * FX.ninjaLean : 0;
+  p.lean += (leanT - p.lean) * 0.12;
   // Wall-kick timer (visual only)
   if (onBand) p.wallKick = 0;
   if (p.wallKick > 0) { p.wallKick -= 1 / WALL_KICK_FRAMES; if (p.wallKick < 0) p.wallKick = 0; }
@@ -39,7 +45,7 @@ function startWallKick(side) {
   if (p.wallKick > 0.6 && p.wallSide === side) return;
   p.wallKick = 1;
   p.wallSide = side;
-  p.wallX = side < 0 ? 0 : W;
+  p.wallX = FX.textures ? (side < 0 ? FX.wallWidth : W - FX.wallWidth) : (side < 0 ? 0 : W); // foot on the drawn wall
   debugStats.wallKicks++;
 }
 
@@ -161,6 +167,7 @@ function drawNinjaSprite(x, y) {
   ctx.translate(x, y);
   let rot = 0;
   if (kick) { ctx.rotate(kick.lean); rot += kick.lean; }
+  if (Math.abs(p.lean) > 0.004) { ctx.rotate(p.lean); rot += p.lean; } // tilts into the side motion
   if (stretch > 0.05 && onBand) {
     ctx.rotate(stretchDir);
     ctx.scale(1 + stretch * 0.15, 1 - stretch * 0.35);
@@ -173,6 +180,9 @@ function drawNinjaSprite(x, y) {
   if (ninja && ninja.dead) { ctx.rotate(ninja.deathSpin); rot += ninja.deathSpin; }
   // Launch impulse: slight vertical stretch
   if (p.launch > 0.02) ctx.scale(1 - p.launch * 0.1, 1 + p.launch * 0.16);
+  // rise / fall in-between: a touch longer while shooting up, a touch squat at the fall's peak speed
+  const rise = Math.max(0, -p.air), fall = Math.max(0, p.air);
+  if (rise > 0.02 || fall > 0.02) ctx.scale(1 - rise * 0.035 + fall * 0.02, 1 + rise * 0.05 - fall * 0.025);
   if (ninja) ctx.scale(facing, 1);
 
   ctx.lineCap = 'round';
@@ -200,22 +210,25 @@ function drawNinjaSprite(x, y) {
   const vx = ninja ? ninja.vx * facing : 0;
   const vy = ninja ? ninja.vy : 0;
   const spd = Math.min(16, Math.hypot(vx, vy));
-  const wave = Math.sin(frame * 0.35) * (1.5 + spd * 0.25);
-  const tailLen = 9 + spd * 0.45;
+  // flutter: faster and wider with speed, plus a smaller ripple travelling along the cloth
+  const wave = Math.sin(frame * (0.3 + spd * 0.025)) * (1.5 + spd * 0.3);
+  const ripple = Math.sin(frame * 0.9 + 1.3) * spd * 0.09;
+  const tailLen = 9 + spd * 0.55;
   const tailDy = Math.max(-8, Math.min(10, -vy * 0.55)) + 3;
 
   // Headband tails (behind everything)
   const knotX = -9.5, knotY = headY - 4;
-  drawNinjaTails(knotX, knotY, tailLen, tailDy, wave);
+  drawNinjaTails(knotX, knotY, tailLen, tailDy, wave, ripple);
 
   // Legs (side-view squat): thighs rotate FORWARD (+x = facing, mirrored by the
   // facing scale), shins angle back down to feet kept together. Back leg is drawn
   // behind the body; once crouching (or kicking a wall in front), the front leg is
   // drawn in front of the body so the forward knee reads clearly.
   const legTop = hipY;
-  const kneeFwd = c * 9.5;
-  const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5;
-  const ankleBack = c * 1.5;
+  // rising: knees tuck up a little; falling: feet trail slightly back (smoothed in-betweens)
+  const kneeFwd = c * 9.5 + rise * 3.2;
+  const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5 - rise * 1.6;
+  const ankleBack = c * 1.5 + fall * 1.8 - rise * 0.8;
   const kickFront = !!kick && kick.side * facing > 0;
   const backG = legGeom(-2.2, legTop, kneeFwd * 0.85, kneeY + 0.6, ankleBack, footY, 0.2, kick, !!kick && !kickFront, rot, facing);
   const frontG = legGeom(2.2, legTop, kneeFwd, kneeY, ankleBack, footY, 1.0, kick, kickFront, rot, facing);
@@ -394,22 +407,23 @@ function drawHeroNinja(x, y) {
 }
 
 // --- Shared sprite parts (normal pose and hero pose) ---
-function drawNinjaTails(knotX, knotY, tailLen, tailDy, wave) {
+function drawNinjaTails(knotX, knotY, tailLen, tailDy, wave, ripple) {
+  const rp = ripple || 0; // extra wiggle at the tips only = the cloth ripples along its length
   ctx.fillStyle = skin.band;
   ctx.strokeStyle = 'rgba(255,255,255,0.45)'; // light rim so tails read on night/space
   ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(knotX, knotY - 1.8);
-  ctx.quadraticCurveTo(knotX - tailLen * 0.5, knotY - 3 + wave, knotX - tailLen, knotY + tailDy - 2 + wave);
-  ctx.lineTo(knotX - tailLen + 1, knotY + tailDy + 2 + wave);
+  ctx.quadraticCurveTo(knotX - tailLen * 0.5, knotY - 3 + wave, knotX - tailLen, knotY + tailDy - 2 + wave + rp);
+  ctx.lineTo(knotX - tailLen + 1, knotY + tailDy + 2 + wave + rp);
   ctx.quadraticCurveTo(knotX - tailLen * 0.5, knotY + 1 + wave * 0.6, knotX, knotY + 1.8);
   ctx.closePath();
   ctx.stroke();
   ctx.fill();
   ctx.beginPath();
   ctx.moveTo(knotX, knotY);
-  ctx.quadraticCurveTo(knotX - tailLen * 0.4, knotY + 2 - wave * 0.8, knotX - tailLen * 0.8, knotY + tailDy + 5 - wave * 0.8);
-  ctx.lineTo(knotX - tailLen * 0.8 + 1.5, knotY + tailDy + 8 - wave * 0.8);
+  ctx.quadraticCurveTo(knotX - tailLen * 0.4, knotY + 2 - wave * 0.8, knotX - tailLen * 0.8, knotY + tailDy + 5 - wave * 0.8 - rp);
+  ctx.lineTo(knotX - tailLen * 0.8 + 1.5, knotY + tailDy + 8 - wave * 0.8 - rp);
   ctx.quadraticCurveTo(knotX - tailLen * 0.35, knotY + 4 - wave * 0.5, knotX + 0.5, knotY + 2.5);
   ctx.closePath();
   ctx.stroke();

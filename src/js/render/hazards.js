@@ -136,10 +136,21 @@ function drawPlatform(hz, sy) {
   roundRect(x0, 0, ww, h, 7);
   ctx.fill();
   ctx.restore();
+  // Stage material (stone / bamboo / ice / metal tile, cached) + the same top-lit shading on top
+  const textured = platformTexture(hz, x0, y0, ww, h, 7);
+  if (textured) {
+    ctx.save();
+    ctx.translate(0, y0);
+    ctx.fillStyle = hzGrad('platOv' + h, () => stops(ctx.createLinearGradient(0, 0, 0, h), [0, 'rgba(255,255,255,0.2)', 0.45, 'rgba(255,255,255,0)', 1, 'rgba(10,15,40,0.42)']));
+    roundRect(x0, 0, ww, h, 7);
+    ctx.fill();
+    ctx.restore();
+    roundRect(x0, y0, ww, h, 7);
+  }
   ctx.save();
   ctx.clip();
   ctx.fillStyle = 'rgba(20,30,60,0.28)';
-  for (let sx = x0 + 34; sx < x1 - 12; sx += 38) ctx.fillRect(sx, y0 + 3, 1.5, h - 5);
+  if (!textured) for (let sx = x0 + 34; sx < x1 - 12; sx += 38) ctx.fillRect(sx, y0 + 3, 1.5, h - 5);
   ctx.fillStyle = 'rgba(255,255,255,0.35)';
   ctx.fillRect(x0, y0, ww, 2.5);
   ctx.fillStyle = 'rgba(0,0,0,0.22)';
@@ -164,6 +175,7 @@ function drawPlatform(hz, sy) {
     ctx.beginPath(); ctx.arc(x0 + 6, sy, 2.6, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath(); ctx.arc(x1 - 6, sy, 2.6, 0, Math.PI * 2); ctx.fill();
   }
+  if (textured) platformDetails(hz, x0, y0, ww, h);
 }
 
 function drawWing(red, flap, back) {

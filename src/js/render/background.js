@@ -49,13 +49,13 @@ let shakeX = 0, shakeY = 0;  // current screen-shake offset (set in render)
 // Draw the background into the low-resolution layer, then stretch it over the frame
 function renderBackground(meters) {
   const bgDpr = Math.min(dpr, BG_MAX_DPR * uiScale);
-  if (bgCacheOff || bgDpr >= dpr - 0.01) { drawDpr = dpr; drawBackground(meters); return; }
+  if (bgCacheOff || bgDpr >= dpr - 0.01) { drawDpr = dpr; drawBackground(meters); if (state !== 'menu') drawVignette(); return; }
   const bw = Math.ceil(W * bgDpr), bh = Math.ceil(H * bgDpr);
   try {
     if (!bgCanvas) { bgCanvas = document.createElement('canvas'); bgCtx = bgCanvas.getContext('2d'); }
     if (!bgCtx) throw new Error('no 2d context');
     if (bgCanvas.width !== bw || bgCanvas.height !== bh) { bgCanvas.width = bw; bgCanvas.height = bh; }
-  } catch (e) { bgCacheOff = true; drawDpr = dpr; drawBackground(meters); return; }
+  } catch (e) { bgCacheOff = true; drawDpr = dpr; drawBackground(meters); if (state !== 'menu') drawVignette(); return; }
   const main = ctx;
   ctx = bgCtx;
   drawDpr = bgDpr;
@@ -63,6 +63,7 @@ function renderBackground(meters) {
     bgCtx.setTransform(bgDpr, 0, 0, bgDpr, 0, 0);
     bgCtx.globalAlpha = 1;
     drawBackground(meters);
+    if (state !== 'menu') drawVignette(); // baked into the low-res layer: ~free (a full-screen blend on top cost ~5 ms in software)
   } finally {
     ctx = main;
     drawDpr = dpr;
@@ -129,6 +130,8 @@ function drawBackground(meters) {
     }
     ctx.globalAlpha = 1;
   }
+
+  drawFarLayers(meters, at, 'galaxy');
 
   // Planets (space)
   if (at.space > 0.15) {
@@ -203,6 +206,8 @@ function drawBackground(meters) {
     ctx.globalAlpha = 1;
   }
 
+  drawFarLayers(meters, at, 'ridge');
+
   // Mountains (far parallax)
   if (at.hills > 0.05) {
     ctx.globalAlpha = at.hills;
@@ -227,6 +232,8 @@ function drawBackground(meters) {
     ctx.fillRect(0, hzY - 80, W, 100);
     ctx.globalAlpha = 1;
   }
+
+  drawFarLayers(meters, at, 'mid');
 
   // Far hills (one vertical gradient per layer: lit tops, darker base)
   if (at.hills > 0.05) {

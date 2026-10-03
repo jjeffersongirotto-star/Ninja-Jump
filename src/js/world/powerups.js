@@ -62,7 +62,7 @@ function rocketStep() {
     for (let i = 0; i < 2; i++) {
       particles.push({ x: ninja.x + (Math.random() - 0.5) * 8, y: ninja.y + NINJA_R + 6, vx: (Math.random() - 0.5) * 1.4,
         vy: 2.5 + Math.random() * 2, life: 18 + Math.random() * 10, max: 28, size: 3 + Math.random() * 3,
-        color: Math.random() < 0.5 ? '#ffd27f' : (Math.random() < 0.5 ? '#ff7a3d' : 'rgba(255,255,255,0.8)') });
+        color: Math.random() < 0.5 ? '#ffd27f' : (Math.random() < 0.5 ? '#ff7a3d' : '#fff1c9'), fire: FX.glow });
     }
   }
 }

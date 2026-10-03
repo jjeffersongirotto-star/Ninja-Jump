@@ -43,6 +43,7 @@ function resize() {
   sideKey = '';
   if (hillsFar.length === 0 && W > 0) seedScenery();
   try { buildCoinSprite(); } catch (e) { coinSprite = null; }
+  fxWarmSoon();
 }
 
 // The HTML layer (HUD, menus) follows the play column and the same scale
@@ -176,6 +177,8 @@ function resetGame() {
   floaters = [];
   ninjaPose.wallKick = 0;
   ninjaPose.hero = 0;
+  ninjaPose.air = 0;
+  ninjaPose.lean = 0;
   updateStreakHud();
   seedScenery();
   spawnAhead();
