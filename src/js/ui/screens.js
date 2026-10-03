@@ -103,7 +103,7 @@ function drawSkinPreview(cv, sk) {
   try {
     ctx = c; skin = sk; elastic = null; stretch = 0;
     ninja = { x: 0, y: 0, vx: 0, vy: 0, facing: 1, spinning: 0 };
-    ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0;
+    ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0; ninjaPose.hero = 0;
     c.setTransform(r * 2, 0, 0, r * 2, 0, 0);
     drawNinjaSprite(size / 4, size / 4 - 1);
   } finally {

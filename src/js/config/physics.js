@@ -32,7 +32,16 @@ const SHORT_ELASTIC_T = 0.4;
 const SUPER_STREAK = 10;
 const SUPER_JUMP_MULT = 1.6;               // x the normal impulse of that same elastic
 const SUPER_JUMP_MIN = BASE_IMPULSE * 1.35; // floor so every super jump feels big
-const SUPER_SPIN_TURNS_PER_SEC = 3.5;      // spin speed at launch; slows to 0 at the top
+// Super-jump spin: a pirouette around his own VERTICAL axis (like a top), in the hero pose (fist up).
+// Turns per second at launch: fast but slow enough that the pose reads in most frames at 60 fps.
+// The spin slows with the rising speed and ends facing forward exactly when he starts to fall
+// (a whole number of turns, planned at launch).
+const SUPER_SPIN_TURNS_PER_SEC = 1.75;
+// 0..1: lingers a little at the front/side/back views (less smearing, no strobing look)
+const SUPER_SPIN_LINGER = 0.35;
+// Hero pose blend (render frames): into the pose at launch, back to normal when the ascent ends
+const HERO_POSE_BLEND_IN = 6;
+const HERO_POSE_BLEND_OUT = 10;
 // Elastic lifetime: an elastic the ninja has NOT landed on snaps after this many game frames
 // (60 frames = 1 s; the game runs at a fixed 60 updates/s). Applies to every idle elastic, also at the
 // ground start. Once he lands on it (stretching/launching) it stays and is removed right after the launch.
