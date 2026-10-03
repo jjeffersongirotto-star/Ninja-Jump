@@ -107,6 +107,31 @@ function drawAccBack(bodyY, headY, spd, wave, bdx) {
         accPath([px - 1.6, py - 1.5, px, py - 5, px + 1.6, py - 1.5]); ctx.fill();
       }
       ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+    } else if (b.type === 'rope') {
+      // coiled rope at the hip, a short length hanging behind ending in a kunai spear head
+      const hx = bdx * 7.5, hy = bodyY + 2.5, sw = Math.sin(frame * 0.1) * 1.2 + wave * 0.4;
+      ctx.strokeStyle = skin.out; ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.ellipse(hx, hy, 4, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = b.col; ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.ellipse(hx, hy, 4, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(hx, hy, 2.2, 1.6, 0, 0, Math.PI * 2); ctx.stroke();
+      const ex = bdx * (11 + spd * 0.2), ey = bodyY + 12 + sw;
+      ctx.beginPath(); ctx.moveTo(hx + bdx * 1.5, hy + 2); ctx.quadraticCurveTo(bdx * 9, bodyY + 11 - sw, ex, ey); ctx.stroke();
+      ctx.save(); ctx.translate(ex, ey); ctx.rotate(Math.atan2(4, bdx * 2));
+      accPath([0, 0, -2.6, 2.2, 0, 8.5, 2.6, 2.2]); accFill(b.blade);
+      ctx.restore();
+    } else if (b.type === 'sai') {
+      // two short three-pronged daggers crossed on the back
+      for (const k of [-1, 1]) {
+        ctx.save(); ctx.translate(bdx * 5, bodyY - 3); ctx.rotate(k * 0.6 + bdx * 0.45);
+        ctx.strokeStyle = skin.out; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -13); ctx.stroke();
+        ctx.strokeStyle = b.blade; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -13); ctx.moveTo(-2.4, -2); ctx.lineTo(-2, 1.5); ctx.lineTo(2, 1.5); ctx.lineTo(2.4, -2); ctx.stroke();
+        ctx.strokeStyle = b.col; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(0, 2.5); ctx.lineTo(0, 6); ctx.stroke();
+        ctx.restore();
+      }
     } else if (b.type === 'wisp') {
       ctx.save();
       ctx.globalAlpha *= 0.7;
@@ -198,6 +223,14 @@ function drawAccBody(bodyY) {
     ctx.beginPath(); ctx.moveTo(-8, y - 2); ctx.lineTo(-3, y - 2); ctx.lineTo(-1, y - 5); ctx.lineTo(4, y - 5);
     ctx.moveTo(-6, y + 4); ctx.lineTo(0, y + 4); ctx.lineTo(2, y + 1); ctx.lineTo(8, y + 1); ctx.stroke();
     for (const s of [[-3, -2], [4, -5], [0, 4], [2, 1]]) { ctx.beginPath(); ctx.arc(s[0], y + s[1], 0.9, 0, Math.PI * 2); ctx.fill(); }
+  } else if (p === 'tabard') {
+    // classic masked-ninja look: coloured front panel + crossed straps over a dark suit
+    roundRect(-3.2, y - 8, 6.4, 16, 1.5); ctx.fill();
+    ctx.strokeStyle = shadeHex(c, -0.35); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-7, y - 6); ctx.lineTo(7, y + 6); ctx.moveTo(7, y - 6); ctx.lineTo(-7, y + 6); ctx.stroke();
+  } else if (p === 'ice') {
+    ctx.globalAlpha *= 0.85;
+    for (const q of [[-4.5, -3], [1, 2], [4.5, -4], [-2, 5]]) { accPath([q[0], y + q[1] - 3, q[0] + 1.4, y + q[1], q[0], y + q[1] + 3, q[0] - 1.4, y + q[1]]); ctx.fill(); }
   } else if (p === 'robe') {
     ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(-5, y - 8); ctx.lineTo(0, y + 1); ctx.lineTo(5, y - 8); ctx.stroke();
@@ -360,6 +393,33 @@ function drawAccHeadTop(headY, hr, visorX, vw, va) {
       ctx.beginPath(); ctx.moveTo(-hr + 1, headY - 4); ctx.lineTo(visorX + 6 * vw, headY + 4.5); ctx.stroke();
       ctx.fillStyle = A.patch; ctx.beginPath(); ctx.ellipse(visorX + 3.2 * vw, headY + 2.2, 2.8 * Math.max(0.5, vw), 3, 0, 0, Math.PI * 2); ctx.fill();
     }
+    if (A.mask) { // lower face mask over the mouth (the eyes stay visible)
+      const M = A.mask, mx = visorX - 8.6 * vw, mw = 17.2 * vw;
+      roundRect(mx, headY + 4.6, mw, 4.6, 2);
+      accFill(M.col);
+      ctx.strokeStyle = shadeHex(M.col, -0.4); ctx.lineWidth = 0.7;
+      if (M.teeth) { ctx.beginPath(); for (let i = -2; i <= 2; i++) { ctx.moveTo(visorX + i * 2.4 * vw, headY + 5.3); ctx.lineTo(visorX + i * 2.4 * vw, headY + 8.4); } ctx.moveTo(mx + 0.6, headY + 6.9); ctx.lineTo(mx + mw - 0.6, headY + 6.9); ctx.stroke(); }
+      else if (M.scales) { for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(visorX + i * 3 * vw, headY + 6.2, 1.3, 0, Math.PI); ctx.stroke(); } }
+      else { ctx.beginPath(); ctx.moveTo(visorX, headY + 5); ctx.lineTo(visorX, headY + 8.8); ctx.stroke(); }
+    }
+    if (A.faceplate && vw > 0.25) { // half metal face with a red sensor eye
+      const F = A.faceplate;
+      ctx.beginPath(); ctx.moveTo(visorX + 0.6 * vw, headY - 4.4); ctx.lineTo(visorX + 9.4 * vw, headY - 4.4); ctx.lineTo(visorX + 9.6 * vw, headY + 8.6); ctx.lineTo(visorX + 0.6 * vw, headY + 8.6); ctx.closePath();
+      accFill(F.col);
+      ctx.strokeStyle = shadeHex(F.col, -0.35); ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(visorX + 1.2 * vw, headY + 5.5); ctx.lineTo(visorX + 9 * vw, headY + 5.5); ctx.stroke();
+      ctx.fillStyle = F.eye; ctx.beginPath(); ctx.arc(visorX + 4.4 * vw, headY + 1.6, 1.5, 0, Math.PI * 2); ctx.fill();
+    }
+    if (A.breath && FX.particles) { // little frost puffs in front of the mouth
+      ctx.save();
+      for (let i = 0; i < 3; i++) {
+        const t = (frame * 0.025 + i / 3) % 1;
+        ctx.globalAlpha = (1 - t) * 0.55 * va;
+        ctx.fillStyle = A.breath;
+        ctx.beginPath(); ctx.arc(visorX + 9 * vw + t * 7 * Math.max(0.4, vw), headY + 7 - t * 3, 1 + t * 2.2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
     if (A.crest && A.crest.style === 'visorline') {
       ctx.strokeStyle = A.crest.col; ctx.lineWidth = 0.9;
       ctx.beginPath(); ctx.moveTo(visorX - 7 * vw, headY + 5.6); ctx.lineTo(visorX + 7 * vw, headY + 5.6); ctx.stroke();
@@ -368,7 +428,8 @@ function drawAccHeadTop(headY, hr, visorX, vw, va) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const a = 0.55 * va * (0.85 + 0.15 * Math.sin(frame * 0.15));
       drawGlow(visorX - 3 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
-      if (!A.patch) drawGlow(visorX + 3.2 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
+      if (!A.patch && !A.faceplate) drawGlow(visorX + 3.2 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
+      else if (A.faceplate) drawGlow(visorX + 4.4 * vw, headY + 1.6, 5, A.faceplate.eye, a);
       ctx.restore();
     }
     if (A.whiskers) {
@@ -394,6 +455,8 @@ function skinTrail() {
     life: 20 + Math.random() * 10, max: 30, color: T.color, size: 2 + Math.random() * 1.8 };
   if (T.kind === 'fire') { if (FX.glow) p.fire = true; else p.dust = true; p.size = 2.6 + Math.random() * 1.6; }
   else if (T.kind === 'spark') { p.spark = true; p.size = 1.3; p.vx *= 2; p.vy *= 2; }
+  else if (T.kind === 'acid') { p.dust = true; p.vy = Math.abs(p.vy) + 0.6; p.size = 1.6 + Math.random() * 1.4; }
+  else if (T.kind === 'frost') { p.star = true; p.size = 1.6 + Math.random() * 1.2; p.rot = Math.random() * 6; p.vr = 0.1; }
   else if (T.kind === 'star') { p.star = true; p.size = 2.6 + Math.random() * 1.4; p.rot = Math.random() * 6; p.vr = 0.15; }
   else { p.dust = true; if (T.kind === 'smoke') { p.size = 3 + Math.random() * 2.5; p.life = 26; p.max = 26; } }
   particles.push(p);
