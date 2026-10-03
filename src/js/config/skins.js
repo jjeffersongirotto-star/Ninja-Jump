@@ -128,7 +128,7 @@ SKINS.push(
   skinPal({ id: 'leques', name: 'Kunoichi dos Leques', price: 1200, rarity: 1,
     desc: 'Abre os leques e o vento faz o resto.',
     main: '#d6337a', limb: '#5a1a3a', band: '#2a0a1a', eye: '#ffffff', rim: 'rgba(255,190,220,0.9)',
-    acc: { back: [{ type: 'fans', col: '#ffd23f', col2: '#d6337a' }], hair: { col: '#2a0a1a' }, body: { pattern: 'sash', col: '#ffd23f' } },
+    acc: { back: [{ type: 'hair', col: '#4a1a36', tie: '#ffd23f' }, { type: 'fans', col: '#ffd23f', col2: '#d6337a' }], body: { pattern: 'sash', col: '#ffd23f' } },
     trail: { kind: 'leaf', color: '#ffb3d9' } }),
   skinPal({ id: 'robo', name: 'Robô Ninja', price: 1500, rarity: 1,
     desc: 'Modelo NJ-01: parafusos apertados, sensores ligados, pulo calibrado.',
@@ -187,27 +187,23 @@ SKINS.push(
   skinPal({ id: 'nevoa', name: 'Ninja da Névoa Cinzenta', price: 1400, rarity: 1,
     desc: 'Vira fumaça no meio do pulo e reaparece do outro lado da parede.',
     main: '#2a2c32', limb: '#33363d', band: '#8a909c', headCol: '#9aa0aa', eye: '#ffffff', alpha: 0.9, rim: 'rgba(230,235,245,0.8)',
-    acc: { mask: { col: '#8a909c' }, eyeGlow: '#e8eef8', body: { pattern: 'smoke', col: '#c9ced8' } },
+    acc: { mask: { col: '#8a909c', shade: -0.4 }, eyeGlow: '#e8eef8', body: { pattern: 'smoke', col: '#c9ced8' } },
     trail: { kind: 'smoke', color: '#b8bec8' } }),
-  skinPal({ id: 'ciborgueRubro', name: 'Ninja Ciborgue Carmesim', price: 3000, rarity: 2,
-    desc: 'Unidade de caça modelo LK-9: meio ninja, meio máquina, totalmente vermelho.',
-    main: '#1c1c22', limb: '#2a2a32', band: '#d01c2a', headCol: '#c41a26', eye: '#ffffff', rim: 'rgba(255,120,120,0.8)',
-    acc: { faceplate: { col: '#b8c0cc', eye: '#ff2a2a' }, eyeGlow: '#ff6a6a', pads: { col: '#8a929e', neon: '#ff2a3a' },
-      bolts: '#8a909c', body: { pattern: 'panel', col: '#c41a26' } },
-    trail: { kind: 'spark', color: '#ff4a3a' } }),
-  skinPal({ id: 'veuVioleta', name: 'Kunoichi do Véu Violeta', price: 2200, rarity: 2,
-    desc: 'Véu roxo, dois sais nas costas e um sorriso que ninguém nunca viu.',
+  skinPal({ id: 'veuVioleta', name: 'Kunoichi do Véu Violeta', price: 4600, rarity: 3,
+    desc: 'Tirou o véu: agora todos veem o sorriso de dentes afiados. Dois sais nas costas.',
     main: '#2a1730', limb: '#331c3a', band: '#c03ad8', headCol: '#b33acb', eye: '#ffffff', rim: 'rgba(240,160,255,0.85)',
-    acc: { mask: { col: '#c03ad8' }, hair: { col: '#120a14' }, back: [{ type: 'sai', col: '#c03ad8', blade: '#dfe5ee' }],
+    acc: { fangs: { skin: '#f3c9b4', lip: '#7a1030' }, back: [{ type: 'hair', col: '#3a1f48', tie: '#c03ad8' }, { type: 'sai', col: '#c03ad8', blade: '#dfe5ee' }],
       body: { pattern: 'tabard', col: '#c03ad8' } },
     trail: { kind: 'leaf', color: '#e07aff' } }),
   skinPal({ id: 'esmeralda', name: 'Dama das Lâminas Esmeralda', price: 2400, rarity: 2,
     desc: 'Seus leques de aço cortam o vento; deixa um brilho verde por onde passa.',
     main: '#16261e', limb: '#1c3026', band: '#1fa86a', headCol: '#22b573', eye: '#ffffff', rim: 'rgba(140,255,200,0.85)',
-    acc: { mask: { col: '#1fa86a' }, hair: { col: '#0c140f' }, back: [{ type: 'fans', col: '#c9d2dc', col2: '#1fa86a' }],
+    acc: { mask: { col: '#1fa86a' }, back: [{ type: 'hair', col: '#1f3a2c', tie: '#1fa86a' }, { type: 'fans', col: '#c9d2dc', col2: '#1fa86a' }],
       body: { pattern: 'tabard', col: '#1fa86a' } },
     trail: { kind: 'star', color: '#5affb0' } })
 );
+// Removed characters: id -> price refunded to saves that bought them (see refundRemovedSkins)
+const REMOVED_SKINS = { ciborgueRubro: 3000 };
 const RARITY_NAMES = ['Comum', 'Raro', 'Épico', 'Lendário'];
 const RARITY_COLORS = ['#b8c2d0', '#4fb3ff', '#c77dff', '#ffc53a'];
 let skin = SKINS[0];

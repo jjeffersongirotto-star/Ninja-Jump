@@ -3375,7 +3375,15 @@
     return out;
   }
   function skinById(id) { for (const sk of SKINS) if (sk.id === id) return sk; return null; }
+  // Characters taken out of the game: a save that bought one gets its coins back (once) and loses the id.
+  function refundRemovedSkins() {
+    const list = (store.get(LS_SKINS) || '').split(',');
+    let refund = 0;
+    const keep = list.filter(function (id) { if (REMOVED_SKINS[id]) { refund += REMOVED_SKINS[id]; return false; } return true; });
+    if (refund > 0) { store.set(LS_SKINS, keep.join(',')); addWallet(refund); }
+  }
   function loadSkin() {
+    try { refundRemovedSkins(); } catch (e) { logErr('refund', e); }
     const sk = skinById(store.get(LS_SKIN) || '');
     skin = sk && ownedSkins()[sk.id] ? sk : SKINS[0];
   }
@@ -4725,7 +4733,7 @@
     skinPal({ id: 'leques', name: 'Kunoichi dos Leques', price: 1200, rarity: 1,
       desc: 'Abre os leques e o vento faz o resto.',
       main: '#d6337a', limb: '#5a1a3a', band: '#2a0a1a', eye: '#ffffff', rim: 'rgba(255,190,220,0.9)',
-      acc: { back: [{ type: 'fans', col: '#ffd23f', col2: '#d6337a' }], hair: { col: '#2a0a1a' }, body: { pattern: 'sash', col: '#ffd23f' } },
+      acc: { back: [{ type: 'hair', col: '#4a1a36', tie: '#ffd23f' }, { type: 'fans', col: '#ffd23f', col2: '#d6337a' }], body: { pattern: 'sash', col: '#ffd23f' } },
       trail: { kind: 'leaf', color: '#ffb3d9' } }),
     skinPal({ id: 'robo', name: 'Robô Ninja', price: 1500, rarity: 1,
       desc: 'Modelo NJ-01: parafusos apertados, sensores ligados, pulo calibrado.',
@@ -4784,27 +4792,23 @@
     skinPal({ id: 'nevoa', name: 'Ninja da Névoa Cinzenta', price: 1400, rarity: 1,
       desc: 'Vira fumaça no meio do pulo e reaparece do outro lado da parede.',
       main: '#2a2c32', limb: '#33363d', band: '#8a909c', headCol: '#9aa0aa', eye: '#ffffff', alpha: 0.9, rim: 'rgba(230,235,245,0.8)',
-      acc: { mask: { col: '#8a909c' }, eyeGlow: '#e8eef8', body: { pattern: 'smoke', col: '#c9ced8' } },
+      acc: { mask: { col: '#8a909c', shade: -0.4 }, eyeGlow: '#e8eef8', body: { pattern: 'smoke', col: '#c9ced8' } },
       trail: { kind: 'smoke', color: '#b8bec8' } }),
-    skinPal({ id: 'ciborgueRubro', name: 'Ninja Ciborgue Carmesim', price: 3000, rarity: 2,
-      desc: 'Unidade de caça modelo LK-9: meio ninja, meio máquina, totalmente vermelho.',
-      main: '#1c1c22', limb: '#2a2a32', band: '#d01c2a', headCol: '#c41a26', eye: '#ffffff', rim: 'rgba(255,120,120,0.8)',
-      acc: { faceplate: { col: '#b8c0cc', eye: '#ff2a2a' }, eyeGlow: '#ff6a6a', pads: { col: '#8a929e', neon: '#ff2a3a' },
-        bolts: '#8a909c', body: { pattern: 'panel', col: '#c41a26' } },
-      trail: { kind: 'spark', color: '#ff4a3a' } }),
-    skinPal({ id: 'veuVioleta', name: 'Kunoichi do Véu Violeta', price: 2200, rarity: 2,
-      desc: 'Véu roxo, dois sais nas costas e um sorriso que ninguém nunca viu.',
+    skinPal({ id: 'veuVioleta', name: 'Kunoichi do Véu Violeta', price: 4600, rarity: 3,
+      desc: 'Tirou o véu: agora todos veem o sorriso de dentes afiados. Dois sais nas costas.',
       main: '#2a1730', limb: '#331c3a', band: '#c03ad8', headCol: '#b33acb', eye: '#ffffff', rim: 'rgba(240,160,255,0.85)',
-      acc: { mask: { col: '#c03ad8' }, hair: { col: '#120a14' }, back: [{ type: 'sai', col: '#c03ad8', blade: '#dfe5ee' }],
+      acc: { fangs: { skin: '#f3c9b4', lip: '#7a1030' }, back: [{ type: 'hair', col: '#3a1f48', tie: '#c03ad8' }, { type: 'sai', col: '#c03ad8', blade: '#dfe5ee' }],
         body: { pattern: 'tabard', col: '#c03ad8' } },
       trail: { kind: 'leaf', color: '#e07aff' } }),
     skinPal({ id: 'esmeralda', name: 'Dama das Lâminas Esmeralda', price: 2400, rarity: 2,
       desc: 'Seus leques de aço cortam o vento; deixa um brilho verde por onde passa.',
       main: '#16261e', limb: '#1c3026', band: '#1fa86a', headCol: '#22b573', eye: '#ffffff', rim: 'rgba(140,255,200,0.85)',
-      acc: { mask: { col: '#1fa86a' }, hair: { col: '#0c140f' }, back: [{ type: 'fans', col: '#c9d2dc', col2: '#1fa86a' }],
+      acc: { mask: { col: '#1fa86a' }, back: [{ type: 'hair', col: '#1f3a2c', tie: '#1fa86a' }, { type: 'fans', col: '#c9d2dc', col2: '#1fa86a' }],
         body: { pattern: 'tabard', col: '#1fa86a' } },
       trail: { kind: 'star', color: '#5affb0' } })
   );
+  // Removed characters: id -> price refunded to saves that bought them (see refundRemovedSkins)
+  const REMOVED_SKINS = { ciborgueRubro: 3000 };
   const RARITY_NAMES = ['Comum', 'Raro', 'Épico', 'Lendário'];
   const RARITY_COLORS = ['#b8c2d0', '#4fb3ff', '#c77dff', '#ffc53a'];
   let skin = SKINS[0];
@@ -4918,6 +4922,18 @@
           accPath([px - 1.6, py - 1.5, px, py - 5, px + 1.6, py - 1.5]); ctx.fill();
         }
         ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+      } else if (b.type === 'hair') {
+        // ponytail falling from the bun, swinging out behind the head (the bun itself is drawn on the head)
+        const sw = wave * 0.8 + Math.sin(frame * 0.09) * 1.2;
+        const tx = bdx * (15 + spd * 0.35), ty = headY + 10 + sw;
+        ctx.beginPath();
+        ctx.moveTo(bdx * 6, headY - 11);
+        ctx.quadraticCurveTo(bdx * 19.5, headY - 8, tx, ty);
+        ctx.quadraticCurveTo(bdx * 13, headY - 2 + sw * 0.3, bdx * 9, headY - 6);
+        ctx.closePath();
+        accFill(b.col);
+        ctx.strokeStyle = shadeHex(b.col, 0.5); ctx.lineWidth = 0.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(bdx * 12, headY - 9); ctx.quadraticCurveTo(bdx * 16.5, headY - 4 + sw * 0.3, tx - bdx * 0.6, ty - 3); ctx.stroke();
       } else if (b.type === 'rope') {
         // coiled rope at the hip, a short length hanging behind ending in a kunai spear head
         const hx = bdx * 7.5, hy = bodyY + 2.5, sw = Math.sin(frame * 0.1) * 1.2 + wave * 0.4;
@@ -5085,9 +5101,19 @@
       ctx.strokeStyle = shadeHex(A.hood.col, -0.35); ctx.lineWidth = 1;
       roundRect(visorX - 8.2 * vw - 1, headY - 4.2, 16.4 * vw + 2, 12.5, 5); ctx.stroke();
     }
-    if (A.hair) { // bun + ribbon at the back of the head
-      ctx.beginPath(); ctx.arc(-8.5, headY - 8, 4, 0, Math.PI * 2); accFill(A.hair.col);
-      ctx.fillStyle = skin.body[1]; ctx.fillRect(-9.5, headY - 9, 2.5, 2.5);
+    let HB = null;
+    if (A.back) for (const b of A.back) if (b.type === 'hair') HB = b;
+    if (HB) { // hair bun on the top-back of the head, with a coloured tie (moves round as he turns)
+      const bx = visorX - 10.2, by = headY - 9.6;
+      ctx.save(); ctx.translate(bx + 1.6, by + 2.4); ctx.rotate(-0.75);
+      roundRect(-2.6, -1.1, 5.2, 2.2, 1); accFill(HB.tie);
+      ctx.restore();
+      const g = ctx.createRadialGradient(bx - 1.2, by - 1.4, 0.5, bx, by, 4);
+      g.addColorStop(0, shadeHex(HB.col, 0.55)); g.addColorStop(0.5, HB.col); g.addColorStop(1, shadeHex(HB.col, -0.35));
+      ctx.beginPath(); ctx.arc(bx, by, 3.7, 0, Math.PI * 2); accFill(g);
+      ctx.strokeStyle = shadeHex(HB.col, 0.5); ctx.lineWidth = 0.7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(bx, by, 2.3, Math.PI * 0.9, Math.PI * 1.7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(bx + 0.4, by + 0.3, 1.2, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
     }
     if (A.crest) {
       const C = A.crest;
@@ -5204,23 +5230,8 @@
         ctx.beginPath(); ctx.moveTo(-hr + 1, headY - 4); ctx.lineTo(visorX + 6 * vw, headY + 4.5); ctx.stroke();
         ctx.fillStyle = A.patch; ctx.beginPath(); ctx.ellipse(visorX + 3.2 * vw, headY + 2.2, 2.8 * Math.max(0.5, vw), 3, 0, 0, Math.PI * 2); ctx.fill();
       }
-      if (A.mask) { // lower face mask over the mouth (the eyes stay visible)
-        const M = A.mask, mx = visorX - 8.6 * vw, mw = 17.2 * vw;
-        roundRect(mx, headY + 4.6, mw, 4.6, 2);
-        accFill(M.col);
-        ctx.strokeStyle = shadeHex(M.col, -0.4); ctx.lineWidth = 0.7;
-        if (M.teeth) { ctx.beginPath(); for (let i = -2; i <= 2; i++) { ctx.moveTo(visorX + i * 2.4 * vw, headY + 5.3); ctx.lineTo(visorX + i * 2.4 * vw, headY + 8.4); } ctx.moveTo(mx + 0.6, headY + 6.9); ctx.lineTo(mx + mw - 0.6, headY + 6.9); ctx.stroke(); }
-        else if (M.scales) { for (let i = -1; i <= 1; i++) { ctx.beginPath(); ctx.arc(visorX + i * 3 * vw, headY + 6.2, 1.3, 0, Math.PI); ctx.stroke(); } }
-        else { ctx.beginPath(); ctx.moveTo(visorX, headY + 5); ctx.lineTo(visorX, headY + 8.8); ctx.stroke(); }
-      }
-      if (A.faceplate && vw > 0.25) { // half metal face with a red sensor eye
-        const F = A.faceplate;
-        ctx.beginPath(); ctx.moveTo(visorX + 0.6 * vw, headY - 4.4); ctx.lineTo(visorX + 9.4 * vw, headY - 4.4); ctx.lineTo(visorX + 9.6 * vw, headY + 8.6); ctx.lineTo(visorX + 0.6 * vw, headY + 8.6); ctx.closePath();
-        accFill(F.col);
-        ctx.strokeStyle = shadeHex(F.col, -0.35); ctx.lineWidth = 0.7;
-        ctx.beginPath(); ctx.moveTo(visorX + 1.2 * vw, headY + 5.5); ctx.lineTo(visorX + 9 * vw, headY + 5.5); ctx.stroke();
-        ctx.fillStyle = F.eye; ctx.beginPath(); ctx.arc(visorX + 4.4 * vw, headY + 1.6, 1.5, 0, Math.PI * 2); ctx.fill();
-      }
+      if (A.mask) drawFaceMask(A.mask, headY, hr, visorX, vw, va);
+      if (A.fangs) drawFangs(A.fangs, headY, hr, visorX, vw, va);
       if (A.breath && FX.particles) { // little frost puffs in front of the mouth
         ctx.save();
         for (let i = 0; i < 3; i++) {
@@ -5239,8 +5250,7 @@
         ctx.save(); ctx.globalCompositeOperation = 'lighter';
         const a = 0.55 * va * (0.85 + 0.15 * Math.sin(frame * 0.15));
         drawGlow(visorX - 3 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
-        if (!A.patch && !A.faceplate) drawGlow(visorX + 3.2 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
-        else if (A.faceplate) drawGlow(visorX + 4.4 * vw, headY + 1.6, 5, A.faceplate.eye, a);
+        if (!A.patch) drawGlow(visorX + 3.2 * vw, headY + 2.2, 5.5, A.eyeGlow, a);
         ctx.restore();
       }
       if (A.whiskers) {
@@ -5252,6 +5262,85 @@
         ctx.stroke();
       }
     }
+  }
+
+  // Lower half of the face (nose to chin), shaped to the head: the mask and the bare face both use it.
+  // It reaches less far round the back of the head when he turns side-on (vw shrinks).
+  function lowerFacePath(headY, visorX, vw) {
+    const reach = 6 + 8 * vw, l = visorX - reach, r = visorX + reach;
+    ctx.beginPath();
+    ctx.moveTo(l, headY + 3.4);
+    ctx.quadraticCurveTo(visorX - 4.6 * vw, headY + 6, visorX, headY + 4.8);
+    ctx.quadraticCurveTo(visorX + 4.6 * vw, headY + 6, r, headY + 3.4);
+    ctx.quadraticCurveTo(r + 1, headY + 10, r - 2, headY + 16);
+    ctx.lineTo(l + 2, headY + 16);
+    ctx.quadraticCurveTo(l - 1, headY + 10, l, headY + 3.4);
+    ctx.closePath();
+  }
+  function fillLowerFace(col, headY, hr, visorX, vw) {
+    const g = ctx.createLinearGradient(0, headY + 4, 0, headY + hr);
+    g.addColorStop(0, shadeHex(col, 0.22)); g.addColorStop(0.55, col); g.addColorStop(1, shadeHex(col, -0.38));
+    lowerFacePath(headY, visorX, vw);
+    ctx.fillStyle = g; ctx.fill();
+    // top edge outline (the clip keeps it on the head)
+    ctx.strokeStyle = skin.out; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(visorX - 6 - 8 * vw, headY + 3.4);
+    ctx.quadraticCurveTo(visorX - 4.6 * vw, headY + 6, visorX, headY + 4.8);
+    ctx.quadraticCurveTo(visorX + 4.6 * vw, headY + 6, visorX + 6 + 8 * vw, headY + 3.4);
+    ctx.stroke();
+  }
+  // Classic fighting-game ninja mask: cloth over nose to chin, centre seam + a soft fold; optional skull teeth / scales
+  function drawFaceMask(M, headY, hr, visorX, vw, va) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, va * 1.3);
+    ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+    const c = shadeHex(M.col, M.shade !== undefined ? M.shade : -0.22); // a shade darker than the hood
+    fillLowerFace(c, headY, hr, visorX, vw);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = shadeHex(c, -0.45); ctx.lineWidth = 0.75;
+    ctx.beginPath(); ctx.moveTo(visorX, headY + 5); ctx.quadraticCurveTo(visorX + 0.5 * vw, headY + 8, visorX + 0.2 * vw, headY + hr); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(visorX - 6.5 * vw, headY + 7.2); ctx.quadraticCurveTo(visorX - 3 * vw, headY + 8.6, visorX - 0.8 * vw, headY + 8.2); ctx.stroke();
+    if (M.teeth) {
+      roundRect(visorX - 4.4 * vw, headY + 6.8, 8.8 * vw, 3.4, 1.2);
+      ctx.fillStyle = '#f4ecd0'; ctx.fill();
+      ctx.strokeStyle = shadeHex(c, -0.6); ctx.lineWidth = 0.6; ctx.stroke();
+      ctx.beginPath();
+      for (let i = -1.5; i <= 1.5; i += 1) { ctx.moveTo(visorX + i * 2.2 * vw, headY + 7); ctx.lineTo(visorX + i * 2.2 * vw, headY + 10); }
+      ctx.moveTo(visorX - 4.2 * vw, headY + 8.5); ctx.lineTo(visorX + 4.2 * vw, headY + 8.5);
+      ctx.stroke();
+    } else if (M.scales) {
+      ctx.strokeStyle = shadeHex(c, -0.35); ctx.lineWidth = 0.7;
+      for (let r = 0; r < 2; r++) for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(visorX + (i + (r % 2) * 0.5) * 2.6 * vw, headY + 7.4 + r * 2, 1.2, 0, Math.PI); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+  // Unmasked lower face with a wide grin of sharp teeth (Kunoichi do Véu Violeta)
+  function drawFangs(F, headY, hr, visorX, vw, va) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, va * 1.3);
+    ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+    fillLowerFace(F.skin, headY, hr, visorX, vw);
+    const w = 5.8 * vw, my = headY + 8.3;
+    const mouth = function () {
+      ctx.beginPath();
+      ctx.moveTo(visorX - w, my - 0.6);
+      ctx.quadraticCurveTo(visorX, my - 3.4, visorX + w, my - 0.6);
+      ctx.quadraticCurveTo(visorX, my + 4.4, visorX - w, my - 0.6);
+      ctx.closePath();
+    };
+    mouth(); ctx.fillStyle = '#2a0410'; ctx.fill();
+    ctx.save(); mouth(); ctx.clip();
+    ctx.fillStyle = '#fffaf2';
+    for (let i = -4; i <= 4; i++) {
+      const x = visorX + i * 1.3 * vw, long = (i === -3 || i === 3) ? 1.6 : 0;
+      accPath([x - 0.62 * vw, my - 3, x + 0.62 * vw, my - 3, x, my + 0.2 + long]); ctx.fill();
+      accPath([x - 0.62 * vw, my + 4, x + 0.62 * vw, my + 4, x, my + 1.1 - long]); ctx.fill();
+    }
+    ctx.restore();
+    mouth(); ctx.strokeStyle = F.lip; ctx.lineWidth = 0.9; ctx.stroke();
+    ctx.restore();
   }
 
   // Cosmetic trail while moving fast (a few small particles; budget shared with FX.maxParticles)
