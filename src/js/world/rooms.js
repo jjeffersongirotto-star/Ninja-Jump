@@ -306,15 +306,26 @@ function planNext(sp, width) {
   if (breath > 0) {
     const bpx = breath / METERS_PER_PX, ex = entranceX(rows, width);
     const row = { m: m, kind: 'breather', items: [], coins: [] };
-    let powerAt = -1;
+    let powerAt = -1, power2At = -1;
     if (--sp.toPower <= 0 && m >= POWERUPS.fromMeters) {
-      const w = {};
-      for (const k in POWERUPS.weights) if (k !== sp.lastPower) w[k] = POWERUPS.weights[k];
-      const type = pickWeighted(rng, w);
-      sp.lastPower = type;
       sp.toPower = Math.floor(rr(rng, POWERUPS.everyRooms[0], POWERUPS.everyRooms[1] + 0.999));
       powerAt = 2;
-      row.power = { type: type, x: 0, yOff: 0 };
+      if (rng() < POWERUPS.pairChance) {
+        // combo pair: two different items on the trail, the lower one first (rocket always on top)
+        const pw = {}, list = POWERUPS.pairs;
+        for (let i = 0; i < list.length; i++) pw[i] = list[i][1];
+        const pair = list[+pickWeighted(rng, pw)][0];
+        row.power = { type: pair[0], x: 0, yOff: 0 };
+        row.power2 = { type: pair[1], x: 0, yOff: 0 };
+        sp.lastPower = pair[1];
+        power2At = 3;
+      } else {
+        const w = {};
+        for (const k in POWERUPS.weights) if (k !== sp.lastPower) w[k] = POWERUPS.weights[k];
+        const type = pickWeighted(rng, w);
+        sp.lastPower = type;
+        row.power = { type: type, x: 0, yOff: 0 };
+      }
     }
     if (rng() < HAZARDS.rooms.hintCoins || powerAt >= 0) {
       // trail: from one side of the entrance, rising toward it
@@ -323,17 +334,29 @@ function planNext(sp, width) {
       if (powerAt >= 0) { // the power-up takes a trail spot that is clear of every hazard's full area
         const near = (sp.lastRows || []).slice();
         for (const r of rows) for (const it of r.items) near.push({ item: it, y: -(start + r.dm) / METERS_PER_PX });
-        const order = [2, 1, 3, 0, 4];
-        powerAt = -1;
-        for (const i of order) {
-          const x = lerp(x0, ex, i / (fr.length - 1)), y = -m / METERS_PER_PX - bpx * fr[i];
-          if (powerSpotClear(near, x, y)) { powerAt = i; break; }
+        const spotOk = i => powerSpotClear(near, lerp(x0, ex, i / (fr.length - 1)), -m / METERS_PER_PX - bpx * fr[i]);
+        if (row.power2) {
+          // pair: lower item on spot 0-2, the upper one at least two spots above it
+          powerAt = -1; power2At = -1;
+          for (const i of [1, 0, 2]) {
+            if (!spotOk(i)) continue;
+            for (let j = i + 2; j < fr.length; j++) if (spotOk(j)) { powerAt = i; power2At = j; break; }
+            if (powerAt >= 0) break;
+          }
+          if (powerAt < 0) { row.power = row.power2; delete row.power2; } // no room for both: keep a single item
         }
-        if (powerAt < 0) { delete row.power; sp.toPower = 1; sp.lastPower = ''; } // try again at the next breather
+        if (!row.power2) {
+          const order = [2, 1, 3, 0, 4];
+          powerAt = -1; power2At = -1;
+          for (const i of order) if (spotOk(i)) { powerAt = i; break; }
+          if (powerAt < 0) { delete row.power; sp.toPower = 1; sp.lastPower = ''; } // try again at the next breather
+        }
       }
       for (let i = 0; i < fr.length; i++) {
         const x = lerp(x0, ex, i / (fr.length - 1)), yOff = -bpx * fr[i];
-        if (i === powerAt) { row.power.x = x; row.power.yOff = yOff; } else row.coins.push({ x: x, yOff: yOff });
+        if (i === powerAt) { row.power.x = x; row.power.yOff = yOff; }
+        else if (i === power2At) { row.power2.x = x; row.power2.yOff = yOff; }
+        else row.coins.push({ x: x, yOff: yOff });
       }
     } else if (rng() < 0.6) row.coins = coinCluster(rng, width);
     sp.queue.push(row);

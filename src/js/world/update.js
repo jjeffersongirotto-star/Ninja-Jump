@@ -241,17 +241,23 @@ function update(dt) {
   if (!ninja.dead) {
     if (ninja.ghost > 0) ninja.ghost--;
     tickPowerTimers();
-    if (ninja.rocketT > 0) { // rocket: passes through every hazard
+    if (ninja.rocketT > 0) { // rocket: passes through every hazard (with a shield it rams flyers/UFOs: combo)
+      if (ninja.shield) rocketRam(prevX, prevY);
       ninja.still = 0; ninja.embedded = 0; ninja.stillX = ninja.x; ninja.stillY = ninja.y;
     } else {
       collideHazards(prevX, prevY, onBand);
       antiStuck();
     }
     pickupPowerups();
+    updateCombo();
   } else ninja.deathSpin += 0.22;
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i];
-    f.y -= 0.9; f.life--;
+    if (f.follow) { // combo name: rides along above the ninja (the rocket would leave it behind), kept on screen
+      f.x = Math.max(105, Math.min(W - 89, ninja.x + 8));
+      f.y = ninja.y - 50 - (80 - f.life) * 0.25;
+    } else f.y -= 0.9;
+    f.life--;
     if (f.life <= 0) floaters.splice(i, 1);
   }
 

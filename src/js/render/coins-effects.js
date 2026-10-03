@@ -151,12 +151,14 @@ function drawFloaters() {
     }
     // with the coin icon: text ends just left of the coin (so '+10' doesn't run into it)
     const withCoin = !!(coinSprite && !f.noCoin);
+    if (f.big) ctx.font = 'bold 20px system-ui, -apple-system, Roboto, sans-serif';
     ctx.textAlign = withCoin ? 'right' : 'center';
     const tx = withCoin ? f.x + 2 : f.x - 8;
     ctx.strokeStyle = f.noCoin ? 'rgba(10,15,40,0.75)' : 'rgba(60,40,0,0.7)';
     ctx.strokeText(f.text, tx, y);
     ctx.fillStyle = f.color || '#ffe066';
     ctx.fillText(f.text, tx, y);
+    if (f.big) ctx.font = 'bold 16px system-ui, -apple-system, Roboto, sans-serif';
   }
   ctx.restore();
 }

@@ -36,8 +36,9 @@ function materializeRow(row) {
   for (const c of row.coins) {
     coins.push({ x: c.x, y: wy + c.yOff, r: 10, collected: false, sparkle: Math.random() * Math.PI * 2 });
   }
-  if (row.power) {
-    powerups.push({ type: row.power.type, x: row.power.x, y: wy + row.power.yOff, r: POWERUPS.pickupRadius,
+  for (const pw of [row.power, row.power2]) {
+    if (!pw) continue;
+    powerups.push({ type: pw.type, x: pw.x, y: wy + pw.yOff, r: POWERUPS.pickupRadius,
       bob: Math.random() * Math.PI * 2, taken: false });
   }
 }
@@ -193,7 +194,9 @@ function collideHazards(x0, y0, onBand) {
       if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
         // super jump: platforms are intangible (like when falling); blue enemies are defeated (+stomp.coins),
         // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
+        // Combo shield + super jump: red ones are defeated too.
         if (hz.type === 'platform') ghostPlatform(hz);
+        else if (hz.color === 'red' && comboRams()) comboDefeat(hz);
         else if (hz.color === 'red') knockAside(hz);
         else defeatEnemy(hz);
         continue;
@@ -299,6 +302,7 @@ function defeatEnemy(hz) {
   runCoins += ST.coins;
   countHit(hz.kind + ':defeated');
   floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
+  if (comboDrops()) dropComboCoins(hz); // magnet + shield combo: extra coins burst out
   burst(hz.x, hz.y, '#ffffff', 12, 3.2);
   burst(hz.x, hz.y, '#8fd3ff', 10, 3);
   burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
