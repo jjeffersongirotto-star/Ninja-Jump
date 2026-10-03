@@ -27,6 +27,7 @@ const GAME_FILES = [
   'config/physics.js',          // gravity, elastic power, super jump, ground
   'config/hazards.js',          // hazards & difficulty progression (all tuning)
   'config/powerups.js',         // power-ups: magnet, shield, rocket (all tuning)
+  'config/fx.js',               // visual effects: glow, vignette, particles, textures (all tuning)
   'core/state.js',              // game state variables, debug stats
   'core/storage.js',            // localStorage + records
   'world/setup.js',             // resize, scenery seeds, new run, meters <-> world
@@ -38,6 +39,7 @@ const GAME_FILES = [
   'world/update.js',            // per-frame game logic
   'ui/hud.js',                  // HUD, game over, start of a run
   'ui/screens.js',              // menu screens, wallet & characters, options, pause
+  'render/fx.js',               // cached glow sprites, vignette, stage textures, walls, far layers
   'render/background.js',       // parallax scenery
   'render/elastic.js',          // elastic drawing
   'config/skins.js',            // characters (palettes and prices)

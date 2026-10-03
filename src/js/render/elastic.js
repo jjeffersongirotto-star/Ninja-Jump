@@ -60,6 +60,17 @@ function drawElastic(e, isDrawing) {
 
   ctx.save();
   ctx.lineCap = 'round';
+  if (FX.glow) { // wide additive light along the band + on the pegs (no shadowBlur)
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = col;
+    ctx.globalAlpha = 0.14 * al;
+    ctx.lineWidth = 22 * th;
+    elasticPath(x1, y1, x2, y2, cpx, cpy, curved);
+    ctx.stroke();
+    drawGlow(x1, y1, 16, col, 0.5 * al);
+    drawGlow(x2, y2, 16, col, 0.5 * al);
+    ctx.globalCompositeOperation = 'source-over';
+  }
   // Soft glow
   ctx.strokeStyle = col;
   ctx.globalAlpha = 0.3 * al;

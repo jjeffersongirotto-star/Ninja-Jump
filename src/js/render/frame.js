@@ -6,8 +6,9 @@ function render() {
 
   ctx.save();
   shakeX = 0; shakeY = 0;
-  if (shake > 0.5) {
-    shakeX = (Math.random() - 0.5) * shake; shakeY = (Math.random() - 0.5) * shake;
+  const shakeAmt = FX.shake ? Math.min(shake * FX.shakeScale, FX.shakeMax) : 0;
+  if (shakeAmt > 0.35) {
+    shakeX = (Math.random() - 0.5) * shakeAmt; shakeY = (Math.random() - 0.5) * shakeAmt;
     ctx.translate(shakeX, shakeY);
   }
 
@@ -31,6 +32,8 @@ function render() {
 
   if (state === 'playing' || state === 'gameover') {
     if (groundY) drawGround();
+    drawWalls(meters);
+    drawWallLight();
     for (const hz of hazards) if (hz.alive) drawHazard(hz);
     for (const c of coins) drawCoin(c);
     if (powerups.length) drawPowerups();

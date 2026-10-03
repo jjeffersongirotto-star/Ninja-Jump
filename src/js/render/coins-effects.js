@@ -1,6 +1,6 @@
 // --- Coins, ground, floaters and particles ---
 // Coin body is pre-rendered once per resize (gradient + emboss) and blitted each frame
-let coinSprite = null;
+let coinSprite = null, coinGlowSprite = null;
 function buildCoinSprite() {
   coinSprite = null;
   try {
@@ -34,7 +34,23 @@ function buildCoinSprite() {
     g.fillStyle = '#b07d0a';
     g.fillText('$', 0, 1);
     coinSprite = { cv, size: logical };
-  } catch (e) { coinSprite = null; }
+    // Same coin with its soft golden glow baked in (FX.glow): still ONE drawImage per coin
+    coinGlowSprite = null;
+    const glogical = logical + 26, gcv = document.createElement('canvas');
+    gcv.width = gcv.height = Math.ceil(glogical * sc);
+    const gg = gcv.getContext('2d');
+    if (gg) {
+      gg.scale(sc, sc);
+      const c0 = glogical / 2, hg = gg.createRadialGradient(c0, c0, r * 0.6, c0, c0, c0);
+      hg.addColorStop(0, 'rgba(255,214,80,0.62)');
+      hg.addColorStop(0.45, 'rgba(255,200,60,0.26)');
+      hg.addColorStop(1, 'rgba(255,190,40,0)');
+      gg.fillStyle = hg;
+      gg.fillRect(0, 0, glogical, glogical);
+      gg.drawImage(cv, 13, 13, logical, logical);
+      coinGlowSprite = { cv: gcv, size: glogical };
+    }
+  } catch (e) { coinSprite = null; coinGlowSprite = null; }
 }
 
 function drawCoin(c) {
@@ -47,15 +63,18 @@ function drawCoin(c) {
   ctx.translate(x, y);
   const pulse = 1 + Math.sin(c.sparkle) * 0.1;
   ctx.scale(pulse, pulse);
-  ctx.fillStyle = at.accent;
-  ctx.globalAlpha = 0.3;
-  ctx.beginPath();
-  ctx.arc(0, 0, c.r + 4, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.globalAlpha = 1;
-  if (coinSprite) {
-    const s = coinSprite.size;
-    ctx.drawImage(coinSprite.cv, -s / 2, -s / 2, s, s);
+  if (!FX.glow) {
+    ctx.fillStyle = at.accent;
+    ctx.globalAlpha = 0.3;
+    ctx.beginPath();
+    ctx.arc(0, 0, c.r + 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  const spr = FX.glow && coinGlowSprite ? coinGlowSprite : coinSprite;
+  if (spr) {
+    const s = spr.size;
+    ctx.drawImage(spr.cv, -s / 2, -s / 2, s, s);
   } else {
     ctx.fillStyle = '#ffd700';
     ctx.beginPath();
@@ -163,11 +182,49 @@ function drawFloaters() {
   ctx.restore();
 }
 
+// Sparks (short glowing streaks along their motion), rocket fire (glow sprites) and the flipping coin
+function drawFxParticles(cam) {
+  ctx.save();
+  for (const p of particles) {
+    if (!p.coin) continue;
+    const a = Math.max(0, p.life / p.max), t = 1 - a;
+    const sx = Math.cos(t * Math.PI * 3);           // flip: the coin turns edge-on and back
+    ctx.globalAlpha = Math.min(1, a * 1.6);
+    if (coinSprite) {
+      const s = coinSprite.size * (1 + t * 0.25);
+      ctx.save();
+      ctx.translate(p.x, p.y - cam);
+      ctx.scale(Math.max(0.08, Math.abs(sx)), 1);
+      ctx.drawImage(coinSprite.cv, -s / 2, -s / 2, s, s);
+      ctx.restore();
+    }
+  }
+  ctx.restore();
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (const p of particles) {
+    if (!(p.spark || p.fire)) continue;
+    const a = Math.max(0, p.life / p.max), y = p.y - cam;
+    if (p.fire) {
+      if (FX.glow) drawGlow(p.x, y, p.size * (1.6 + (1 - a) * 1.8), p.color, a * 0.85);
+      else { ctx.globalAlpha = a; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, y, p.size * a, 0, Math.PI * 2); ctx.fill(); }
+    } else {
+      ctx.globalAlpha = Math.min(1, a * 1.4);
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = p.size * (0.6 + 0.6 * a);
+      ctx.beginPath(); ctx.moveTo(p.x, y); ctx.lineTo(p.x - p.vx * 2.4, y - p.vy * 2.4); ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 function drawParticles() {
   const cam = camera.y;
-  let hasStars = false;
+  let hasStars = false, hasFx = false;
   for (const p of particles) {
     if (p.star) { hasStars = true; continue; }
+    if (p.spark || p.fire || p.coin) { hasFx = true; continue; }
     const a = Math.max(0, p.life / p.max);
     ctx.globalAlpha = a;
     ctx.fillStyle = p.color;
@@ -188,6 +245,7 @@ function drawParticles() {
     }
     ctx.restore();
   }
+  if (hasFx) drawFxParticles(cam);
   // Shockwave rings (super jump)
   for (const r of rings) {
     ctx.globalAlpha = Math.max(0, r.life) * 0.85;

@@ -306,6 +306,8 @@ function defeatEnemy(hz) {
   burst(hz.x, hz.y, '#ffffff', 12, 3.2);
   burst(hz.x, hz.y, '#8fd3ff', 10, 3);
   burst(hz.x, hz.y - 10, (atmosCache || atmosphereAt(0)).accent, 6, 2.5);
+  fxSparks(hz.x, hz.y, '#fff6a8', 10, 6);
+  fxSparks(hz.x, hz.y, '#8fd3ff', 6, 4.5);
   beep(660, 0.07, 'triangle', 0.08);
   beep(990, 0.09, 'sine', 0.06);
 }
@@ -319,6 +321,7 @@ function knockAside(hz) {
   countHit(hz.kind + ':knocked');
   shake = Math.max(shake, 4);
   burst(hz.x - dir * 10, hz.y, '#ffb0a0', 10, 3);
+  fxSparks(hz.x - dir * 10, hz.y, '#ffd0c4', 6, 5);
   rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.6, color: '#ffd0c4' });
   beep(300, 0.08, 'square', 0.06);
   beep(200, 0.1, 'triangle', 0.05);
@@ -481,6 +484,7 @@ function hitFatal(hz) {
     debugStats.shieldBreaks++;
     burst(hz.x, hz.y, '#fff6a8', 16, 5);
     burst(hz.x, hz.y, hz.color === 'red' ? '#ff5a4a' : '#c9ced8', 10, 4);
+    fxSparks(hz.x, hz.y, '#fff6a8', 10, 6);
     rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.7, color: '#fff6a8' });
     beep(520, 0.08, 'square', 0.06);
     return;
@@ -503,6 +507,7 @@ function killNinja(hz) {
   shake = 14;
   burst(ninja.x, ninja.y, '#ff4444', 16, 5);
   burst(ninja.x, ninja.y, '#ffffff', 8, 3);
+  fxSparks(ninja.x, ninja.y, '#ff8a6a', 10, 6);
   beep(120, 0.2, 'sawtooth', 0.1);
   debugStats.deaths++;
   debugStats.deathBy = hz.kind;

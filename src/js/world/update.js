@@ -37,12 +37,12 @@ function update(dt) {
   if (ninja.x < NINJA_R) {
     const into = -ninja.vx;
     ninja.x = NINJA_R; ninja.vx = Math.abs(ninja.vx) * 0.5;
-    if (into > WALL_KICK_MIN_SPEED && !onBand) startWallKick(-1);
+    if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(-1); fxWallDust(-1, ninja.y); }
   }
   if (ninja.x > W - NINJA_R) {
     const into = ninja.vx;
     ninja.x = W - NINJA_R; ninja.vx = -Math.abs(ninja.vx) * 0.5;
-    if (into > WALL_KICK_MIN_SPEED && !onBand) startWallKick(1);
+    if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(1); fxWallDust(1, ninja.y); }
   }
 
   // Ground (start of the run): idle hops. Only while the ground is on screen — once the camera has
@@ -271,6 +271,7 @@ function update(dt) {
       c.collected = true;
       runCoins++;
       burst(c.x, c.y, atmosCache.accent, 10, 3);
+      fxCoinPickup(c);
       beep(880, 0.06, 'sine', 0.07);
       beep(1320, 0.08, 'triangle', 0.05);
     }
@@ -280,10 +281,15 @@ function update(dt) {
     const p = particles[i];
     p.x += p.vx; p.y += p.vy;
     if (p.star) { p.vy += 0.035; p.vx *= 0.975; p.vy *= 0.975; p.rot += p.vr; }
+    else if (p.spark) { p.vx *= 0.9; p.vy = p.vy * 0.9 + 0.06; }
+    else if (p.coin) p.vy *= 0.93;
+    else if (p.fire) { p.vx *= 0.94; p.vy *= 0.94; }
+    else if (p.dust) { p.vx *= 0.9; p.vy = p.vy * 0.9 + 0.03; }
     else p.vy += 0.08;
     p.life--;
     if (p.life <= 0) particles.splice(i, 1);
   }
+  fxCap(); // global particle budget (FX.maxParticles)
   for (let i = rings.length - 1; i >= 0; i--) {
     const r = rings[i];
     r.r += 2 + 7 * r.life;

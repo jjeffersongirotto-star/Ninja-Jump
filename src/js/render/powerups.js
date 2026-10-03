@@ -85,6 +85,11 @@ function drawPowerups() {
     ctx.save();
     ctx.translate(p.x, y);
     const pulse = 0.5 + 0.5 * Math.sin(frame * 0.12 + p.bob);
+    if (FX.glow) { // soft light around the item (pre-rendered sprite)
+      ctx.globalCompositeOperation = 'lighter';
+      drawGlow(0, 0, 40 + pulse * 5, c[1], 0.38 + 0.18 * pulse);
+      ctx.globalCompositeOperation = 'source-over';
+    }
     ctx.globalAlpha = 0.25 + 0.2 * pulse;        // glow ring: "pick me up"
     ctx.fillStyle = c[1];
     ctx.beginPath(); ctx.arc(0, 0, 21 + pulse * 3, 0, Math.PI * 2); ctx.fill();
