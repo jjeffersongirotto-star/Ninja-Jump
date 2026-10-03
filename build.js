@@ -43,6 +43,7 @@ const GAME_FILES = [
   'render/background.js',       // parallax scenery
   'render/elastic.js',          // elastic drawing
   'config/skins.js',            // characters (palettes and prices)
+  'render/skins.js',            // character accessories, trails and auras (cosmetic)
   'render/ninja.js',            // ninja sprite and pose
   'render/hazards.js',          // hazard sprites
   'render/coins-effects.js',    // coins, ground, floaters, particles

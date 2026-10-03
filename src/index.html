@@ -63,6 +63,15 @@
     </div>
     <div class="screen hidden" id="scrChars">
       <div class="wallet">🪙 <span id="walletVal2">0</span></div>
+      <div class="chars-filter" id="charsFilter" role="tablist">
+        <button class="chip on" data-f="all">Todos</button>
+        <button class="chip" data-f="mine">Meus</button>
+        <button class="chip" data-f="0">Comum</button>
+        <button class="chip" data-f="1">Raro</button>
+        <button class="chip" data-f="2">Épico</button>
+        <button class="chip" data-f="3">Lendário</button>
+      </div>
+      <div class="chars-count" id="charsCount"></div>
       <div class="chars" id="charsList"></div>
       <div class="chars-msg" id="charsMsg"></div>
       <button class="btn btn-sec" data-back="1">Voltar</button>
@@ -109,7 +118,9 @@
   <div class="dlg hidden" id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgText">
     <div class="dlg-box">
       <canvas class="dlg-pic" id="dlgPic"></canvas>
+      <div class="dlg-rar" id="dlgRar"></div>
       <div class="dlg-text" id="dlgText"></div>
+      <div class="dlg-desc" id="dlgDesc"></div>
       <div class="dlg-sub" id="dlgSub"></div>
       <div class="dlg-btns" id="dlgBtns">
         <button class="btn btn-sec dlg-no" id="dlgNo">Não</button>

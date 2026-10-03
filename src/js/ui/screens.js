@@ -53,6 +53,9 @@ function dlgOpen(sk, text, sub, bad, yesFn) {
   dlgYesFn = yesFn || null;
   document.getElementById('dlgBtns').className = 'dlg-btns' + (yesFn ? '' : ' hidden');
   document.getElementById('dlgOkRow').className = 'dlg-btns' + (yesFn ? ' hidden' : '');
+  const rar = document.getElementById('dlgRar'), desc = document.getElementById('dlgDesc');
+  if (rar) { const r = sk.rarity || 0; rar.textContent = RARITY_NAMES[r]; rar.style.color = RARITY_COLORS[r]; }
+  if (desc) desc.textContent = sk.desc || '';
   const pic = document.getElementById('dlgPic');
   try { drawSkinPreview(pic, sk); } catch (err) { logErr('preview', err); }
   dlgEl.classList.remove('hidden');
@@ -108,13 +111,40 @@ function onCharTap(sk) {
     dlgOpen(sk, 'Comprar ' + sk.name + ' por ' + sk.price + ' moedas?', 'Você tem ' + getWallet() + ' moedas.', false, () => buySkin(sk));
   }
 }
+// Grid of characters: filter chips (Todos / Meus / by rarity), sorted by price inside the list,
+// scrolls in its own box. Previews come from a per-character cache (drawn once).
+let charsFilter = 'all';
+function initCharsFilter() {
+  const bar = document.getElementById('charsFilter');
+  if (!bar) return;
+  const chips = bar.querySelectorAll('.chip');
+  for (let i = 0; i < chips.length; i++) {
+    chips[i].addEventListener('click', function (e) {
+      e.stopPropagation();
+      charsFilter = this.getAttribute('data-f');
+      for (let j = 0; j < chips.length; j++) chips[j].className = 'chip' + (chips[j] === this ? ' on' : '');
+      beep(520, 0.03, 'sine', 0.04);
+      renderChars();
+      if (charsList) charsList.scrollTop = 0;
+    }, false);
+  }
+}
 function renderChars() {
   if (!charsList) return;
   const owned = ownedSkins();
+  const keepScroll = charsList.scrollTop;
   charsList.innerHTML = '';
-  for (const sk of SKINS) {
+  let nOwned = 0;
+  for (const sk of SKINS) if (owned[sk.id]) nOwned++;
+  const cnt = document.getElementById('charsCount');
+  if (cnt) cnt.textContent = nOwned + ' de ' + SKINS.length + ' personagens liberados';
+  const list = SKINS.filter((sk) => charsFilter === 'all' || (charsFilter === 'mine' ? !!owned[sk.id] : String(sk.rarity || 0) === charsFilter));
+  list.sort((p, q) => p.price - q.price || (p.rarity || 0) - (q.rarity || 0));
+  for (const sk of list) {
+    const r = sk.rarity || 0;
     const b = document.createElement('button');
-    b.className = 'char' + (owned[sk.id] ? '' : ' locked') + (sk === skin ? ' sel' : '');
+    b.className = 'char r' + r + (owned[sk.id] ? '' : ' locked') + (sk === skin ? ' sel' : '');
+    const rl = document.createElement('div'); rl.className = 'rar'; rl.textContent = RARITY_NAMES[r]; rl.style.color = RARITY_COLORS[r]; b.appendChild(rl);
     const cv = document.createElement('canvas');
     b.appendChild(cv);
     if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
@@ -126,11 +156,26 @@ function renderChars() {
     charsList.appendChild(b);
     try { drawSkinPreview(cv, sk); } catch (err) { logErr('preview', err); }
   }
+  charsList.scrollTop = keepScroll;
 }
 // Draw a character standing still on a small canvas (swaps the global ctx/ninja/skin, then restores)
+const previewCache = {};
 function drawSkinPreview(cv, sk) {
   const size = 84, r = Math.min(window.devicePixelRatio || 1, 2.5);
   cv.width = Math.round(size * r); cv.height = Math.round(size * r);
+  const out = cv.getContext('2d');
+  if (!out) return;
+  const key = sk.id + '@' + r;
+  let pc = previewCache[key];
+  if (!pc) {
+    pc = document.createElement('canvas');
+    pc.width = cv.width; pc.height = cv.height;
+    renderSkinPreview(pc, sk, size, r);
+    previewCache[key] = pc;
+  }
+  out.drawImage(pc, 0, 0);
+}
+function renderSkinPreview(cv, sk, size, r) {
   const c = cv.getContext('2d');
   if (!c) return;
   const saved = { ctx: ctx, ninja: ninja, skin: skin, elastic: elastic, stretch: stretch };
@@ -140,8 +185,12 @@ function drawSkinPreview(cv, sk) {
     ctx = c; skin = sk; elastic = null; stretch = 0;
     ninja = { x: 0, y: 0, vx: 0, vy: 0, facing: 1, spinning: 0 };
     ninjaPose.crouch = 0; ninjaPose.launch = 0; ninjaPose.relax = 0; ninjaPose.wallKick = 0; ninjaPose.hero = 0; ninjaPose.air = 0; ninjaPose.lean = 0;
-    c.setTransform(r * 2, 0, 0, r * 2, 0, 0);
-    drawNinjaSprite(size / 4, size / 4 - 1);
+    // characters with horns / ears / hats are drawn a bit smaller so nothing is cut off at the top
+    const A = sk.acc, tall = !!(A && (A.horns || A.ears || A.hat || A.antenna || (A.crest && (A.crest.style === 'fin' || A.crest.style === 'blade'))));
+    const k = tall ? 1.7 : 2, cx = size / (2 * k), cy = tall ? 27.5 : size / 4 - 1;
+    c.setTransform(r * k, 0, 0, r * k, 0, 0);
+    if (sk.aura && FX.glow) { c.save(); c.globalCompositeOperation = 'lighter'; drawGlow(cx, cy + 1, 19, sk.aura, 0.45); c.restore(); }
+    drawNinjaSprite(cx, cy);
   } finally {
     ctx = saved.ctx; ninja = saved.ninja; skin = saved.skin; elastic = saved.elastic; stretch = saved.stretch;
     for (const k in pose) ninjaPose[k] = pose[k];

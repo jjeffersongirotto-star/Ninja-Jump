@@ -195,6 +195,13 @@ function bindInput() {
 function overlayScrolls(target) {
   if (state === 'playing' && !paused) return false;
   if (!overlay || overlay.classList.contains('hidden') || !target || !overlay.contains(target)) return false;
+  // a scrolling box inside the menu (the character grid) may scroll too, even when the menu itself fits
+  for (let el = target; el && el !== overlay; el = el.parentNode) {
+    if (el.nodeType === 1 && el.scrollHeight > el.clientHeight + 1) {
+      const oy = window.getComputedStyle ? getComputedStyle(el).overflowY : '';
+      if (oy === 'auto' || oy === 'scroll') return true;
+    }
+  }
   return overlay.scrollHeight > overlay.clientHeight + 1;
 }
 function bindPageGuards() {

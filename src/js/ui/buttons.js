@@ -28,6 +28,7 @@ function onBtn(id, fn) {
 function bindMenus() {
   onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
   initDialog();
+  initCharsFilter();
   onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });
   onBtn('pauseOptionsBtn', function () { optionsBack = 'pause'; showScreen('options'); });
   onBtn('resumeBtn', resumeWithCountdown);
