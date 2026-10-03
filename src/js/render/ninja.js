@@ -47,6 +47,7 @@ function startWallKick(side) {
   p.wallSide = side;
   p.wallX = FX.textures ? (side < 0 ? FX.wallWidth : W - FX.wallWidth) : (side < 0 ? 0 : W); // foot on the drawn wall
   debugStats.wallKicks++;
+  missionHit(side < 0 ? 'wallL' : 'wallR');
 }
 
 /** Wall-kick envelope: plant the wall-side leg, push, lean toward the rebound, then relax. */

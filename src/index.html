@@ -29,6 +29,7 @@
     </div>
   </div>
   <div id="countdown"></div>
+  <div class="unlock-toast" id="unlockToast" aria-live="polite"></div>
   <div id="overlay">
     <div class="title">Ninja Jump</div>
     <div class="notice" id="nojsMsg">
@@ -51,6 +52,7 @@
         <div class="go-stats">Altura<div class="big" id="goMeters">0 m</div></div>
         <div class="go-stats" style="margin-bottom:20px">Moedas: <strong id="goCoins">0</strong></div>
         <div class="new-record" id="newRec" style="display:none">🎉 Novo recorde!</div>
+        <div class="go-unlock" id="goUnlock" style="display:none"></div>
       </div>
       <div class="wallet" id="walletBox">🪙 <span id="walletVal">0</span></div>
       <div class="menu-btns" id="menuBtns">
@@ -66,6 +68,7 @@
       <div class="chars-filter" id="charsFilter" role="tablist">
         <button class="chip on" data-f="all">Todos</button>
         <button class="chip" data-f="mine">Meus</button>
+        <button class="chip" data-f="mission">Missões</button>
         <button class="chip" data-f="0">Comum</button>
         <button class="chip" data-f="1">Raro</button>
         <button class="chip" data-f="2">Épico</button>
@@ -122,6 +125,7 @@
       <div class="dlg-text" id="dlgText"></div>
       <div class="dlg-desc" id="dlgDesc"></div>
       <div class="dlg-sub" id="dlgSub"></div>
+      <div class="dlg-prog hidden" id="dlgProg"><div class="mbar"><i></i></div><div class="dlg-prog-t"></div></div>
       <div class="dlg-btns" id="dlgBtns">
         <button class="btn btn-sec dlg-no" id="dlgNo">Não</button>
         <button class="btn dlg-yes" id="dlgYes">Sim</button>

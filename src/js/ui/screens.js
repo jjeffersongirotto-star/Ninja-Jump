@@ -34,7 +34,7 @@ function refreshWallet() {
 function ownedSkins() {
   const list = (store.get(LS_SKINS) || '').split(',');
   const out = {};
-  for (const sk of SKINS) if (sk.price === 0 || list.indexOf(sk.id) >= 0) out[sk.id] = true;
+  for (const sk of SKINS) if ((sk.price === 0 && !sk.mission) || list.indexOf(sk.id) >= 0) out[sk.id] = true;
   return out;
 }
 function skinById(id) { for (const sk of SKINS) if (sk.id === id) return sk; return null; }
@@ -64,6 +64,15 @@ function dlgOpen(sk, text, sub, bad, yesFn) {
   const rar = document.getElementById('dlgRar'), desc = document.getElementById('dlgDesc');
   if (rar) { const r = sk.rarity || 0; rar.textContent = RARITY_NAMES[r]; rar.style.color = RARITY_COLORS[r]; }
   if (desc) desc.textContent = sk.desc || '';
+  const prog = document.getElementById('dlgProg');
+  if (prog) {
+    const mp = sk.mission && !ownedSkins()[sk.id] ? missionProgress(sk) : null;
+    prog.className = 'dlg-prog' + (mp ? '' : ' hidden');
+    if (mp) {
+      prog.firstChild.firstChild.style.width = Math.round(100 * mp.cur / mp.goal) + '%';
+      prog.lastChild.textContent = missionProgressText(sk, mp);
+    }
+  }
   const pic = document.getElementById('dlgPic');
   try { drawSkinPreview(pic, sk); } catch (err) { logErr('preview', err); }
   dlgEl.classList.remove('hidden');
@@ -81,7 +90,7 @@ function initDialog() {
 }
 
 function buySkin(sk) {
-  if (getWallet() < sk.price || ownedSkins()[sk.id]) return;
+  if (sk.mission || getWallet() < sk.price || ownedSkins()[sk.id]) return;
   store.set(LS_WALLET, String(getWallet() - sk.price));
   const list = (store.get(LS_SKINS) || '').split(',').filter(Boolean);
   list.push(sk.id);
@@ -111,6 +120,9 @@ function onCharTap(sk) {
     charsMsg.className = 'chars-msg ok';
   } else if (owned[sk.id]) {
     dlgOpen(sk, 'Usar ' + sk.name + '?', '', false, () => useSkin(sk));
+  } else if (sk.mission) { // earned only by playing: show the requirement and the progress
+    dlgOpen(sk, '🎯 Missão: ' + sk.mission.card, sk.mission.text + (sk.mission.scope === 'run' ? ' (numa partida só)' : ' (soma todas as partidas)'), false, null);
+    beep(440, 0.05, 'sine', 0.04);
   } else if (getWallet() < sk.price) {
     const miss = sk.price - getWallet();
     dlgOpen(sk, sk.name + ' custa ' + sk.price + ' moedas', 'Faltam ' + miss + (miss === 1 ? ' moeda.' : ' moedas.'), true, null);
@@ -146,8 +158,11 @@ function renderChars() {
   for (const sk of SKINS) if (owned[sk.id]) nOwned++;
   const cnt = document.getElementById('charsCount');
   if (cnt) cnt.textContent = nOwned + ' de ' + SKINS.length + ' personagens liberados';
-  const list = SKINS.filter((sk) => charsFilter === 'all' || (charsFilter === 'mine' ? !!owned[sk.id] : String(sk.rarity || 0) === charsFilter));
-  list.sort((p, q) => p.price - q.price || (p.rarity || 0) - (q.rarity || 0));
+  const list = SKINS.filter((sk) => charsFilter === 'all' || (charsFilter === 'mine' ? !!owned[sk.id]
+    : (charsFilter === 'mission' ? !!sk.mission : String(sk.rarity || 0) === charsFilter)));
+  // free one first, then the mission characters, then by price
+  const rank = (sk) => (sk.mission ? 1 : (sk.price === 0 ? 0 : 2));
+  list.sort((p, q) => rank(p) - rank(q) || p.price - q.price || (p.rarity || 0) - (q.rarity || 0));
   for (const sk of list) {
     const r = sk.rarity || 0;
     const b = document.createElement('button');
@@ -157,9 +172,19 @@ function renderChars() {
     b.appendChild(cv);
     if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = sk.name; b.appendChild(nm);
-    const st = document.createElement('div'); st.className = 'st';
-    st.textContent = sk === skin ? 'Em uso' : (owned[sk.id] ? 'Usar' : '🪙 ' + sk.price);
-    b.appendChild(st);
+    if (sk.mission) { const mt = document.createElement('div'); mt.className = 'mtag'; mt.textContent = '🎯 Missão'; b.appendChild(mt); }
+    if (sk.mission && !owned[sk.id]) { // requirement + progress bar instead of a price
+      const mp = missionProgress(sk);
+      const rq = document.createElement('div'); rq.className = 'mreq'; rq.textContent = sk.mission.card; b.appendChild(rq);
+      const bar = document.createElement('div'); bar.className = 'mbar';
+      const fill = document.createElement('i'); fill.style.width = Math.round(100 * mp.cur / mp.goal) + '%'; bar.appendChild(fill);
+      b.appendChild(bar);
+      const pv = document.createElement('div'); pv.className = 'mval'; pv.textContent = missionProgressText(sk, mp, true); b.appendChild(pv);
+    } else {
+      const st = document.createElement('div'); st.className = 'st';
+      st.textContent = sk === skin ? 'Em uso' : (owned[sk.id] ? 'Usar' : '🪙 ' + sk.price);
+      b.appendChild(st);
+    }
     b.addEventListener('click', function (e) { e.stopPropagation(); onCharTap(sk); }, false);
     charsList.appendChild(b);
     try { drawSkinPreview(cv, sk); } catch (err) { logErr('preview', err); }

@@ -43,6 +43,8 @@ const GAME_FILES = [
   'render/background.js',       // parallax scenery
   'render/elastic.js',          // elastic drawing
   'config/skins.js',            // characters (palettes and prices)
+  'config/missions.js',         // mission characters: unlocked by playing (all criteria, for tuning)
+  'world/missions.js',          // mission tracking: lifetime stats, run counters, unlocks, notice
   'render/skins.js',            // character accessories, trails and auras (cosmetic)
   'render/ninja.js',            // ninja sprite and pose
   'render/hazards.js',          // hazard sprites

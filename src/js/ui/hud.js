@@ -37,6 +37,7 @@ function endRun() {
   paused = false;
   drawing = null;
   addWallet(runCoins);
+  try { missionEndRun(); } catch (e) { logErr('missions', e); }
   metersEl.classList.remove('active');
   progressEl.classList.remove('active');
   hud.classList.remove('active');
@@ -53,6 +54,12 @@ function gameOver() {
   goMeters.textContent = bestHeight + ' m';
   goCoins.textContent = String(runCoins);
   newRec.style.display = isNew ? 'block' : 'none';
+  const gu = document.getElementById('goUnlock');
+  if (gu) {
+    gu.textContent = runMission.unlocked.length ? '🎉 Novo personagem liberado: ' + runMission.unlocked.join(', ') + '!' : '';
+    gu.style.display = runMission.unlocked.length ? 'block' : 'none';
+  }
+  hideUnlockToast(); // the game-over screen lists them instead
   playBtn.textContent = 'Jogar de novo';
   titleEl.textContent = 'Fim de jogo';
   beep(150, 0.2, 'sawtooth', 0.08);
@@ -63,6 +70,7 @@ function startPlay() {
   ensureAudio();
   resetGame();
   state = 'playing';
+  missionResetRun();
   streakShown = -1;
   resetHudCache();
   lastThemeName = '';

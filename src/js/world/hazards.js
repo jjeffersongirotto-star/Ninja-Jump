@@ -17,6 +17,7 @@ function makeHazard(it, wy) {
   hz.cool = 0;
   hz.hit = 0;
   hz.lastTouch = -99;
+  hz.uid = ++hazardUid; // structure id for the missions (same structure hit again)
   hz.behave = it.behave || (it.range ? 'slide' : 'static');
   if (hz.behave === 'dive') {
     hz.dv = { st: 'idle', t: 0, tx: 0, ty: 0, dx: 0, dy: 0, cool: 30 + Math.floor(Math.random() * 60) };
@@ -300,6 +301,7 @@ function defeatEnemy(hz) {
   hz.dying = ST.poofFrames;
   hz.hit = 1;
   runCoins += ST.coins;
+  missionKill(hz);
   countHit(hz.kind + ':defeated');
   floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
   if (comboDrops()) dropComboCoins(hz); // magnet + shield combo: extra coins burst out
@@ -428,6 +430,7 @@ function bumpHazard(hz, lx, ly) {
   }
   if (fresh) {
     hz.hit = 1;
+    missionHit(hz.uid);
     countHit(hz.kind + ':' + side);
     const col = hz.type === 'platform' ? '#cfe6ff' : '#8fd3ff';
     burst(ninja.x, ninja.y + (side === 'top' ? NINJA_R : -NINJA_R * 0.5), col, 8, 2.5);
