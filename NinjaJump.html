@@ -3375,7 +3375,15 @@
     return out;
   }
   function skinById(id) { for (const sk of SKINS) if (sk.id === id) return sk; return null; }
+  // Characters taken out of the game: a save that bought one gets its coins back (once) and loses the id.
+  function refundRemovedSkins() {
+    const list = (store.get(LS_SKINS) || '').split(',');
+    let refund = 0;
+    const keep = list.filter(function (id) { if (REMOVED_SKINS[id]) { refund += REMOVED_SKINS[id]; return false; } return true; });
+    if (refund > 0) { store.set(LS_SKINS, keep.join(',')); addWallet(refund); }
+  }
   function loadSkin() {
+    try { refundRemovedSkins(); } catch (e) { logErr('refund', e); }
     const sk = skinById(store.get(LS_SKIN) || '');
     skin = sk && ownedSkins()[sk.id] ? sk : SKINS[0];
   }
@@ -4641,59 +4649,59 @@
     return p;
   }
   SKINS.push(
-    // --- Clã Oni: demônios elementais, cada um com seu exército ninja ---
-    skinPal({ id: 'oniAbismo', name: 'Oni do Abismo', price: 600, rarity: 0,
-      desc: 'Líder do exército das sombras: seus ninjas atravessam paredes como fumaça.',
+    // --- Clã dos Demônios Elementais: cada mestre comanda seu exército de ninjas-demônio (ids 'oni*' mantidos p/ saves) ---
+    skinPal({ id: 'oniAbismo', name: 'Shinobi do Abismo', price: 600, rarity: 0,
+      desc: 'Comanda o exército de ninjas-demônio das sombras, que atravessam paredes como fumaça.',
       main: '#3a2a5c', limb: '#241a38', band: '#0d0a14', eye: '#ffe14d', rim: 'rgba(190,160,255,0.7)',
       acc: { horns: { style: 'small', col: '#d9d2e9' }, eyeGlow: '#ffe14d', body: { pattern: 'smoke', col: '#7a5cff' } },
       trail: { kind: 'smoke', color: '#7a5cff' } }),
-    skinPal({ id: 'oniMontanha', name: 'Oni da Montanha', price: 700, rarity: 0,
-      desc: 'Pesado como rocha: seus ninjas nunca recuam nem um passo.',
+    skinPal({ id: 'oniMontanha', name: 'Guardião da Montanha', price: 700, rarity: 0,
+      desc: 'Pesado como rocha: seu exército de ninjas-demônio de pedra nunca recua um passo.',
       main: '#8a6f52', limb: '#4a3b2c', band: '#2e241a', eye: '#ffb35a',
       acc: { horns: { style: 'big', col: '#cfc6b4' }, pads: { col: '#9aa0a8', rock: true }, body: { pattern: 'cracks', col: '#4a3b2c' } },
       trail: { kind: 'smoke', color: '#c9b79a' } }),
-    skinPal({ id: 'oniVendaval', name: 'Oni do Vendaval', price: 800, rarity: 0,
-      desc: 'Seus ninjas correm no vento e somem num redemoinho.',
+    skinPal({ id: 'oniVendaval', name: 'Kunoichi do Vendaval', price: 800, rarity: 0,
+      desc: 'Lidera ninjas-demônio do vento que correm no ar e somem num redemoinho.',
       main: '#7fc89a', limb: '#3f6b58', band: '#2c4a3e', rim: 'rgba(230,255,240,0.8)',
       acc: { horns: { style: 'small', col: '#f2fff4' }, back: [{ type: 'scarf', col: '#e9fff0' }], body: { pattern: 'swirl', col: '#e9fff0' } },
       trail: { kind: 'leaf', color: '#b9f0a0' } }),
-    skinPal({ id: 'oniFloresta', name: 'Oni da Floresta', price: 800, rarity: 0,
-      desc: 'Seus ninjas brotam do chão e se escondem entre as folhas.',
+    skinPal({ id: 'oniFloresta', name: 'Sentinela da Floresta', price: 800, rarity: 0,
+      desc: 'Seu exército de ninjas-demônio brota do chão e se esconde entre as folhas.',
       main: '#4f8a3a', limb: '#2f4a22', band: '#5a3a1e', eye: '#d6ff7a',
       acc: { horns: { style: 'antler', col: '#7a5230', leaf: '#7fd04a' }, eyeGlow: '#d6ff7a', body: { pattern: 'leaves', col: '#8fd45a' } },
       trail: { kind: 'leaf', color: '#7fd04a' } }),
-    skinPal({ id: 'oniChama', name: 'Oni da Chama', price: 1200, rarity: 1,
-      desc: 'Comanda ninjas de brasa que deixam pegadas de fogo.',
+    skinPal({ id: 'oniChama', name: 'Ninja da Chama', price: 1200, rarity: 1,
+      desc: 'Comanda um exército de ninjas-demônio de brasa que deixam pegadas de fogo.',
       main: '#e8501f', limb: '#3a1410', band: '#2a0a06', eye: '#ffd23f', rim: 'rgba(255,210,120,0.9)',
       acc: { horns: { style: 'big', col: '#2a1a14' }, eyeGlow: '#ffb030', body: { pattern: 'flames', col: '#ffc040' } },
       trail: { kind: 'fire', color: '#ff8a2a' } }),
-    skinPal({ id: 'oniMare', name: 'Oni da Maré', price: 1200, rarity: 1,
-      desc: 'Seu exército surge das ondas, escorregadio como água.',
+    skinPal({ id: 'oniMare', name: 'Shinobi da Maré', price: 1200, rarity: 1,
+      desc: 'Seu exército de ninjas-demônio surge das ondas, escorregadio como água.',
       main: '#1f8fb8', limb: '#0f3c5a', band: '#0a2238', eye: '#9ff6ff', rim: 'rgba(170,240,255,0.9)',
       acc: { crest: { style: 'fin', col: '#6fe0ff' }, eyeGlow: '#7fefff', body: { pattern: 'scales', col: '#9fe6ff' } },
       trail: { kind: 'bubble', color: '#bff3ff' } }),
-    skinPal({ id: 'oniTrovao', name: 'Oni do Trovão', price: 1500, rarity: 1,
-      desc: 'Cada passo é um estalo: seu exército ataca na velocidade do raio.',
+    skinPal({ id: 'oniTrovao', name: 'Ninja do Trovão', price: 1500, rarity: 1,
+      desc: 'Cada passo é um estalo: seus ninjas-demônio atacam na velocidade do raio.',
       main: '#2b2f6b', limb: '#181a3c', band: '#e0b020', eye: '#fff36a', rim: 'rgba(255,240,140,0.8)',
       acc: { horns: { style: 'bolt', col: '#ffd23f' }, eyeGlow: '#fff36a', body: { pattern: 'bolt', col: '#ffd23f' } },
       trail: { kind: 'spark', color: '#fff36a' } }),
-    skinPal({ id: 'oniAco', name: 'Oni de Aço', price: 1600, rarity: 1,
-      desc: 'Armadura de aço temperado; seu exército ressoa como um gongo.',
+    skinPal({ id: 'oniAco', name: 'Samurai de Aço', price: 1600, rarity: 1,
+      desc: 'Armadura de aço temperado; seu exército de ninjas-demônio ressoa como um gongo.',
       main: '#8f9aa8', headCol: '#b8c0cc', limb: '#4a525e', band: '#2a2f38', eye: '#ff5a4a', rim: 'rgba(230,240,255,0.95)',
       acc: { crest: { style: 'blade', col: '#dfe5ee' }, eyeGlow: '#ff5a4a', pads: { col: '#c3cad4' }, body: { pattern: 'plates', col: '#5a636f' } },
       trail: { kind: 'spark', color: '#ffd27f' } }),
-    skinPal({ id: 'oniLua', name: 'Oni da Lua', price: 2200, rarity: 2,
-      desc: 'Só aparece à noite; seu exército se move entre os raios do luar.',
+    skinPal({ id: 'oniLua', name: 'Andarilho da Lua', price: 2200, rarity: 2,
+      desc: 'Só aparece à noite; seus ninjas-demônio se movem entre os raios do luar.',
       main: '#3a3f7a', headCol: '#aab0d8', limb: '#23264d', band: '#1a1c3a', eye: '#ffffff', rim: 'rgba(210,225,255,0.95)',
       acc: { crest: { style: 'moon', col: '#f4f1d0' }, eyeGlow: '#cfe3ff', body: { pattern: 'stars', col: '#e8ecff' } },
       trail: { kind: 'star', color: '#e8ecff' }, aura: '#9fb4ff' }),
-    skinPal({ id: 'oniCeu', name: 'Oni do Céu', price: 2400, rarity: 2,
-      desc: 'Plana acima das nuvens com um exército de ninjas alados.',
+    skinPal({ id: 'oniCeu', name: 'Mestre do Céu', price: 2400, rarity: 2,
+      desc: 'Plana acima das nuvens com um exército de ninjas-demônio alados.',
       main: '#6fb8f5', limb: '#2d5f9a', band: '#2d5f9a', visor: ['#eaf5ff', '#a9cdf0'], eye: '#1d3b66', rim: 'rgba(255,255,255,0.95)',
       acc: { horns: { style: 'small', col: '#ffffff' }, back: [{ type: 'wings', col: '#ffffff' }], body: { pattern: 'clouds', col: '#ffffff' } },
       trail: { kind: 'leaf', color: '#ffffff' }, aura: '#bfe3ff' }),
-    skinPal({ id: 'oniImperador', name: 'Imperador Oni', price: 5000, rarity: 3,
-      desc: 'Senhor de todos os clãs oni. Dizem que nunca caiu de nenhuma parede.',
+    skinPal({ id: 'oniImperador', name: 'Imperador das Sombras', price: 5000, rarity: 3,
+      desc: 'Senhor de todos os exércitos de ninjas-demônio. Dizem que nunca caiu de nenhuma parede.',
       main: '#2a1420', limb: '#160a12', band: '#c9a227', eye: '#ff3a3a', rim: 'rgba(255,200,90,0.9)',
       acc: { horns: { style: 'crown', col: '#e8c048' }, eyeGlow: '#ff3a3a', collar: { col: '#c9a227' },
         back: [{ type: 'cloak', col: '#6a0a18', lining: '#c9a227' }], body: { pattern: 'royal', col: '#e8c048' } },
@@ -4711,7 +4719,7 @@
       acc: { crest: { style: 'plate', col: '#c9d2e0', sym: 'lotus' }, eyeGlow: '#c8bcff', body: { pattern: 'lotus', col: '#b58ad8' } },
       trail: { kind: 'leaf', color: '#ffc4e6' } }),
     skinPal({ id: 'luaRubra', name: 'Renegado da Lua Rubra', price: 3000, rarity: 2,
-      desc: 'Deixou a vila para trás. Seu manto de luas vermelhas assusta até os oni.',
+      desc: 'Deixou a vila para trás. Seu manto de luas vermelhas assusta até os demônios.',
       main: '#17171f', limb: '#22222c', band: '#3a3a46', eye: '#ff2a3a', rim: 'rgba(255,120,130,0.6)',
       acc: { crest: { style: 'plate', col: '#9aa0aa', sym: 'scratch' }, eyeGlow: '#ff2a3a', collar: { col: '#17171f', high: true },
         back: [{ type: 'cloak', col: '#17171f', lining: '#b0142a', moons: true }], body: { pattern: 'moons', col: '#c0142a' } },
@@ -4725,7 +4733,7 @@
     skinPal({ id: 'leques', name: 'Kunoichi dos Leques', price: 1200, rarity: 1,
       desc: 'Abre os leques e o vento faz o resto.',
       main: '#d6337a', limb: '#5a1a3a', band: '#2a0a1a', eye: '#ffffff', rim: 'rgba(255,190,220,0.9)',
-      acc: { back: [{ type: 'fans', col: '#ffd23f', col2: '#d6337a' }], hair: { col: '#2a0a1a' }, body: { pattern: 'sash', col: '#ffd23f' } },
+      acc: { back: [{ type: 'hair', col: '#4a1a36', tie: '#ffd23f' }, { type: 'fans', col: '#ffd23f', col2: '#d6337a' }], body: { pattern: 'sash', col: '#ffd23f' } },
       trail: { kind: 'leaf', color: '#ffb3d9' } }),
     skinPal({ id: 'robo', name: 'Robô Ninja', price: 1500, rarity: 1,
       desc: 'Modelo NJ-01: parafusos apertados, sensores ligados, pulo calibrado.',
@@ -4763,8 +4771,44 @@
       main: '#1f9a6a', limb: '#145a40', band: '#c9a227', eye: '#ffe14d', rim: 'rgba(255,230,140,0.9)',
       acc: { horns: { style: 'dragon', col: '#e8c048' }, whiskers: '#e8c048', eyeGlow: '#ffe14d',
         back: [{ type: 'dtail', col: '#1f9a6a', col2: '#e8c048' }], body: { pattern: 'scales', col: '#e8c048' } },
-      trail: { kind: 'spark', color: '#ffd23f' }, aura: '#ffd23f' })
+      trail: { kind: 'spark', color: '#ffd23f' }, aura: '#ffd23f' }),
+    // --- Torneio das Sombras: ninjas mascarados de cores marcantes (inspirados em jogos de luta clássicos; originais) ---
+    skinPal({ id: 'lancaInfernal', name: 'Ninja da Lança Infernal', price: 4800, rarity: 3,
+      desc: 'Volta do mundo das chamas com uma lança presa na corda: ninguém escapa do seu puxão.',
+      main: '#1d1a16', limb: '#24201a', band: '#e8b81f', headCol: '#f2c21f', eye: '#ffffff', rim: 'rgba(255,200,80,0.9)',
+      acc: { mask: { col: '#f2c21f', teeth: true }, eyeGlow: '#ffb030', back: [{ type: 'rope', col: '#c9a46a', blade: '#dfe5ee' }],
+        body: { pattern: 'tabard', col: '#f2c21f' } },
+      trail: { kind: 'fire', color: '#ff7a1a' }, aura: '#ff8a2a' }),
+    skinPal({ id: 'geloEterno', name: 'Ninja do Gelo Eterno', price: 3200, rarity: 2,
+      desc: 'Seu sopro congela até cachoeira e deixa um rastro de cristais de gelo.',
+      main: '#1a1f2c', limb: '#20283a', band: '#2a8fe0', headCol: '#3aa0ff', eye: '#e8f8ff', rim: 'rgba(180,230,255,0.95)',
+      acc: { mask: { col: '#2a8fe0' }, eyeGlow: '#bfeaff', breath: '#e8f8ff', body: { pattern: 'ice', col: '#9fe0ff' }, pads: { col: '#bfeaff' } },
+      trail: { kind: 'frost', color: '#d8f4ff' }, aura: '#7fd0ff' }),
+    skinPal({ id: 'pantano', name: 'Ninja do Pântano Ácido', price: 1800, rarity: 1,
+      desc: 'Escamas verdes, língua comprida e passos que deixam gotas de ácido.',
+      main: '#1b2216', limb: '#232c1c', band: '#3fae2a', headCol: '#46b830', eye: '#f5ff4a', rim: 'rgba(190,255,120,0.8)',
+      acc: { mask: { col: '#3fae2a', scales: true }, eyeGlow: '#d4ff3a', body: { pattern: 'scales', col: '#6fdc4a' } },
+      trail: { kind: 'acid', color: '#9dff3a' } }),
+    skinPal({ id: 'nevoa', name: 'Ninja da Névoa Cinzenta', price: 1400, rarity: 1,
+      desc: 'Vira fumaça no meio do pulo e reaparece do outro lado da parede.',
+      main: '#2a2c32', limb: '#33363d', band: '#8a909c', headCol: '#9aa0aa', eye: '#ffffff', alpha: 0.9, rim: 'rgba(230,235,245,0.8)',
+      acc: { mask: { col: '#8a909c', shade: -0.4 }, eyeGlow: '#e8eef8', body: { pattern: 'smoke', col: '#c9ced8' } },
+      trail: { kind: 'smoke', color: '#b8bec8' } }),
+    skinPal({ id: 'veuVioleta', name: 'Kunoichi do Véu Violeta', price: 4600, rarity: 3,
+      desc: 'Tirou o véu: agora todos veem o sorriso de dentes afiados. Dois sais nas costas.',
+      main: '#2a1730', limb: '#331c3a', band: '#c03ad8', headCol: '#b33acb', eye: '#ffffff', rim: 'rgba(240,160,255,0.85)',
+      acc: { fangs: { skin: '#f3c9b4', lip: '#7a1030' }, back: [{ type: 'hair', col: '#3a1f48', tie: '#c03ad8' }, { type: 'sai', col: '#c03ad8', blade: '#dfe5ee' }],
+        body: { pattern: 'tabard', col: '#c03ad8' } },
+      trail: { kind: 'leaf', color: '#e07aff' } }),
+    skinPal({ id: 'esmeralda', name: 'Dama das Lâminas Esmeralda', price: 2400, rarity: 2,
+      desc: 'Seus leques de aço cortam o vento; deixa um brilho verde por onde passa.',
+      main: '#16261e', limb: '#1c3026', band: '#1fa86a', headCol: '#22b573', eye: '#ffffff', rim: 'rgba(140,255,200,0.85)',
+      acc: { mask: { col: '#1fa86a' }, back: [{ type: 'hair', col: '#1f3a2c', tie: '#1fa86a' }, { type: 'fans', col: '#c9d2dc', col2: '#1fa86a' }],
+        body: { pattern: 'tabard', col: '#1fa86a' } },
+      trail: { kind: 'star', color: '#5affb0' } })
   );
+  // Removed characters: id -> price refunded to saves that bought them (see refundRemovedSkins)
+  const REMOVED_SKINS = { ciborgueRubro: 3000 };
   const RARITY_NAMES = ['Comum', 'Raro', 'Épico', 'Lendário'];
   const RARITY_COLORS = ['#b8c2d0', '#4fb3ff', '#c77dff', '#ffc53a'];
   let skin = SKINS[0];
@@ -4878,6 +4922,43 @@
           accPath([px - 1.6, py - 1.5, px, py - 5, px + 1.6, py - 1.5]); ctx.fill();
         }
         ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+      } else if (b.type === 'hair') {
+        // ponytail falling from the bun, swinging out behind the head (the bun itself is drawn on the head)
+        const sw = wave * 0.8 + Math.sin(frame * 0.09) * 1.2;
+        const tx = bdx * (15 + spd * 0.35), ty = headY + 10 + sw;
+        ctx.beginPath();
+        ctx.moveTo(bdx * 6, headY - 11);
+        ctx.quadraticCurveTo(bdx * 19.5, headY - 8, tx, ty);
+        ctx.quadraticCurveTo(bdx * 13, headY - 2 + sw * 0.3, bdx * 9, headY - 6);
+        ctx.closePath();
+        accFill(b.col);
+        ctx.strokeStyle = shadeHex(b.col, 0.5); ctx.lineWidth = 0.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(bdx * 12, headY - 9); ctx.quadraticCurveTo(bdx * 16.5, headY - 4 + sw * 0.3, tx - bdx * 0.6, ty - 3); ctx.stroke();
+      } else if (b.type === 'rope') {
+        // coiled rope at the hip, a short length hanging behind ending in a kunai spear head
+        const hx = bdx * 7.5, hy = bodyY + 2.5, sw = Math.sin(frame * 0.1) * 1.2 + wave * 0.4;
+        ctx.strokeStyle = skin.out; ctx.lineWidth = 3.4;
+        ctx.beginPath(); ctx.ellipse(hx, hy, 4, 3, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.strokeStyle = b.col; ctx.lineWidth = 1.7;
+        ctx.beginPath(); ctx.ellipse(hx, hy, 4, 3, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(hx, hy, 2.2, 1.6, 0, 0, Math.PI * 2); ctx.stroke();
+        const ex = bdx * (11 + spd * 0.2), ey = bodyY + 12 + sw;
+        ctx.beginPath(); ctx.moveTo(hx + bdx * 1.5, hy + 2); ctx.quadraticCurveTo(bdx * 9, bodyY + 11 - sw, ex, ey); ctx.stroke();
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(Math.atan2(4, bdx * 2));
+        accPath([0, 0, -2.6, 2.2, 0, 8.5, 2.6, 2.2]); accFill(b.blade);
+        ctx.restore();
+      } else if (b.type === 'sai') {
+        // two short three-pronged daggers crossed on the back
+        for (const k of [-1, 1]) {
+          ctx.save(); ctx.translate(bdx * 5, bodyY - 3); ctx.rotate(k * 0.6 + bdx * 0.45);
+          ctx.strokeStyle = skin.out; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -13); ctx.stroke();
+          ctx.strokeStyle = b.blade; ctx.lineWidth = 1.3;
+          ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -13); ctx.moveTo(-2.4, -2); ctx.lineTo(-2, 1.5); ctx.lineTo(2, 1.5); ctx.lineTo(2.4, -2); ctx.stroke();
+          ctx.strokeStyle = b.col; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.moveTo(0, 2.5); ctx.lineTo(0, 6); ctx.stroke();
+          ctx.restore();
+        }
       } else if (b.type === 'wisp') {
         ctx.save();
         ctx.globalAlpha *= 0.7;
@@ -4969,6 +5050,14 @@
       ctx.beginPath(); ctx.moveTo(-8, y - 2); ctx.lineTo(-3, y - 2); ctx.lineTo(-1, y - 5); ctx.lineTo(4, y - 5);
       ctx.moveTo(-6, y + 4); ctx.lineTo(0, y + 4); ctx.lineTo(2, y + 1); ctx.lineTo(8, y + 1); ctx.stroke();
       for (const s of [[-3, -2], [4, -5], [0, 4], [2, 1]]) { ctx.beginPath(); ctx.arc(s[0], y + s[1], 0.9, 0, Math.PI * 2); ctx.fill(); }
+    } else if (p === 'tabard') {
+      // classic masked-ninja look: coloured front panel + crossed straps over a dark suit
+      roundRect(-3.2, y - 8, 6.4, 16, 1.5); ctx.fill();
+      ctx.strokeStyle = shadeHex(c, -0.35); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(-7, y - 6); ctx.lineTo(7, y + 6); ctx.moveTo(7, y - 6); ctx.lineTo(-7, y + 6); ctx.stroke();
+    } else if (p === 'ice') {
+      ctx.globalAlpha *= 0.85;
+      for (const q of [[-4.5, -3], [1, 2], [4.5, -4], [-2, 5]]) { accPath([q[0], y + q[1] - 3, q[0] + 1.4, y + q[1], q[0], y + q[1] + 3, q[0] - 1.4, y + q[1]]); ctx.fill(); }
     } else if (p === 'robe') {
       ctx.lineWidth = 1.6;
       ctx.beginPath(); ctx.moveTo(-5, y - 8); ctx.lineTo(0, y + 1); ctx.lineTo(5, y - 8); ctx.stroke();
@@ -5012,9 +5101,19 @@
       ctx.strokeStyle = shadeHex(A.hood.col, -0.35); ctx.lineWidth = 1;
       roundRect(visorX - 8.2 * vw - 1, headY - 4.2, 16.4 * vw + 2, 12.5, 5); ctx.stroke();
     }
-    if (A.hair) { // bun + ribbon at the back of the head
-      ctx.beginPath(); ctx.arc(-8.5, headY - 8, 4, 0, Math.PI * 2); accFill(A.hair.col);
-      ctx.fillStyle = skin.body[1]; ctx.fillRect(-9.5, headY - 9, 2.5, 2.5);
+    let HB = null;
+    if (A.back) for (const b of A.back) if (b.type === 'hair') HB = b;
+    if (HB) { // hair bun on the top-back of the head, with a coloured tie (moves round as he turns)
+      const bx = visorX - 10.2, by = headY - 9.6;
+      ctx.save(); ctx.translate(bx + 1.6, by + 2.4); ctx.rotate(-0.75);
+      roundRect(-2.6, -1.1, 5.2, 2.2, 1); accFill(HB.tie);
+      ctx.restore();
+      const g = ctx.createRadialGradient(bx - 1.2, by - 1.4, 0.5, bx, by, 4);
+      g.addColorStop(0, shadeHex(HB.col, 0.55)); g.addColorStop(0.5, HB.col); g.addColorStop(1, shadeHex(HB.col, -0.35));
+      ctx.beginPath(); ctx.arc(bx, by, 3.7, 0, Math.PI * 2); accFill(g);
+      ctx.strokeStyle = shadeHex(HB.col, 0.5); ctx.lineWidth = 0.7; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.arc(bx, by, 2.3, Math.PI * 0.9, Math.PI * 1.7); ctx.stroke();
+      ctx.beginPath(); ctx.arc(bx + 0.4, by + 0.3, 1.2, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
     }
     if (A.crest) {
       const C = A.crest;
@@ -5131,6 +5230,18 @@
         ctx.beginPath(); ctx.moveTo(-hr + 1, headY - 4); ctx.lineTo(visorX + 6 * vw, headY + 4.5); ctx.stroke();
         ctx.fillStyle = A.patch; ctx.beginPath(); ctx.ellipse(visorX + 3.2 * vw, headY + 2.2, 2.8 * Math.max(0.5, vw), 3, 0, 0, Math.PI * 2); ctx.fill();
       }
+      if (A.mask) drawFaceMask(A.mask, headY, hr, visorX, vw, va);
+      if (A.fangs) drawFangs(A.fangs, headY, hr, visorX, vw, va);
+      if (A.breath && FX.particles) { // little frost puffs in front of the mouth
+        ctx.save();
+        for (let i = 0; i < 3; i++) {
+          const t = (frame * 0.025 + i / 3) % 1;
+          ctx.globalAlpha = (1 - t) * 0.55 * va;
+          ctx.fillStyle = A.breath;
+          ctx.beginPath(); ctx.arc(visorX + 9 * vw + t * 7 * Math.max(0.4, vw), headY + 7 - t * 3, 1 + t * 2.2, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
+      }
       if (A.crest && A.crest.style === 'visorline') {
         ctx.strokeStyle = A.crest.col; ctx.lineWidth = 0.9;
         ctx.beginPath(); ctx.moveTo(visorX - 7 * vw, headY + 5.6); ctx.lineTo(visorX + 7 * vw, headY + 5.6); ctx.stroke();
@@ -5153,6 +5264,85 @@
     }
   }
 
+  // Lower half of the face (nose to chin), shaped to the head: the mask and the bare face both use it.
+  // It reaches less far round the back of the head when he turns side-on (vw shrinks).
+  function lowerFacePath(headY, visorX, vw) {
+    const reach = 6 + 8 * vw, l = visorX - reach, r = visorX + reach;
+    ctx.beginPath();
+    ctx.moveTo(l, headY + 3.4);
+    ctx.quadraticCurveTo(visorX - 4.6 * vw, headY + 6, visorX, headY + 4.8);
+    ctx.quadraticCurveTo(visorX + 4.6 * vw, headY + 6, r, headY + 3.4);
+    ctx.quadraticCurveTo(r + 1, headY + 10, r - 2, headY + 16);
+    ctx.lineTo(l + 2, headY + 16);
+    ctx.quadraticCurveTo(l - 1, headY + 10, l, headY + 3.4);
+    ctx.closePath();
+  }
+  function fillLowerFace(col, headY, hr, visorX, vw) {
+    const g = ctx.createLinearGradient(0, headY + 4, 0, headY + hr);
+    g.addColorStop(0, shadeHex(col, 0.22)); g.addColorStop(0.55, col); g.addColorStop(1, shadeHex(col, -0.38));
+    lowerFacePath(headY, visorX, vw);
+    ctx.fillStyle = g; ctx.fill();
+    // top edge outline (the clip keeps it on the head)
+    ctx.strokeStyle = skin.out; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(visorX - 6 - 8 * vw, headY + 3.4);
+    ctx.quadraticCurveTo(visorX - 4.6 * vw, headY + 6, visorX, headY + 4.8);
+    ctx.quadraticCurveTo(visorX + 4.6 * vw, headY + 6, visorX + 6 + 8 * vw, headY + 3.4);
+    ctx.stroke();
+  }
+  // Classic fighting-game ninja mask: cloth over nose to chin, centre seam + a soft fold; optional skull teeth / scales
+  function drawFaceMask(M, headY, hr, visorX, vw, va) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, va * 1.3);
+    ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+    const c = shadeHex(M.col, M.shade !== undefined ? M.shade : -0.22); // a shade darker than the hood
+    fillLowerFace(c, headY, hr, visorX, vw);
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = shadeHex(c, -0.45); ctx.lineWidth = 0.75;
+    ctx.beginPath(); ctx.moveTo(visorX, headY + 5); ctx.quadraticCurveTo(visorX + 0.5 * vw, headY + 8, visorX + 0.2 * vw, headY + hr); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 0.7;
+    ctx.beginPath(); ctx.moveTo(visorX - 6.5 * vw, headY + 7.2); ctx.quadraticCurveTo(visorX - 3 * vw, headY + 8.6, visorX - 0.8 * vw, headY + 8.2); ctx.stroke();
+    if (M.teeth) {
+      roundRect(visorX - 4.4 * vw, headY + 6.8, 8.8 * vw, 3.4, 1.2);
+      ctx.fillStyle = '#f4ecd0'; ctx.fill();
+      ctx.strokeStyle = shadeHex(c, -0.6); ctx.lineWidth = 0.6; ctx.stroke();
+      ctx.beginPath();
+      for (let i = -1.5; i <= 1.5; i += 1) { ctx.moveTo(visorX + i * 2.2 * vw, headY + 7); ctx.lineTo(visorX + i * 2.2 * vw, headY + 10); }
+      ctx.moveTo(visorX - 4.2 * vw, headY + 8.5); ctx.lineTo(visorX + 4.2 * vw, headY + 8.5);
+      ctx.stroke();
+    } else if (M.scales) {
+      ctx.strokeStyle = shadeHex(c, -0.35); ctx.lineWidth = 0.7;
+      for (let r = 0; r < 2; r++) for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(visorX + (i + (r % 2) * 0.5) * 2.6 * vw, headY + 7.4 + r * 2, 1.2, 0, Math.PI); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+  // Unmasked lower face with a wide grin of sharp teeth (Kunoichi do Véu Violeta)
+  function drawFangs(F, headY, hr, visorX, vw, va) {
+    ctx.save();
+    ctx.globalAlpha *= Math.min(1, va * 1.3);
+    ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+    fillLowerFace(F.skin, headY, hr, visorX, vw);
+    const w = 5.8 * vw, my = headY + 8.3;
+    const mouth = function () {
+      ctx.beginPath();
+      ctx.moveTo(visorX - w, my - 0.6);
+      ctx.quadraticCurveTo(visorX, my - 3.4, visorX + w, my - 0.6);
+      ctx.quadraticCurveTo(visorX, my + 4.4, visorX - w, my - 0.6);
+      ctx.closePath();
+    };
+    mouth(); ctx.fillStyle = '#2a0410'; ctx.fill();
+    ctx.save(); mouth(); ctx.clip();
+    ctx.fillStyle = '#fffaf2';
+    for (let i = -4; i <= 4; i++) {
+      const x = visorX + i * 1.3 * vw, long = (i === -3 || i === 3) ? 1.6 : 0;
+      accPath([x - 0.62 * vw, my - 3, x + 0.62 * vw, my - 3, x, my + 0.2 + long]); ctx.fill();
+      accPath([x - 0.62 * vw, my + 4, x + 0.62 * vw, my + 4, x, my + 1.1 - long]); ctx.fill();
+    }
+    ctx.restore();
+    mouth(); ctx.strokeStyle = F.lip; ctx.lineWidth = 0.9; ctx.stroke();
+    ctx.restore();
+  }
+
   // Cosmetic trail while moving fast (a few small particles; budget shared with FX.maxParticles)
   function skinTrail() {
     const T = skin.trail;
@@ -5165,6 +5355,8 @@
       life: 20 + Math.random() * 10, max: 30, color: T.color, size: 2 + Math.random() * 1.8 };
     if (T.kind === 'fire') { if (FX.glow) p.fire = true; else p.dust = true; p.size = 2.6 + Math.random() * 1.6; }
     else if (T.kind === 'spark') { p.spark = true; p.size = 1.3; p.vx *= 2; p.vy *= 2; }
+    else if (T.kind === 'acid') { p.dust = true; p.vy = Math.abs(p.vy) + 0.6; p.size = 1.6 + Math.random() * 1.4; }
+    else if (T.kind === 'frost') { p.star = true; p.size = 1.6 + Math.random() * 1.2; p.rot = Math.random() * 6; p.vr = 0.1; }
     else if (T.kind === 'star') { p.star = true; p.size = 2.6 + Math.random() * 1.4; p.rot = Math.random() * 6; p.vr = 0.15; }
     else { p.dust = true; if (T.kind === 'smoke') { p.size = 3 + Math.random() * 2.5; p.life = 26; p.max = 26; } }
     particles.push(p);

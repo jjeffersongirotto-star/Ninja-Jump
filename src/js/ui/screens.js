@@ -38,7 +38,15 @@ function ownedSkins() {
   return out;
 }
 function skinById(id) { for (const sk of SKINS) if (sk.id === id) return sk; return null; }
+// Characters taken out of the game: a save that bought one gets its coins back (once) and loses the id.
+function refundRemovedSkins() {
+  const list = (store.get(LS_SKINS) || '').split(',');
+  let refund = 0;
+  const keep = list.filter(function (id) { if (REMOVED_SKINS[id]) { refund += REMOVED_SKINS[id]; return false; } return true; });
+  if (refund > 0) { store.set(LS_SKINS, keep.join(',')); addWallet(refund); }
+}
 function loadSkin() {
+  try { refundRemovedSkins(); } catch (e) { logErr('refund', e); }
   const sk = skinById(store.get(LS_SKIN) || '');
   skin = sk && ownedSkins()[sk.id] ? sk : SKINS[0];
 }

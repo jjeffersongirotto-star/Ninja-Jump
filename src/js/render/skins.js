@@ -107,6 +107,43 @@ function drawAccBack(bodyY, headY, spd, wave, bdx) {
         accPath([px - 1.6, py - 1.5, px, py - 5, px + 1.6, py - 1.5]); ctx.fill();
       }
       ctx.beginPath(); ctx.arc(ex, ey, 2.4, 0, Math.PI * 2); ctx.fill();
+    } else if (b.type === 'hair') {
+      // ponytail falling from the bun, swinging out behind the head (the bun itself is drawn on the head)
+      const sw = wave * 0.8 + Math.sin(frame * 0.09) * 1.2;
+      const tx = bdx * (15 + spd * 0.35), ty = headY + 10 + sw;
+      ctx.beginPath();
+      ctx.moveTo(bdx * 6, headY - 11);
+      ctx.quadraticCurveTo(bdx * 19.5, headY - 8, tx, ty);
+      ctx.quadraticCurveTo(bdx * 13, headY - 2 + sw * 0.3, bdx * 9, headY - 6);
+      ctx.closePath();
+      accFill(b.col);
+      ctx.strokeStyle = shadeHex(b.col, 0.5); ctx.lineWidth = 0.8; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(bdx * 12, headY - 9); ctx.quadraticCurveTo(bdx * 16.5, headY - 4 + sw * 0.3, tx - bdx * 0.6, ty - 3); ctx.stroke();
+    } else if (b.type === 'rope') {
+      // coiled rope at the hip, a short length hanging behind ending in a kunai spear head
+      const hx = bdx * 7.5, hy = bodyY + 2.5, sw = Math.sin(frame * 0.1) * 1.2 + wave * 0.4;
+      ctx.strokeStyle = skin.out; ctx.lineWidth = 3.4;
+      ctx.beginPath(); ctx.ellipse(hx, hy, 4, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.strokeStyle = b.col; ctx.lineWidth = 1.7;
+      ctx.beginPath(); ctx.ellipse(hx, hy, 4, 3, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(hx, hy, 2.2, 1.6, 0, 0, Math.PI * 2); ctx.stroke();
+      const ex = bdx * (11 + spd * 0.2), ey = bodyY + 12 + sw;
+      ctx.beginPath(); ctx.moveTo(hx + bdx * 1.5, hy + 2); ctx.quadraticCurveTo(bdx * 9, bodyY + 11 - sw, ex, ey); ctx.stroke();
+      ctx.save(); ctx.translate(ex, ey); ctx.rotate(Math.atan2(4, bdx * 2));
+      accPath([0, 0, -2.6, 2.2, 0, 8.5, 2.6, 2.2]); accFill(b.blade);
+      ctx.restore();
+    } else if (b.type === 'sai') {
+      // two short three-pronged daggers crossed on the back
+      for (const k of [-1, 1]) {
+        ctx.save(); ctx.translate(bdx * 5, bodyY - 3); ctx.rotate(k * 0.6 + bdx * 0.45);
+        ctx.strokeStyle = skin.out; ctx.lineWidth = 2.6; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(0, 6); ctx.lineTo(0, -13); ctx.stroke();
+        ctx.strokeStyle = b.blade; ctx.lineWidth = 1.3;
+        ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(0, -13); ctx.moveTo(-2.4, -2); ctx.lineTo(-2, 1.5); ctx.lineTo(2, 1.5); ctx.lineTo(2.4, -2); ctx.stroke();
+        ctx.strokeStyle = b.col; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(0, 2.5); ctx.lineTo(0, 6); ctx.stroke();
+        ctx.restore();
+      }
     } else if (b.type === 'wisp') {
       ctx.save();
       ctx.globalAlpha *= 0.7;
@@ -198,6 +235,14 @@ function drawAccBody(bodyY) {
     ctx.beginPath(); ctx.moveTo(-8, y - 2); ctx.lineTo(-3, y - 2); ctx.lineTo(-1, y - 5); ctx.lineTo(4, y - 5);
     ctx.moveTo(-6, y + 4); ctx.lineTo(0, y + 4); ctx.lineTo(2, y + 1); ctx.lineTo(8, y + 1); ctx.stroke();
     for (const s of [[-3, -2], [4, -5], [0, 4], [2, 1]]) { ctx.beginPath(); ctx.arc(s[0], y + s[1], 0.9, 0, Math.PI * 2); ctx.fill(); }
+  } else if (p === 'tabard') {
+    // classic masked-ninja look: coloured front panel + crossed straps over a dark suit
+    roundRect(-3.2, y - 8, 6.4, 16, 1.5); ctx.fill();
+    ctx.strokeStyle = shadeHex(c, -0.35); ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-7, y - 6); ctx.lineTo(7, y + 6); ctx.moveTo(7, y - 6); ctx.lineTo(-7, y + 6); ctx.stroke();
+  } else if (p === 'ice') {
+    ctx.globalAlpha *= 0.85;
+    for (const q of [[-4.5, -3], [1, 2], [4.5, -4], [-2, 5]]) { accPath([q[0], y + q[1] - 3, q[0] + 1.4, y + q[1], q[0], y + q[1] + 3, q[0] - 1.4, y + q[1]]); ctx.fill(); }
   } else if (p === 'robe') {
     ctx.lineWidth = 1.6;
     ctx.beginPath(); ctx.moveTo(-5, y - 8); ctx.lineTo(0, y + 1); ctx.lineTo(5, y - 8); ctx.stroke();
@@ -241,9 +286,19 @@ function drawAccHeadMid(headY, hr, visorX, vw, va) {
     ctx.strokeStyle = shadeHex(A.hood.col, -0.35); ctx.lineWidth = 1;
     roundRect(visorX - 8.2 * vw - 1, headY - 4.2, 16.4 * vw + 2, 12.5, 5); ctx.stroke();
   }
-  if (A.hair) { // bun + ribbon at the back of the head
-    ctx.beginPath(); ctx.arc(-8.5, headY - 8, 4, 0, Math.PI * 2); accFill(A.hair.col);
-    ctx.fillStyle = skin.body[1]; ctx.fillRect(-9.5, headY - 9, 2.5, 2.5);
+  let HB = null;
+  if (A.back) for (const b of A.back) if (b.type === 'hair') HB = b;
+  if (HB) { // hair bun on the top-back of the head, with a coloured tie (moves round as he turns)
+    const bx = visorX - 10.2, by = headY - 9.6;
+    ctx.save(); ctx.translate(bx + 1.6, by + 2.4); ctx.rotate(-0.75);
+    roundRect(-2.6, -1.1, 5.2, 2.2, 1); accFill(HB.tie);
+    ctx.restore();
+    const g = ctx.createRadialGradient(bx - 1.2, by - 1.4, 0.5, bx, by, 4);
+    g.addColorStop(0, shadeHex(HB.col, 0.55)); g.addColorStop(0.5, HB.col); g.addColorStop(1, shadeHex(HB.col, -0.35));
+    ctx.beginPath(); ctx.arc(bx, by, 3.7, 0, Math.PI * 2); accFill(g);
+    ctx.strokeStyle = shadeHex(HB.col, 0.5); ctx.lineWidth = 0.7; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(bx, by, 2.3, Math.PI * 0.9, Math.PI * 1.7); ctx.stroke();
+    ctx.beginPath(); ctx.arc(bx + 0.4, by + 0.3, 1.2, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
   }
   if (A.crest) {
     const C = A.crest;
@@ -360,6 +415,18 @@ function drawAccHeadTop(headY, hr, visorX, vw, va) {
       ctx.beginPath(); ctx.moveTo(-hr + 1, headY - 4); ctx.lineTo(visorX + 6 * vw, headY + 4.5); ctx.stroke();
       ctx.fillStyle = A.patch; ctx.beginPath(); ctx.ellipse(visorX + 3.2 * vw, headY + 2.2, 2.8 * Math.max(0.5, vw), 3, 0, 0, Math.PI * 2); ctx.fill();
     }
+    if (A.mask) drawFaceMask(A.mask, headY, hr, visorX, vw, va);
+    if (A.fangs) drawFangs(A.fangs, headY, hr, visorX, vw, va);
+    if (A.breath && FX.particles) { // little frost puffs in front of the mouth
+      ctx.save();
+      for (let i = 0; i < 3; i++) {
+        const t = (frame * 0.025 + i / 3) % 1;
+        ctx.globalAlpha = (1 - t) * 0.55 * va;
+        ctx.fillStyle = A.breath;
+        ctx.beginPath(); ctx.arc(visorX + 9 * vw + t * 7 * Math.max(0.4, vw), headY + 7 - t * 3, 1 + t * 2.2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    }
     if (A.crest && A.crest.style === 'visorline') {
       ctx.strokeStyle = A.crest.col; ctx.lineWidth = 0.9;
       ctx.beginPath(); ctx.moveTo(visorX - 7 * vw, headY + 5.6); ctx.lineTo(visorX + 7 * vw, headY + 5.6); ctx.stroke();
@@ -382,6 +449,85 @@ function drawAccHeadTop(headY, hr, visorX, vw, va) {
   }
 }
 
+// Lower half of the face (nose to chin), shaped to the head: the mask and the bare face both use it.
+// It reaches less far round the back of the head when he turns side-on (vw shrinks).
+function lowerFacePath(headY, visorX, vw) {
+  const reach = 6 + 8 * vw, l = visorX - reach, r = visorX + reach;
+  ctx.beginPath();
+  ctx.moveTo(l, headY + 3.4);
+  ctx.quadraticCurveTo(visorX - 4.6 * vw, headY + 6, visorX, headY + 4.8);
+  ctx.quadraticCurveTo(visorX + 4.6 * vw, headY + 6, r, headY + 3.4);
+  ctx.quadraticCurveTo(r + 1, headY + 10, r - 2, headY + 16);
+  ctx.lineTo(l + 2, headY + 16);
+  ctx.quadraticCurveTo(l - 1, headY + 10, l, headY + 3.4);
+  ctx.closePath();
+}
+function fillLowerFace(col, headY, hr, visorX, vw) {
+  const g = ctx.createLinearGradient(0, headY + 4, 0, headY + hr);
+  g.addColorStop(0, shadeHex(col, 0.22)); g.addColorStop(0.55, col); g.addColorStop(1, shadeHex(col, -0.38));
+  lowerFacePath(headY, visorX, vw);
+  ctx.fillStyle = g; ctx.fill();
+  // top edge outline (the clip keeps it on the head)
+  ctx.strokeStyle = skin.out; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(visorX - 6 - 8 * vw, headY + 3.4);
+  ctx.quadraticCurveTo(visorX - 4.6 * vw, headY + 6, visorX, headY + 4.8);
+  ctx.quadraticCurveTo(visorX + 4.6 * vw, headY + 6, visorX + 6 + 8 * vw, headY + 3.4);
+  ctx.stroke();
+}
+// Classic fighting-game ninja mask: cloth over nose to chin, centre seam + a soft fold; optional skull teeth / scales
+function drawFaceMask(M, headY, hr, visorX, vw, va) {
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, va * 1.3);
+  ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+  const c = shadeHex(M.col, M.shade !== undefined ? M.shade : -0.22); // a shade darker than the hood
+  fillLowerFace(c, headY, hr, visorX, vw);
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = shadeHex(c, -0.45); ctx.lineWidth = 0.75;
+  ctx.beginPath(); ctx.moveTo(visorX, headY + 5); ctx.quadraticCurveTo(visorX + 0.5 * vw, headY + 8, visorX + 0.2 * vw, headY + hr); ctx.stroke();
+  ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(visorX - 6.5 * vw, headY + 7.2); ctx.quadraticCurveTo(visorX - 3 * vw, headY + 8.6, visorX - 0.8 * vw, headY + 8.2); ctx.stroke();
+  if (M.teeth) {
+    roundRect(visorX - 4.4 * vw, headY + 6.8, 8.8 * vw, 3.4, 1.2);
+    ctx.fillStyle = '#f4ecd0'; ctx.fill();
+    ctx.strokeStyle = shadeHex(c, -0.6); ctx.lineWidth = 0.6; ctx.stroke();
+    ctx.beginPath();
+    for (let i = -1.5; i <= 1.5; i += 1) { ctx.moveTo(visorX + i * 2.2 * vw, headY + 7); ctx.lineTo(visorX + i * 2.2 * vw, headY + 10); }
+    ctx.moveTo(visorX - 4.2 * vw, headY + 8.5); ctx.lineTo(visorX + 4.2 * vw, headY + 8.5);
+    ctx.stroke();
+  } else if (M.scales) {
+    ctx.strokeStyle = shadeHex(c, -0.35); ctx.lineWidth = 0.7;
+    for (let r = 0; r < 2; r++) for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(visorX + (i + (r % 2) * 0.5) * 2.6 * vw, headY + 7.4 + r * 2, 1.2, 0, Math.PI); ctx.stroke(); }
+  }
+  ctx.restore();
+}
+// Unmasked lower face with a wide grin of sharp teeth (Kunoichi do Véu Violeta)
+function drawFangs(F, headY, hr, visorX, vw, va) {
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, va * 1.3);
+  ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+  fillLowerFace(F.skin, headY, hr, visorX, vw);
+  const w = 5.8 * vw, my = headY + 8.3;
+  const mouth = function () {
+    ctx.beginPath();
+    ctx.moveTo(visorX - w, my - 0.6);
+    ctx.quadraticCurveTo(visorX, my - 3.4, visorX + w, my - 0.6);
+    ctx.quadraticCurveTo(visorX, my + 4.4, visorX - w, my - 0.6);
+    ctx.closePath();
+  };
+  mouth(); ctx.fillStyle = '#2a0410'; ctx.fill();
+  ctx.save(); mouth(); ctx.clip();
+  ctx.fillStyle = '#fffaf2';
+  for (let i = -4; i <= 4; i++) {
+    const x = visorX + i * 1.3 * vw, long = (i === -3 || i === 3) ? 1.6 : 0;
+    accPath([x - 0.62 * vw, my - 3, x + 0.62 * vw, my - 3, x, my + 0.2 + long]); ctx.fill();
+    accPath([x - 0.62 * vw, my + 4, x + 0.62 * vw, my + 4, x, my + 1.1 - long]); ctx.fill();
+  }
+  ctx.restore();
+  mouth(); ctx.strokeStyle = F.lip; ctx.lineWidth = 0.9; ctx.stroke();
+  ctx.restore();
+}
+
 // Cosmetic trail while moving fast (a few small particles; budget shared with FX.maxParticles)
 function skinTrail() {
   const T = skin.trail;
@@ -394,6 +540,8 @@ function skinTrail() {
     life: 20 + Math.random() * 10, max: 30, color: T.color, size: 2 + Math.random() * 1.8 };
   if (T.kind === 'fire') { if (FX.glow) p.fire = true; else p.dust = true; p.size = 2.6 + Math.random() * 1.6; }
   else if (T.kind === 'spark') { p.spark = true; p.size = 1.3; p.vx *= 2; p.vy *= 2; }
+  else if (T.kind === 'acid') { p.dust = true; p.vy = Math.abs(p.vy) + 0.6; p.size = 1.6 + Math.random() * 1.4; }
+  else if (T.kind === 'frost') { p.star = true; p.size = 1.6 + Math.random() * 1.2; p.rot = Math.random() * 6; p.vr = 0.1; }
   else if (T.kind === 'star') { p.star = true; p.size = 2.6 + Math.random() * 1.4; p.rot = Math.random() * 6; p.vr = 0.15; }
   else { p.dust = true; if (T.kind === 'smoke') { p.size = 3 + Math.random() * 2.5; p.life = 26; p.max = 26; } }
   particles.push(p);
