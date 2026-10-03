@@ -53,7 +53,10 @@ const HAZARDS = {
   // Head stomp: landing on a flyer/UFO from above (moving down faster than `minDown`, contact within
   // ~60 degrees of straight down: upward contact component >= `zone`). Blue: defeated, +`coins`, rebound
   // `blueImpulse`. Red: NOT defeated, just rebound `redImpulse` and he survives. Spikes/saws: always fatal.
-  stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 1, poofFrames: 22 },
+  // Upper-half hit (blue only, `upperHalf`): touching a blue flyer/UFO anywhere from its vertical middle up
+  // defeats it too, from any direction (side, rising from below at an angle). Coming down: stomp rebound;
+  // otherwise he keeps his momentum. Lower-half contacts keep the bump. Every defeat gives +`coins`.
+  stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 10, poofFrames: 22, upperHalf: true },
   // Rooms (hand-built obstacle patterns, see world/rooms.js): the generator places one room at a time,
   // with a calm breather (coins only, `breather` m) between rooms. A room's difficulty (1-3) is allowed
   // once the altitude ramp reaches `roomDiffAt[d-1]` (0..1 of the ramp from platformLeft to maxDifficulty);

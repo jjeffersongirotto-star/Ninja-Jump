@@ -941,7 +941,10 @@
     // Head stomp: landing on a flyer/UFO from above (moving down faster than `minDown`, contact within
     // ~60 degrees of straight down: upward contact component >= `zone`). Blue: defeated, +`coins`, rebound
     // `blueImpulse`. Red: NOT defeated, just rebound `redImpulse` and he survives. Spikes/saws: always fatal.
-    stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 1, poofFrames: 22 },
+    // Upper-half hit (blue only, `upperHalf`): touching a blue flyer/UFO anywhere from its vertical middle up
+    // defeats it too, from any direction (side, rising from below at an angle). Coming down: stomp rebound;
+    // otherwise he keeps his momentum. Lower-half contacts keep the bump. Every defeat gives +`coins`.
+    stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 10, poofFrames: 22, upperHalf: true },
     // Rooms (hand-built obstacle patterns, see world/rooms.js): the generator places one room at a time,
     // with a calm breather (coins only, `breather` m) between rooms. A room's difficulty (1-3) is allowed
     // once the altitude ramp reaches `roomDiffAt[d-1]` (0..1 of the ramp from platformLeft to maxDifficulty);
@@ -1005,12 +1008,12 @@
   let atmosCache = null;
   let shortStreak = 0;   // consecutive bounces on short elastics
   let rings = [];        // shockwave rings (super jump)
-  let floaters = [];     // '+1' coin pop after a stomp
+  let floaters = [];     // '+10' coin pop after defeating an enemy
   let groundY = 0, originY = 0; // world y of the ground top / of meter 0 (fixed per run)
   // Per-run counters (reset at the start of every run by resetDebugStats)
   function freshDebugStats() {
     return { bounces: 0, supers: 0, wallKicks: 0, superFrame: -1, last: null, hits: {}, deaths: 0, deathBy: null, shieldBreaks: 0,
-      stomps: { blue: 0, red: 0 }, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0,
+      stomps: { blue: 0, red: 0 }, upperHits: 0, pushOuts: 0, unsticks: 0, groundHops: 0, maxEmbedded: 0,
       bonks: 0, ghostPlatforms: 0, snaps: 0, expired: 0, fallBounces: 0,
       powerups: { magnet: 0, shield: 0, rocket: 0 }, shieldSaves: 0, rocketExtend: 0, dives: 0, teleports: 0, magnetCoins: 0 };
   }
@@ -2044,12 +2047,12 @@
     for (let i = 1; i <= steps; i++) {
       const t = i / steps, px = x0 + (x1 - x0) * t, py = y0 + (y1 - y0) * t;
       for (const hz of hzNear) {
-        if (hz.cool > 0 || hz.ghost) continue;
+        if (hz.cool > 0 || hz.ghost || hz.dying > 0) continue;
         if (hz.fatal && ninja.invulnT > 0) continue; // just lost the shield: a moment to get away
         if (!hz.fatal && ninja.ghost > 0) continue;
         if (!hazardContact(hz, px, py)) continue;
         if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
-          // super jump: platforms are intangible (like when falling); blue enemies are defeated (+1 coin),
+          // super jump: platforms are intangible (like when falling); blue enemies are defeated (+stomp.coins),
           // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
           if (hz.type === 'platform') ghostPlatform(hz);
           else if (hz.color === 'red') knockAside(hz);
@@ -2059,6 +2062,16 @@
         if (!onBand && hz.type === 'platform' && ninja.vy >= 0 && ly + NINJA_R <= hz.y - hz.h / 2 + 2) {
           // falling onto a platform from above: it turns intangible and he drops straight through
           ghostPlatform(hz);
+          continue;
+        }
+        if (!onBand && isUpperHit(hz, py)) {
+          // blue enemy touched on its upper half: defeated (+coins). Coming down = stomp rebound, else fly on.
+          if (ninja.vy > HAZARDS.stomp.minDown) { stompHazard(hz, px, py); return; }
+          debugStats.upperHits++;
+          countHit(hz.kind + ':upper');
+          ninja.vx *= 0.85;
+          shake = Math.max(shake, 3);
+          defeatEnemy(hz);
           continue;
         }
         if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
@@ -2098,6 +2111,12 @@
     return best || opts[1];
   }
 
+  // Blue flyer/UFO touched anywhere from its vertical middle up (ninja centre at or above the enemy centre)
+  function isUpperHit(hz, py) {
+    if (!HAZARDS.stomp.upperHalf || hz.color === 'red' || hz.fatal) return false;
+    if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
+    return py <= hz.y;
+  }
   // Head stomp: coming down onto a flyer/UFO from above
   function isStomp(hz, px, py) {
     if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
@@ -4905,10 +4924,14 @@
         const s = 16;
         ctx.drawImage(coinSprite.cv, f.x + 4, y - s / 2, s, s);
       }
+      // with the coin icon: text ends just left of the coin (so '+10' doesn't run into it)
+      const withCoin = !!(coinSprite && !f.noCoin);
+      ctx.textAlign = withCoin ? 'right' : 'center';
+      const tx = withCoin ? f.x + 2 : f.x - 8;
       ctx.strokeStyle = f.noCoin ? 'rgba(10,15,40,0.75)' : 'rgba(60,40,0,0.7)';
-      ctx.strokeText(f.text, f.x - 8, y);
+      ctx.strokeText(f.text, tx, y);
       ctx.fillStyle = f.color || '#ffe066';
-      ctx.fillText(f.text, f.x - 8, y);
+      ctx.fillText(f.text, tx, y);
     }
     ctx.restore();
   }
