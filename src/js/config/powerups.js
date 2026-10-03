@@ -21,7 +21,13 @@ const POWERUPS = {
   // gently with the softer post-bump gravity (HAZARDS.bumpFloat) so there is time to draw an elastic.
   // Super jump: a rocket picked during a super jump replaces it (spin ends, no stacking); no super jump can
   // start during a rocket (elastics are ignored while it flies). The short-elastic streak is kept.
-  rocket: { frames: 150, speed: 10.5, easeFrames: 26, releaseVy: 5, extendMax: 90, clearMargin: 40 },
+  rocket: { frames: 150, speed: 10.5, easeFrames: 26, releaseVy: 5, extendMax: 90, clearMargin: 40,
+    // Coin auto-path: while climbing it steers sideways toward the next coin ahead (within `lookahead` px
+    // above him, or up to `behind` px below) that it can still reach at `maxVx` px/frame sideways.
+    // Side speed is planned to arrive right when he reaches the coin's height (gap / frames left, capped
+    // at `maxVx`), eased in by `accel` per frame. No coin ahead: drifts back to straight up (side speed
+    // x0.9 per frame). Always kept `wallMargin` px inside the screen.
+    coinSteer: { lookahead: 340, behind: 14, maxVx: 9, accel: 0.5, wallMargin: 4 } },
   // COMBOS: two effects active at the same time (rocket and super jump never overlap: the rocket replaces it).
   // Each combo shows its name once when it starts and a coloured aura while it lasts.
   combos: {

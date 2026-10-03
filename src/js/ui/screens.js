@@ -17,6 +17,7 @@ function showScreen(name) {
   if (name === 'controls') refreshControlsUi();
 }
 function goBack() {
+  if (dlgIsOpen()) { dlgClose(); return; }
   if (screen === 'audio' || screen === 'controls') showScreen('options');
   else if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
   else showScreen('main');
@@ -41,36 +42,71 @@ function loadSkin() {
   const sk = skinById(store.get(LS_SKIN) || '');
   skin = sk && ownedSkins()[sk.id] ? sk : SKINS[0];
 }
-let pendingBuy = null;
-function onCharTap(sk) {
-  const owned = ownedSkins();
-  if (owned[sk.id]) {
-    skin = sk;
-    store.set(LS_SKIN, sk.id);
-    pendingBuy = null;
-    charsMsg.textContent = '';
-    beep(660, 0.06, 'sine', 0.06);
-  } else if (getWallet() < sk.price) {
-    pendingBuy = null;
-    charsMsg.textContent = 'Faltam ' + (sk.price - getWallet()) + ' moedas para liberar';
-    beep(160, 0.1, 'square', 0.05);
-  } else if (pendingBuy !== sk.id) {
-    pendingBuy = sk.id;
-    charsMsg.textContent = 'Toque de novo para comprar por ' + sk.price + ' 🪙';
-  } else {
-    pendingBuy = null;
-    store.set(LS_WALLET, String(getWallet() - sk.price));
-    const list = (store.get(LS_SKINS) || '').split(',').filter(Boolean);
-    list.push(sk.id);
-    store.set(LS_SKINS, list.join(','));
-    skin = sk;
-    store.set(LS_SKIN, sk.id);
-    charsMsg.textContent = sk.name + ' liberado!';
-    beep(880, 0.08, 'sine', 0.07);
-    beep(1320, 0.12, 'triangle', 0.05);
-  }
+// --- Confirmation dialog (Sim / Não, or just OK) ---
+let dlgYesFn = null;
+function dlgOpen(sk, text, sub, bad, yesFn) {
+  if (!dlgEl) return;
+  document.getElementById('dlgText').textContent = text;
+  const subEl = document.getElementById('dlgSub');
+  subEl.textContent = sub || '';
+  subEl.className = 'dlg-sub' + (bad ? ' bad' : '');
+  dlgYesFn = yesFn || null;
+  document.getElementById('dlgBtns').className = 'dlg-btns' + (yesFn ? '' : ' hidden');
+  document.getElementById('dlgOkRow').className = 'dlg-btns' + (yesFn ? ' hidden' : '');
+  const pic = document.getElementById('dlgPic');
+  try { drawSkinPreview(pic, sk); } catch (err) { logErr('preview', err); }
+  dlgEl.classList.remove('hidden');
+}
+function dlgClose() { if (dlgEl) dlgEl.classList.add('hidden'); dlgYesFn = null; }
+function dlgIsOpen() { return !!(dlgEl && !dlgEl.classList.contains('hidden')); }
+function initDialog() {
+  if (!dlgEl) return;
+  const tap = (id, fn) => document.getElementById(id).addEventListener('click', function (e) { e.stopPropagation(); ensureAudio(); fn(); }, false);
+  tap('dlgYes', () => { const f = dlgYesFn; dlgClose(); if (f) f(); });
+  tap('dlgNo', () => { dlgClose(); beep(330, 0.05, 'sine', 0.04); });
+  tap('dlgOk', () => dlgClose());
+  // tap outside the box = Não
+  dlgEl.addEventListener('click', function (e) { e.stopPropagation(); if (e.target === dlgEl) dlgClose(); }, false);
+}
+
+function buySkin(sk) {
+  if (getWallet() < sk.price || ownedSkins()[sk.id]) return;
+  store.set(LS_WALLET, String(getWallet() - sk.price));
+  const list = (store.get(LS_SKINS) || '').split(',').filter(Boolean);
+  list.push(sk.id);
+  store.set(LS_SKINS, list.join(','));
+  charsMsg.textContent = sk.name + ' liberado!';
+  charsMsg.className = 'chars-msg ok';
+  beep(880, 0.08, 'sine', 0.07);
+  beep(1320, 0.12, 'triangle', 0.05);
   refreshWallet();
   renderChars();
+}
+function useSkin(sk) {
+  skin = sk;
+  store.set(LS_SKIN, sk.id);
+  charsMsg.textContent = 'Agora você joga com ' + sk.name + '.';
+  charsMsg.className = 'chars-msg ok';
+  beep(660, 0.06, 'sine', 0.06);
+  renderChars();
+}
+// Locked: confirm the purchase (or say how many coins are missing). Unlocked: confirm switching to it.
+function onCharTap(sk) {
+  const owned = ownedSkins();
+  charsMsg.textContent = '';
+  charsMsg.className = 'chars-msg';
+  if (sk === skin) {
+    charsMsg.textContent = sk.name + ' já está em uso.';
+    charsMsg.className = 'chars-msg ok';
+  } else if (owned[sk.id]) {
+    dlgOpen(sk, 'Usar ' + sk.name + '?', '', false, () => useSkin(sk));
+  } else if (getWallet() < sk.price) {
+    const miss = sk.price - getWallet();
+    dlgOpen(sk, sk.name + ' custa ' + sk.price + ' moedas', 'Faltam ' + miss + (miss === 1 ? ' moeda.' : ' moedas.'), true, null);
+    beep(160, 0.1, 'square', 0.05);
+  } else {
+    dlgOpen(sk, 'Comprar ' + sk.name + ' por ' + sk.price + ' moedas?', 'Você tem ' + getWallet() + ' moedas.', false, () => buySkin(sk));
+  }
 }
 function renderChars() {
   if (!charsList) return;
@@ -84,7 +120,7 @@ function renderChars() {
     if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = sk.name; b.appendChild(nm);
     const st = document.createElement('div'); st.className = 'st';
-    st.textContent = sk === skin ? 'Selecionado' : (owned[sk.id] ? 'Selecionar' : (pendingBuy === sk.id ? 'Comprar?' : '🪙 ' + sk.price));
+    st.textContent = sk === skin ? 'Em uso' : (owned[sk.id] ? 'Usar' : '🪙 ' + sk.price);
     b.appendChild(st);
     b.addEventListener('click', function (e) { e.stopPropagation(); onCharTap(sk); }, false);
     charsList.appendChild(b);

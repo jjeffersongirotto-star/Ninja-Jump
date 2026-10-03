@@ -223,6 +223,7 @@ body { position: fixed; top: 0; left: 0; }
 .char.locked .st { color: #ffd700; }
 .char.sel .st { color: #4dff88; }
 .chars-msg { min-height: 20px; font-size: 13px; font-weight: 700; color: #ff9c8a; margin-bottom: 14px; }
+.chars-msg.ok { color: #4dff88; }
 .panel {
   background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15); border-radius: 16px;
   padding: 14px 20px; margin-bottom: 24px; min-width: 260px;
@@ -361,3 +362,27 @@ html.nojs .subtitle, html.nojs #recordsBox, html.nojs #menuBtns, html.nojs #goSt
 html.game-failed .subtitle, html.game-failed #recordsBox, html.game-failed #menuBtns, html.game-failed #goStats,
 html.game-failed #walletBox, html.game-failed #scrChars, html.game-failed #scrOptions, html.game-failed #scrPause,
 html.game-failed #scrAudio, html.game-failed #scrControls { display: none !important; }
+
+/* Confirmation dialog (character menu): over the menus, touch-friendly, same look as the panels */
+.dlg {
+  position: absolute; top: 0; right: 0; bottom: 0; left: 0; z-index: 40; pointer-events: auto;
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(4, 4, 14, .62); touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.dlg.hidden { display: none; }
+.dlg-box {
+  width: 300px; max-width: 100%; text-align: center; color: #fff; padding: 18px 18px 6px;
+  background: linear-gradient(180deg, #2c3352, #1b2036); border: 2px solid rgba(255,215,0,.35);
+  border-radius: 20px; box-shadow: 0 14px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.12);
+  animation: dlgIn .16s ease-out;
+}
+@keyframes dlgIn { from { transform: scale(.88); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.dlg-pic { display: block; width: 84px; height: 84px; margin: 0 auto 6px; }
+.dlg-text { font-size: 19px; font-weight: 800; line-height: 1.3; margin-bottom: 6px; }
+.dlg-sub { font-size: 14px; font-weight: 700; color: #ffd700; min-height: 18px; margin-bottom: 16px; }
+.dlg-sub.bad { color: #ff9c8a; }
+.dlg-btns { display: flex; justify-content: center; }
+.dlg-btns.hidden { display: none; }
+.dlg-btns .btn { min-width: 112px; min-height: 48px; margin: 0 6px 16px; padding: 12px 18px; font-size: 16px; }
+.dlg-yes { background: linear-gradient(180deg, #34c46a, #1f8a47); box-shadow: 0 6px 0 #0f4a2a, 0 10px 24px rgba(30,140,80,.3); }
+.dlg-yes:active { box-shadow: 0 2px 0 #0f4a2a, 0 4px 12px rgba(30,140,80,.3); }

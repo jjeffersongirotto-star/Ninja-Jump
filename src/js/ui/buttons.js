@@ -26,7 +26,8 @@ function onBtn(id, fn) {
   if (el) el.addEventListener('click', function (e) { e.stopPropagation(); ensureAudio(); fn(); }, false);
 }
 function bindMenus() {
-  onBtn('charsBtn', function () { pendingBuy = null; charsMsg.textContent = ''; showScreen('chars'); });
+  onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
+  initDialog();
   onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });
   onBtn('pauseOptionsBtn', function () { optionsBack = 'pause'; showScreen('options'); });
   onBtn('resumeBtn', resumeWithCountdown);
