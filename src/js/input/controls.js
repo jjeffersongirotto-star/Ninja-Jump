@@ -84,6 +84,7 @@ function pickControls(mode) {
 function onKeyDown(e) {
   const k = e.key;
   if (k !== 'Escape' && k !== 'p' && k !== 'P' && k !== 'Enter') return;
+  if (k === 'Escape' && dlgIsOpen()) { dlgClose(); return; } // character dialog: Esc = Não
   if (state !== 'playing') return;
   if (k === 'Escape' && drawing) { drawing = null; return; }
   if (!paused && k !== 'Enter') { pauseGame(); return; }

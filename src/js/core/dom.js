@@ -52,6 +52,7 @@ const walletVal = document.getElementById('walletVal');
 const walletVal2 = document.getElementById('walletVal2');
 const charsList = document.getElementById('charsList');
 const charsMsg = document.getElementById('charsMsg');
+const dlgEl = document.getElementById('dlg');
 const soundToggle = document.getElementById('soundToggle');
 const soundLabel = document.getElementById('soundLabel');
 const countdownEl = document.getElementById('countdown');

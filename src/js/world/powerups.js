@@ -42,8 +42,11 @@ function rocketStep() {
   const RK = POWERUPS.rocket, r = ninja.rocketT;
   const target = r > RK.easeFrames ? -RK.speed : -(RK.releaseVy + (RK.speed - RK.releaseVy) * (r / RK.easeFrames));
   ninja.vy += (target - ninja.vy) * 0.25;
-  ninja.vx *= 0.9;
+  rocketCoinSteer();
   ninja.x += ninja.vx;
+  const wm = NINJA_R + RK.coinSteer.wallMargin;
+  if (ninja.x < wm) { ninja.x = wm; if (ninja.vx < 0) ninja.vx = 0; }
+  if (ninja.x > W - wm) { ninja.x = W - wm; if (ninja.vx > 0) ninja.vx = 0; }
   ninja.y += ninja.vy;
   if (r <= 1) {
     // never drop him inside a hazard's area: keep rising slowly until clear
@@ -61,6 +64,30 @@ function rocketStep() {
         vy: 2.5 + Math.random() * 2, life: 18 + Math.random() * 10, max: 28, size: 3 + Math.random() * 3,
         color: Math.random() < 0.5 ? '#ffd27f' : (Math.random() < 0.5 ? '#ff7a3d' : 'rgba(255,255,255,0.8)') });
     }
+  }
+}
+// Coin auto-path: aim for the nearest coin ahead that can still be reached; otherwise straighten up
+function rocketCoinSteer() {
+  const CS = POWERUPS.rocket.coinSteer, climb = Math.max(2, -ninja.vy);
+  const pickR = NINJA_R + 14; // coin pickup distance (NINJA_R + coin r + 4)
+  let best = null, bestDy = 1e9;
+  for (const c of coins) {
+    if (c.collected) continue;
+    const dy = ninja.y - c.y; // > 0: above him
+    if (dy < -CS.behind || dy > CS.lookahead) continue;
+    const dx = Math.abs(c.x - ninja.x);
+    // reachable before he passes it: side distance he can cover while climbing up to it (+ pickup radius)
+    if (dx - pickR > CS.maxVx * Math.max(0, dy) / climb + 4) continue;
+    if (dy < bestDy) { bestDy = dy; best = c; }
+  }
+  if (best) {
+    const left = Math.max(1, bestDy / climb); // frames until he reaches its height
+    const want = Math.max(-CS.maxVx, Math.min(CS.maxVx, (best.x - ninja.x) / left));
+    ninja.vx += (want - ninja.vx) * CS.accel;
+    ninja.rocketCoin = best;
+  } else {
+    ninja.vx *= 0.9;
+    ninja.rocketCoin = null;
   }
 }
 // While extending: drift sideways toward the nearest free column (the guaranteed gap) at his height
