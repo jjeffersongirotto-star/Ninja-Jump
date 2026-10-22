@@ -2,6 +2,7 @@
 const GRAVITY_BASE = 0.36;
 const NINJA_R = 16;
 const ELASTIC_MIN = 36;
+const ELASTIC_MIN_DRAWN = 4;
 const BASE_IMPULSE = 19.5;
 // Max drawn length: one third of the screen width (never below a usable minimum on tiny screens).
 // The finger can keep dragging, but the line stops growing at this length.

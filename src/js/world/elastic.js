@@ -24,8 +24,8 @@ function moveDraw(x, y) {
   drawing.sx2 = x;
   drawing.sy2 = y;
   syncDrawingWorld();
-  // Only one working elastic: the old one breaks as soon as the new line is long enough to count
-  if (!drawing.broke && Math.hypot(x - drawing.sx1, y - drawing.sy1) >= 12) {
+  // Any actual movement starts a replacement elastic.
+  if (!drawing.broke && Math.hypot(x - drawing.sx1, y - drawing.sy1) > 0) {
     drawing.broke = true;
     if (elastic && elastic.phase !== 'snapped') snapElastic(elastic);
   }
@@ -33,19 +33,23 @@ function moveDraw(x, y) {
 function endDraw() {
   if (!drawing) return;
   syncDrawingWorld();
-  const len = Math.hypot(drawing.x2 - drawing.x1, drawing.y2 - drawing.y1);
-  // Accept short strokes — only ignore tiny accidental taps
-  if (len >= 12) {
-    elastic = {
-      x1: drawing.x1, y1: drawing.y1,
-      x2: drawing.x2, y2: drawing.y2,
-      wobble: 0, used: false, age: 0,
-      phase: 'ready', sag: 0, hitT: 0.5,
-      impactSpeed: 0, stretchFrames: 0, maxSag: 0
-    };
-    // Still inside an intangible platform: no room for an elastic, it snaps
-    if (!settleGhostPlatforms()) snapElastic(elastic);
+  // Every created anchor peg becomes an elastic. Give a tap a tiny length so it has a launch direction.
+  let x2 = drawing.x2, y2 = drawing.y2;
+  const dx = x2 - drawing.x1, dy = y2 - drawing.y1, len = Math.hypot(dx, dy);
+  if (len < ELASTIC_MIN_DRAWN) {
+    const ux = len > 0 ? dx / len : 1, uy = len > 0 ? dy / len : 0;
+    x2 = drawing.x1 + ux * ELASTIC_MIN_DRAWN;
+    y2 = drawing.y1 + uy * ELASTIC_MIN_DRAWN;
   }
+  elastic = {
+    x1: drawing.x1, y1: drawing.y1,
+    x2, y2,
+    wobble: 0, used: false, age: 0,
+    phase: 'ready', sag: 0, hitT: 0.5,
+    impactSpeed: 0, stretchFrames: 0, maxSag: 0
+  };
+  // Still inside an intangible platform: no room for an elastic, it snaps
+  if (!settleGhostPlatforms()) snapElastic(elastic);
   drawing = null;
 }
 
