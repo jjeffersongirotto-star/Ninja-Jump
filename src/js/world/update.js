@@ -115,7 +115,7 @@ function update(dt) {
 
   // Elastic trampoline: ready → stretching (sag) → launch
   if (elastic && !ninja.dead) {
-    const hitPad = lerp(12, 6, smoothstep(0, 300, meters));
+    const hitPad = lerp(12, 6, smoothstep(0, 300, meters)) + abilityValue('elasticTolerance', 0);
     const { nx, ny } = elasticUpNormal(elastic);
     const angle = Math.atan2(elastic.y2 - elastic.y1, elastic.x2 - elastic.x1);
 
@@ -157,12 +157,12 @@ function update(dt) {
 
       if (elastic.stretchFrames >= dur) {
         const rawLen = elasticLength(elastic);
-        let strength = BASE_IMPULSE * diff.impulseBonus * elasticPower(rawLen);
+        let strength = BASE_IMPULSE * diff.impulseBonus * elasticPower(rawLen) * abilityValue('bounceMultiplier', 1);
         const fallMult = fallBounceMult(elastic.speedIn || 0, strength + elastic.impactSpeed * 0.28);
-        // Short-elastic streak: the SUPER_STREAK-th short bounce in a row is a super jump
+        // Short-elastic streak: the required short bounce in a row is a super jump
         const isShort = elasticT(rawLen) <= SHORT_ELASTIC_T;
         shortStreak = isShort ? shortStreak + 1 : 0;
-        const isSuper = isShort && shortStreak >= SUPER_STREAK;
+        const isSuper = isShort && shortStreak >= superStreakRequired();
         if (isSuper) {
           shortStreak = 0;
           strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN, strength * fallMult);
@@ -176,7 +176,7 @@ function update(dt) {
         lx /= ll; ly /= ll;
         const boost = elastic.impactSpeed * 0.28;
         const fm = isSuper ? 1 : fallMult; // no stacking with the super jump (it already took the bigger one)
-        ninja.vx = lx * (strength + boost * 0.45) * fm;
+        ninja.vx = lx * (strength + boost * 0.45) * fm * abilityValue('horizontalMultiplier', 1);
         ninja.vy = ly * (strength + boost) * fm;
         if (fm > 1.1 && !isSuper) fallBounceFx(fm);
         ninja.facing = ninja.vx >= 0 ? 1 : -1;
@@ -192,6 +192,7 @@ function update(dt) {
           ninja.spinning = 0;
           ninja.superSpin = true;
           ninja.spinAngle = 0;
+          ninja.redKillsThisSuper = 0;
           // Plan the spin so it slows linearly with the rising speed and ends upright at the top
           const g = GRAVITY_BASE * diff.gravityScale;
           const v0 = Math.max(1, -ninja.vy);
@@ -256,10 +257,7 @@ function update(dt) {
   } else ninja.deathSpin += 0.22;
   for (let i = floaters.length - 1; i >= 0; i--) {
     const f = floaters[i];
-    if (f.follow) { // combo name: rides along above the ninja (the rocket would leave it behind), kept on screen
-      f.x = Math.max(105, Math.min(W - 89, ninja.x + 8));
-      f.y = ninja.y - 50 - (80 - f.life) * 0.25;
-    } else f.y -= 0.9;
+    f.y -= 0.9;
     f.life--;
     if (f.life <= 0) floaters.splice(i, 1);
   }
@@ -270,9 +268,9 @@ function update(dt) {
     c.sparkle += 0.15;
     if (c.y > camera.y + H + 80) { c.collected = true; continue; }
     if (ninja.magnetT > 0 && !ninja.dead) magnetPull(c);
-    if (!ninja.dead && Math.hypot(ninja.x - c.x, ninja.y - c.y) < NINJA_R + c.r + 4) {
+    if (!ninja.dead && Math.hypot(ninja.x - c.x, ninja.y - c.y) < NINJA_R + c.r + 4 + abilityValue('coinRadius', 0)) {
       c.collected = true;
-      runCoins++;
+      awardRunCoins(1);
       burst(c.x, c.y, atmosCache.accent, 10, 3);
       fxCoinPickup(c);
       beep(880, 0.06, 'sine', 0.07);
@@ -309,7 +307,7 @@ function update(dt) {
   spawnAhead();
 
   // Lose only after falling fully off the bottom of the (following) camera
-  if (ninja.y - camera.y > H + 80) gameOver();
+  if (ninja.y - camera.y > H + 80 && !tryCharacterRescue(null, true)) gameOver();
 
   updateHud(meters);
 }

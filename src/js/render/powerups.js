@@ -220,8 +220,8 @@ let powerHudY = 0, powerHudCheck = -1;
 function drawPowerHud() {
   if (!ninja || ninja.dead) return;
   const list = [];
-  if (ninja.rocketT > 0) list.push(['rocket', Math.min(1, ninja.rocketT / POWERUPS.rocket.frames)]);
-  if (ninja.magnetT > 0) list.push(['magnet', ninja.magnetT / POWERUPS.magnet.frames]);
+  if (ninja.rocketT > 0) list.push(['rocket', Math.min(1, ninja.rocketT / timedPowerupFrames(POWERUPS.rocket.frames))]);
+  if (ninja.magnetT > 0) list.push(['magnet', Math.min(1, ninja.magnetT / timedPowerupFrames(POWERUPS.magnet.frames))]);
   if (ninja.shield) list.push(['shield', -1]);
   if (!list.length) return;
   if (frame - powerHudCheck > 60 || !powerHudY) { // below the theme-name pill (follows the safe-area inset)
@@ -253,19 +253,5 @@ function drawPowerHud() {
     drawPowerBadge(it[0]);
     ctx.restore();
     x += 44;
-  }
-  // active combo: its name under the chips
-  const C = POWERUPS.combos[ninja.combo];
-  if (C && list.length > 1) {
-    ctx.save();
-    ctx.font = 'bold 13px system-ui, -apple-system, Roboto, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = 'rgba(10,12,35,0.7)';
-    ctx.strokeText(C.label.replace('!', ''), 13, powerHudY + 31); // under the chips (clear of the altitude bar)
-    ctx.fillStyle = C.color;
-    ctx.fillText(C.label.replace('!', ''), 13, powerHudY + 31);
-    ctx.restore();
   }
 }

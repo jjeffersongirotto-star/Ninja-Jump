@@ -237,6 +237,8 @@ body { position: fixed; top: 0; left: 0; }
 .char.locked canvas { filter: brightness(.72) saturate(.8); } /* locked but still recognisable */
 .char .lock { position: absolute; top: 18px; right: 8px; font-size: 16px; text-shadow: 0 2px 6px rgba(0,0,0,.7); }
 .char .nm { font-size: 11.5px; font-weight: 700; margin-top: 3px; line-height: 1.15; min-height: 27px; display: flex; align-items: center; justify-content: center; }
+.char .skill { font-size: 8px; line-height: 1.2; min-height: 34px; margin-top: 3px; color: rgba(255,255,255,.68); }
+.char.sel .skill { color: #ffe58a; }
 .char .st { font-size: 12px; font-weight: 800; margin-top: 3px; color: rgba(255,255,255,.6); }
 .char.locked .st { color: #ffd700; }
 .char.sel .st { color: #4dff88; }
@@ -398,6 +400,7 @@ html.game-failed #scrAudio, html.game-failed #scrControls { display: none !impor
 .dlg-pic { display: block; width: 84px; height: auto; margin: 0 auto 6px; }
 .dlg-rar { font-size: 11px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
 .dlg-desc { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.75); line-height: 1.35; margin: -2px 0 8px; }
+.dlg-ability { font-size: 13px; font-weight: 800; color: #ffe58a; line-height: 1.35; margin: 0 0 8px; }
 .dlg-text { font-size: 19px; font-weight: 800; line-height: 1.3; margin-bottom: 6px; }
 .dlg-sub { font-size: 14px; font-weight: 700; color: #ffd700; min-height: 18px; margin-bottom: 16px; }
 .dlg-sub.bad { color: #ff9c8a; }

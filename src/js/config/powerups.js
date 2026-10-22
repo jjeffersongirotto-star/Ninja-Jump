@@ -29,22 +29,22 @@ const POWERUPS = {
     // x0.9 per frame). Always kept `wallMargin` px inside the screen.
     coinSteer: { lookahead: 340, behind: 14, maxVx: 9, accel: 0.5, wallMargin: 4 } },
   // COMBOS: two effects active at the same time (rocket and super jump never overlap: the rocket replaces it).
-  // Each combo shows its name once when it starts and a coloured aura while it lasts.
+  // Each combo shows a coloured aura while it lasts.
   combos: {
     // magnet + rocket: magnet radius x radiusMult and pull speed x speedMult during the climb
-    magnetRocket: { label: 'Foguete Magnético!', color: '#ff5ad1', radiusMult: 2.3, speedMult: 1.6 },
+    magnetRocket: { color: '#ff5ad1', radiusMult: 2.3, speedMult: 1.6 },
     // magnet + super jump: magnet radius x radiusMult and pull speed x speedMult during the super-jump ascent
     // (he climbs up to ~35 px/frame, faster than any pull: coins in range are also carried along with him)
-    magnetSuper: { label: 'Super Ímã!', color: '#ff9de2', radiusMult: 1.7, speedMult: 2.2 },
+    magnetSuper: { color: '#ff9de2', radiusMult: 1.7, speedMult: 2.2 },
     // shield + rocket: rams flyers/UFOs on the way (red ones too): defeated, +HAZARDS.stomp.coins each.
     // The shield is NOT used up; spikes/saws are still just flown through.
-    shieldRocket: { label: 'Aríete Blindado!', color: '#ffd23f' },
+    shieldRocket: { color: '#ffd23f' },
     // shield + super jump: red flyers/UFOs are defeated (+coins) instead of knocked aside; shield kept
-    shieldSuper: { label: 'Super Aríete!', color: '#fff27a' },
+    shieldSuper: { color: '#fff27a' },
     // magnet + shield: every enemy defeated drops `dropCoins` extra coins (pulled in by the magnet); a red
     // enemy that breaks the shield is defeated (+coins, and the drop) instead of only knocked aside
-    magnetShield: { label: 'Escudo Imantado!', color: '#b88bff', dropCoins: 4, dropSpread: 26 },
+    magnetShield: { color: '#b88bff', dropCoins: 4, dropSpread: 26 },
     // all three at once (magnet + shield + rocket / super jump): every effect above together
-    triple: { label: 'Combo Triplo!', color: '#ffffff' }
+    triple: { color: '#ffffff' }
   }
 };

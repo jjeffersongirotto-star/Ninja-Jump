@@ -193,11 +193,12 @@ function collideHazards(x0, y0, onBand) {
       if (!hz.fatal && ninja.ghost > 0) continue;
       if (!hazardContact(hz, px, py)) continue;
       if (superActive() && hz.type !== 'spikeMine' && hz.type !== 'spikeBar' && hz.type !== 'saw') {
-        // super jump: platforms are intangible (like when falling); blue enemies are defeated (+stomp.coins),
-        // red ones are knocked aside; he keeps flying. Spikes/saws go through the shield in hitFatal.
-        // Combo shield + super jump: red ones are defeated too.
+        // Super jumps pass through platforms; red enemies need a character power or shield combo to be defeated.
         if (hz.type === 'platform') ghostPlatform(hz);
-        else if (hz.color === 'red' && comboRams()) comboDefeat(hz);
+        else if (hz.color === 'red' && specialRedKillAvailable()) {
+          ninja.redKillsThisSuper++;
+          defeatEnemy(hz, abilityValue('redSpecialCoins', HAZARDS.stomp.redSpecialCoins));
+        } else if (hz.color === 'red' && comboRams()) comboDefeat(hz);
         else if (hz.color === 'red') knockAside(hz);
         else defeatEnemy(hz);
         continue;
@@ -295,15 +296,15 @@ function stompHazard(hz, px, py) {
   }
 }
 // Blue flyer/UFO defeated (head stomp or super jump): poof, +coins
-function defeatEnemy(hz) {
+function defeatEnemy(hz, coinReward) {
   const ST = HAZARDS.stomp;
   if (hz.dying > 0) return;
   hz.dying = ST.poofFrames;
   hz.hit = 1;
-  runCoins += ST.coins;
+  const earned = awardRunCoins(coinReward === undefined ? ST.coins : coinReward);
   missionKill(hz);
   countHit(hz.kind + ':defeated');
-  floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + ST.coins });
+  floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + earned });
   if (comboDrops()) dropComboCoins(hz); // magnet + shield combo: extra coins burst out
   burst(hz.x, hz.y, '#ffffff', 12, 3.2);
   burst(hz.x, hz.y, '#8fd3ff', 10, 3);
@@ -371,6 +372,16 @@ function unstick() {
 function countHit(key) { debugStats.hits[key] = (debugStats.hits[key] || 0) + 1; }
 
 // Non-fatal hit (platform, blue flyer, blue UFO): lose momentum, never fatal.
+function breakPlatform(hz) {
+  hz.alive = false;
+  debugStats.platformBreaks++;
+  burst(hz.x, hz.y, '#dff3ff', 18, 4);
+  fxSparks(hz.x, hz.y, '#ffffff', 12, 5);
+  rings.push({ x: hz.x, y: hz.y, r: 10, life: 0.65, color: '#cfe6ff' });
+  shake = Math.max(shake, 5);
+  beep(240, 0.1, 'square', 0.06);
+}
+
 function bumpHazard(hz, lx, ly) {
   let side;
   if (hazardContact(hz, lx, ly)) {
@@ -394,7 +405,7 @@ function bumpHazard(hz, lx, ly) {
     if (!(side === 'top' && hz.shape === 'rect')) ninja.x = lx;
     ninja.y = ly;
   }
-  ninja.floatT = HAZARDS.bumpFloat.frames; // gentler fall for a moment after any bump
+  ninja.floatT = Math.round(HAZARDS.bumpFloat.frames * abilityValue('bonkFloatMultiplier', 1));
   const fresh = frame - hz.lastTouch > 10;
   hz.lastTouch = frame;
   if (side === 'bottom') {
@@ -432,6 +443,13 @@ function bumpHazard(hz, lx, ly) {
     hz.hit = 1;
     missionHit(hz.uid);
     countHit(hz.kind + ':' + side);
+    if (side === 'bottom' && hz.type === 'platform') {
+      const breakHits = abilityValue('platformBreakHits', 0);
+      if (breakHits > 0) {
+        hz.characterBonks = (hz.characterBonks || 0) + 1;
+        if (hz.characterBonks >= breakHits) breakPlatform(hz);
+      }
+    }
     const col = hz.type === 'platform' ? '#cfe6ff' : '#8fd3ff';
     burst(ninja.x, ninja.y + (side === 'top' ? NINJA_R : -NINJA_R * 0.5), col, 8, 2.5);
     shake = Math.max(shake, side === 'top' ? 2 : 5);
@@ -495,7 +513,50 @@ function hitFatal(hz) {
   killNinja(hz);
 }
 
+function tryCharacterRescue(hz, falling) {
+  const revive = !!abilityValue('reviveOnce', false) && !ninja.reviveUsed;
+  const dodge = !!hz && !!abilityValue('fatalDodge', false) && !ninja.fatalDodgeUsed;
+  if (!revive && !dodge) return false;
+
+  if (revive) ninja.reviveUsed = true;
+  if (dodge) ninja.fatalDodgeUsed = true;
+  ninja.dead = false;
+  ninja.deathSpin = 0;
+  ninja.superSpin = false;
+  ninja.spinning = 0;
+  if (falling || ninja.y - camera.y > H - 80) ninja.y = camera.y + H - NINJA_R - 60;
+  ninja.vy = revive ? -15 : -11;
+  ninja.vx = hz ? (ninja.x <= hz.x ? -3 : 3) : (ninja.x < W / 2 ? 2.5 : -2.5);
+  ninja.invulnT = revive ? 100 : 55;
+  ninja.floatT = 0;
+  ninja.ghost = 0;
+  ninja.embedded = 0;
+  ninja.still = 0;
+  ninja.stillX = ninja.x;
+  ninja.stillY = ninja.y;
+  ninja.bonks = 0;
+  ninja.bonkT = 0;
+  ninja.bonkedSinceLaunch = false;
+  ninja.redKillsThisSuper = 0;
+  elastic = null;
+  drawing = null;
+  shortStreak = 0;
+  if (hz) {
+    hz.hit = 1;
+    hz.cool = Math.max(hz.cool || 0, ninja.invulnT);
+  }
+  updateStreakHud();
+  debugStats.rescues++;
+  burst(ninja.x, ninja.y, revive ? '#a8d66d' : '#d8f2ff', 20, 4.5);
+  rings.push({ x: ninja.x, y: ninja.y, r: 12, life: 0.8, color: revive ? '#a8d66d' : '#d8f2ff' });
+  shake = Math.max(shake, 7);
+  beep(720, 0.1, 'triangle', 0.07);
+  beep(1080, 0.16, 'sine', 0.06);
+  return true;
+}
+
 function killNinja(hz) {
+  if (tryCharacterRescue(hz, false)) return;
   ninja.dead = true;
   ninja.deathSpin = 0;
   ninja.superSpin = false;

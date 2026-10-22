@@ -23,8 +23,9 @@ function updateStreakHud() {
   const n = state === 'playing' ? shortStreak : 0;
   if (n === streakShown || !streakEl) return;
   streakShown = n;
+  const filled = Math.min(streakPips.length, Math.floor(n * streakPips.length / superStreakRequired()));
   for (let i = 0; i < streakPips.length; i++) {
-    if (i < n) streakPips[i].classList.add('on'); else streakPips[i].classList.remove('on');
+    if (i < filled) streakPips[i].classList.add('on'); else streakPips[i].classList.remove('on');
   }
   if (n > 0) streakEl.classList.add('active'); else streakEl.classList.remove('active');
 }

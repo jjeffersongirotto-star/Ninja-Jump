@@ -1,6 +1,5 @@
 // Characters (skins): same sprite, different palette + optional procedural accessories (render/skins.js).
 // `price` in coins (0 = owned from the start), `rarity` 0 comum, 1 raro, 2 épico, 3 lendário.
-// Everything here is cosmetic: no character changes the gameplay.
 // Optional fields: `desc` (one line, pt-BR), `acc` (accessories, see render/skins.js), `trail` { kind, color }
 // (small particles while moving fast: smoke, fire, bubble, leaf, spark, star), `aura` (soft glow colour),
 // `alpha` (see-through sprite). Original characters, only INSPIRED by styles (no trademarked names/designs).
@@ -200,8 +199,72 @@ SKINS.push(
     main: '#16261e', limb: '#1c3026', band: '#1fa86a', headCol: '#22b573', eye: '#ffffff', rim: 'rgba(140,255,200,0.85)',
     acc: { mask: { col: '#1fa86a' }, back: [{ type: 'hair', col: '#1f3a2c', tie: '#1fa86a' }, { type: 'fans', col: '#c9d2dc', col2: '#1fa86a' }],
       body: { pattern: 'tabard', col: '#1fa86a' } },
-    trail: { kind: 'star', color: '#5affb0' } })
+    trail: { kind: 'star', color: '#5affb0' } }),
+  skinPal({ id: 'ninjaZumbi', name: 'Ninja Zumbi', price: 5500, rarity: 3,
+    desc: 'Volta de uma queda com um impulso sombrio e uma segunda chance.',
+    main: '#718b55', headCol: '#91a96c', limb: '#38432d', band: '#352b22', eye: '#d8ff70',
+    acc: { body: { pattern: 'cracks', col: '#a4c56a' }, eyeGlow: '#c5ff55' },
+    trail: { kind: 'smoke', color: '#a8d66d' }, aura: '#9bcf5b' })
 );
+const CHARACTER_ABILITIES = {
+  white: { desc: 'Sem habilidade especial.' },
+  black: { elasticTolerance: 2, desc: 'Acerta elásticos com margem +2 px.' },
+  red: { coinMultiplier: 1.05, desc: 'Ganha 5% a mais de moedas.' },
+  oniAbismo: { bounceMultiplier: 1.03, desc: 'Impulso do elástico +3%.' },
+  oniMontanha: { bonkFloatMultiplier: 1.08, desc: 'Cai 8% mais devagar após uma batida.' },
+  oniVendaval: { horizontalMultiplier: 1.04, desc: 'Velocidade horizontal do impulso +4%.' },
+  oniFloresta: { coinRadius: 4, desc: 'Recolhe moedas a +4 px de distância.' },
+  oniChama: { bounceMultiplier: 1.06, desc: 'Impulso do elástico +6%.' },
+  oniMare: { powerupDuration: 1.15, desc: 'Ímã e foguete duram 15% mais.' },
+  oniTrovao: { horizontalMultiplier: 1.09, desc: 'Velocidade horizontal do impulso +9%.' },
+  oniAco: { bonkFloatMultiplier: 1.18, desc: 'Cai 18% mais devagar após uma batida.' },
+  oniLua: { superStreakReduction: 1, desc: 'Ativa o especial com 1 elástico curto a menos.' },
+  oniCeu: { coinMultiplier: 1.25, desc: 'Ganha 25% a mais de moedas.' },
+  oniImperador: { specialRedKills: Infinity, redSpecialCoins: 5, desc: 'No especial, derrota inimigos vermelhos e ganha 5 moedas por um.' },
+  raposa: { coinRadius: 8, desc: 'Recolhe moedas a +8 px de distância.' },
+  lotus: { elasticTolerance: 4, desc: 'Acerta elásticos com margem +4 px.' },
+  luaRubra: { specialRedKills: 1, redSpecialCoins: 5, desc: 'No especial, derrota 1 inimigo vermelho e ganha 5 moedas.' },
+  pirata: { coinMultiplier: 1.1, desc: 'Ganha 10% a mais de moedas.' },
+  leques: { horizontalMultiplier: 1.12, desc: 'Velocidade horizontal do impulso +12%.' },
+  robo: { powerupDuration: 1.25, desc: 'Ímã e foguete duram 25% mais.' },
+  samuraiCego: { coinRadius: 12, desc: 'Recolhe moedas a +12 px de distância.' },
+  panda: { bounceMultiplier: 1.12, desc: 'Impulso do elástico +12%.' },
+  fantasma: { fatalDodge: true, desc: 'Uma vez por partida, escapa de um golpe fatal com impulso.' },
+  ciber: { powerupDuration: 1.4, desc: 'Ímã e foguete duram 40% mais.' },
+  monge: { superCoinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas durante o especial.' },
+  dragao: { bounceMultiplier: 1.15, desc: 'Impulso do elástico +15%.' },
+  lancaInfernal: { platformBreakHits: 2, desc: 'Quebra uma plataforma após acertá-la 2 vezes por baixo.' },
+  geloEterno: { bonkFloatMultiplier: 1.3, desc: 'Cai 30% mais devagar após uma batida.' },
+  pantano: { coinMultiplier: 1.2, desc: 'Ganha 20% a mais de moedas.' },
+  nevoa: { elasticTolerance: 7, desc: 'Acerta elásticos com margem +7 px.' },
+  veuVioleta: { superStreakReduction: 2, desc: 'Ativa o especial com 2 elásticos curtos a menos.' },
+  esmeralda: { coinMultiplier: 2, desc: 'Ganha o dobro de moedas.' },
+  ninjaZumbi: { reviveOnce: true, desc: 'Revive uma vez por partida com um forte impulso.' }
+};
+for (const sk of SKINS) {
+  if (!CHARACTER_ABILITIES[sk.id]) throw new Error('Habilidade não definida para ' + sk.id);
+  sk.ability = CHARACTER_ABILITIES[sk.id];
+}
+
+function abilityValue(key, fallback) {
+  const ability = skin && skin.ability;
+  return ability && ability[key] !== undefined ? ability[key] : fallback;
+}
+function superStreakRequired() {
+  return Math.max(2, SUPER_STREAK - abilityValue('superStreakReduction', 0));
+}
+function specialRedKillAvailable() {
+  return !!ninja && abilityValue('specialRedKills', 0) > (ninja.redKillsThisSuper || 0);
+}
+function awardRunCoins(base) {
+  const multiplier = abilityValue('coinMultiplier', 1) *
+    (ninja && ninja.superSpin ? abilityValue('superCoinMultiplier', 1) : 1);
+  const total = Math.max(0, base) * multiplier + (ninja ? (ninja.coinRemainder || 0) : 0);
+  const earned = Math.floor(total);
+  if (ninja) ninja.coinRemainder = total - earned;
+  runCoins += earned;
+  return earned;
+}
 // Removed characters: id -> price refunded to saves that bought them (see refundRemovedSkins)
 const REMOVED_SKINS = { ciborgueRubro: 3000 };
 const RARITY_NAMES = ['Comum', 'Raro', 'Épico', 'Lendário'];

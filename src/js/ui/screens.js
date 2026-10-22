@@ -64,6 +64,8 @@ function dlgOpen(sk, text, sub, bad, yesFn) {
   const rar = document.getElementById('dlgRar'), desc = document.getElementById('dlgDesc');
   if (rar) { const r = sk.rarity || 0; rar.textContent = RARITY_NAMES[r]; rar.style.color = RARITY_COLORS[r]; }
   if (desc) desc.textContent = sk.desc || '';
+  const ability = document.getElementById('dlgAbility');
+  if (ability) ability.textContent = 'Habilidade: ' + sk.ability.desc;
   const prog = document.getElementById('dlgProg');
   if (prog) {
     const mp = sk.mission && !ownedSkins()[sk.id] ? missionProgress(sk) : null;
@@ -172,6 +174,7 @@ function renderChars() {
     b.appendChild(cv);
     if (!owned[sk.id]) { const l = document.createElement('div'); l.className = 'lock'; l.textContent = '🔒'; b.appendChild(l); }
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = sk.name; b.appendChild(nm);
+    const ability = document.createElement('div'); ability.className = 'skill'; ability.textContent = sk.ability.desc; b.appendChild(ability);
     if (sk.mission) { const mt = document.createElement('div'); mt.className = 'mtag'; mt.textContent = '🎯 Missão'; b.appendChild(mt); }
     if (sk.mission && !owned[sk.id]) { // requirement + progress bar instead of a price
       const mp = missionProgress(sk);

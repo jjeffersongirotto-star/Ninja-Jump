@@ -1,5 +1,7 @@
 // --- Power-ups in the world: pickup and effects (tuning: config/powerups.js) ---
-const POWER_NAMES = { magnet: 'Ímã!', shield: 'Escudo!', rocket: 'Foguete!' };
+function timedPowerupFrames(frames) {
+  return Math.round(frames * abilityValue('powerupDuration', 1));
+}
 
 function pickupPowerups() {
   if (!powerups.length || ninja.dead) return;
@@ -15,18 +17,17 @@ function applyPowerup(p) {
   burst(p.x, p.y, col, 14, 3.4);
   burst(p.x, p.y, '#ffffff', 8, 2.4);
   rings.push({ x: p.x, y: p.y, r: 10, life: 0.6, color: col });
-  floaters.push({ x: p.x + 8, y: p.y - 22, life: 56, text: POWER_NAMES[p.type], color: col, noCoin: true });
   beep(660, 0.07, 'triangle', 0.07);
   beep(990, 0.08, 'triangle', 0.06);
   beep(1320, 0.12, 'sine', 0.05);
-  if (p.type === 'magnet') ninja.magnetT = POWERUPS.magnet.frames;
+  if (p.type === 'magnet') ninja.magnetT = timedPowerupFrames(POWERUPS.magnet.frames);
   else if (p.type === 'shield') { ninja.shield = true; ninja.shieldPop = 1; }
   else if (p.type === 'rocket') startRocket();
 }
 
 // ROCKET: replaces a super jump in progress (no stacking); elastics are ignored while it flies
 function startRocket() {
-  ninja.rocketT = POWERUPS.rocket.frames;
+  ninja.rocketT = timedPowerupFrames(POWERUPS.rocket.frames);
   ninja.rocketExt = 0;
   ninja.superSpin = false;
   ninja.spinAngle = 0;
@@ -129,7 +130,7 @@ function rocketClear() {
 function breakShield(hz) {
   const SH = POWERUPS.shield;
   ninja.shield = false;
-  ninja.invulnT = SH.graceFrames;
+  ninja.invulnT = timedPowerupFrames(SH.graceFrames);
   debugStats.shieldSaves++;
   countHit(hz.kind + ':shield');
   if (hazardContact(hz, ninja.x, ninja.y)) {
@@ -184,7 +185,7 @@ function comboFlags() {
   const sup = !!(ninja.superSpin && !ninja.dead);
   return { m: ninja.magnetT > 0, s: !!ninja.shield, r: ninja.rocketT > 0, u: sup };
 }
-// Which combo is active now (for the label/aura); effects use the flags directly
+// Which combo is active now; effects use the flags directly.
 function activeCombo() {
   if (!ninja || ninja.dead) return '';
   const f = comboFlags(), boost = f.r || f.u;
@@ -203,7 +204,6 @@ function updateCombo() {
   if (id && id !== ninja.combo) {
     const C = POWERUPS.combos[id];
     debugStats.combos[id] = (debugStats.combos[id] || 0) + 1;
-    floaters.push({ x: ninja.x, y: ninja.y - 50, life: 80, text: C.label, color: C.color, noCoin: true, big: true, follow: true });
     rings.push({ x: ninja.x, y: ninja.y, r: 14, life: 0.8, color: C.color });
     rings.push({ x: ninja.x, y: ninja.y, r: 26, life: 0.6, color: '#ffffff' });
     burst(ninja.x, ninja.y, C.color, 14, 3.5);
