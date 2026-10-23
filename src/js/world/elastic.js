@@ -18,6 +18,7 @@ function startDraw(x, y) {
   };
 }
 function moveDraw(x, y) {
+  if (gameMode === 'noelastic') { if (ninja && ninja.holdX !== null) { ninja.holdX = x; ninja.aimX = x; ninja.aimY = y + camera.y; } return; }
   if (!drawing) return;
   // Cap the length: the line stops growing past the max, following the finger's direction
   const dx = x - drawing.sx1, dy = y - drawing.sy1, len = Math.hypot(dx, dy), maxLen = elasticMaxLen();
@@ -32,6 +33,7 @@ function moveDraw(x, y) {
   }
 }
 function endDraw() {
+  if (gameMode === 'noelastic') { noElasticRelease(); return; }
   if (!drawing) return;
   syncDrawingWorld();
   // Every created anchor peg becomes an elastic. Give a tap a tiny length so it has a launch direction.
