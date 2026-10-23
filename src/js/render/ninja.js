@@ -53,6 +53,16 @@ function startWallKick(side) {
 /** Wall-kick envelope: plant the wall-side leg, push, lean toward the rebound, then relax. */
 function wallKickState() {
   const p = ninjaPose;
+  if (ninja && ninja.climb && !ninja.dead && state === 'playing') {
+    // wall run: alternating steps against the wall, body tilted up the wall with a small bob
+    p.runT = (p.runT || 0) + 0.34;
+    const ph = p.runT, side = ninja.wallDir > 0 ? -1 : 1;
+    p.wallX = side < 0 ? (FX.textures ? FX.wallWidth : 0) : (FX.textures ? W - FX.wallWidth : W);
+    p.stepY = Math.sin(ph) * 5;
+    return { w: 1, ext: 0.5 + 0.5 * Math.sin(ph), side, lean: -side * 0.5 + Math.sin(ph * 2) * 0.04,
+      front: Math.sin(ph) > 0, run: true };
+  }
+  p.stepY = 0;
   if (p.wallKick <= 0 || !ninja || state !== 'playing') return null;
   const k = 1 - p.wallKick;
   const w = smoothstep(0, 0.05, k) * (1 - smoothstep(0.72, 1, k)); // snaps in on contact
@@ -120,7 +130,7 @@ function legGeom(hx, legTop, kneeDx, kneeY, ankleBack, footY, footDx, kick, isKi
       fx: fx + w * 1.5, fy: fy - w * 2.5, frot: 0 };
   }
   // Wall point (world, relative to ninja centre) → local sprite space
-  const wx = ninjaPose.wallX - ninja.x, wy = 17; // foot plants a bit below the hip
+  const wx = ninjaPose.wallX - ninja.x, wy = 17 + (ninjaPose.stepY || 0); // foot plants a bit below the hip
   const cr = Math.cos(rot), sr = Math.sin(rot);
   const lx = (wx * cr + wy * sr) * facing;
   const ly = -wx * sr + wy * cr;
@@ -155,6 +165,18 @@ function drawLeg(g, width, col, footCol, rx, ry) {
 function drawNinja(x, y) {
   updateNinjaPose();
   drawNinjaSprite(x, y);
+  drawStaminaBar(x, y);
+}
+// Wall-run stamina: shown above him only while it is not full
+function drawStaminaBar(x, y) {
+  if (!ninja || ninja.dead || state !== 'playing' || gameMode !== 'noelastic' || ninja.stam >= 0.999) return;
+  const w = 30, h = 4, bx = x - w / 2, by = y - 34;
+  ctx.save();
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.fillRect(bx - 1, by - 1, w + 2, h + 2);
+  ctx.fillStyle = ninja.exh ? '#ff5a4d' : (ninja.stam < 0.3 ? '#ffb020' : '#5be37a');
+  ctx.fillRect(bx, by, w * ninja.stam, h);
+  ctx.restore();
 }
 function drawNinjaSprite(x, y) {
   if (ninja && !ninja.dead && state === 'playing' && (ninjaPose.hero > 0 || ninja.superSpin)) { drawHeroNinja(x, y); return; }
@@ -233,7 +255,7 @@ function drawNinjaSprite(x, y) {
   const kneeFwd = c * 9.5 + rise * 3.2;
   const kneeY = legTop + (footY - 1 - legTop) * 0.5 - c * 2.5 - rise * 1.6;
   const ankleBack = c * 1.5 + fall * 1.8 - rise * 0.8;
-  const kickFront = !!kick && kick.side * facing > 0;
+  const kickFront = !!kick && (kick.front !== undefined ? kick.front : kick.side * facing > 0);
   const backG = legGeom(-2.2, legTop, kneeFwd * 0.85, kneeY + 0.6, ankleBack, footY, 0.2, kick, !!kick && !kickFront, rot, facing);
   const frontG = legGeom(2.2, legTop, kneeFwd, kneeY, ankleBack, footY, 1.0, kick, kickFront, rot, facing);
   drawLeg(backG, 4.4, skin.limbBack, skin.footBack, 3.3, 2.5);
