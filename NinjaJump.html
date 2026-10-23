@@ -2094,19 +2094,37 @@
     }
     return true;
   }
+  function trailSegmentClear(x0, y0, x1, y1, list) {
+    const dx = x1 - x0, dy = y1 - y0;
+    for (const e of list) {
+      const b = itemExtent(e.item, e.y);
+      const left = b.x0 - COIN_CLEAR, right = b.x1 + COIN_CLEAR;
+      const top = b.y0 - COIN_CLEAR, bottom = b.y1 + COIN_CLEAR;
+      let t0 = 0, t1 = 1, clear = true;
+      for (const [p, q] of [[-dx, x0 - left], [dx, right - x0], [-dy, y0 - top], [dy, bottom - y0]]) {
+        if (p === 0) {
+          if (q < 0) { clear = false; break; }
+        } else {
+          const t = q / p;
+          if (p < 0) t0 = Math.max(t0, t);
+          else t1 = Math.min(t1, t);
+          if (t0 > t1) { clear = false; break; }
+        }
+      }
+      if (clear && t0 <= 1 && t1 >= 0) return false;
+    }
+    return true;
+  }
   // coins: [{ x, yOff }] on a row at absolute y `ry`; `list` = every nearby hazard [{ item, y }]
   function cleanCoins(coins, ry, list) {
-    const ok = coins.map(function (c) { return pointClear(c.x, ry + c.yOff, list); });
-    return coins.filter(function (c, i) {
-      if (!ok[i]) return false;
-      for (const j of [i - 1, i + 1]) { // the stretch between two neighbouring coins (closer than ~60 px = one trail)
-        const n = coins[j];
-        if (!n) continue;
-        if (Math.hypot(n.x - c.x, n.yOff - c.yOff) > 60) continue;
-        if (!pointClear((c.x + n.x) / 2, ry + (c.yOff + n.yOff) / 2, list)) return false;
-      }
-      return true;
-    });
+    const clean = [];
+    for (const c of coins) {
+      if (!pointClear(c.x, ry + c.yOff, list)) continue;
+      const prev = clean[clean.length - 1];
+      if (prev && !trailSegmentClear(prev.x, ry + prev.yOff, c.x, ry + c.yOff, list)) continue;
+      clean.push(c);
+    }
+    return clean;
   }
 
   // Build a room and make sure the gap rule holds at every height (retry, then thin it out)
