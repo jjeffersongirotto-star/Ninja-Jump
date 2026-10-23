@@ -1,6 +1,6 @@
 // --- Game modes and rotating missions ---
-// gameMode: 'normal' | 'daily' (same level for everybody each day + 3 missions) | 'noelastic' (wall jumps and stomps only).
-// Every run also records "distance at 60 s" (time attack, local top-10 ranking). Day/week come from the device date.
+// gameMode: 'normal' | 'noelastic' (wall jumps and stomps only).
+// Normal runs record distance at 60 s; mission periods follow the device date.
 const MODE_TA_SECONDS = 60;
 const RANKING_SIZE = 10;
 const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
@@ -11,6 +11,7 @@ const LS_WEEKLY = 'ninjaJump_weekly_v2';
 let gameMode = 'normal';
 let taDist = -1;                // metres reached when the 60 s ran out (-1 = not yet)
 let modeHudShown = '';
+let modeCompletionLines = [];
 const modeRun = { kills: 0, blueKills: 0, ufoKills: 0, powerups: 0, chainMax: 0, bossHits: 0, fireKills: 0 };
 
 function dayNumber() { const d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
@@ -71,7 +72,7 @@ function weeklyMissionsFor(week) {
     return choices[Math.floor(rng() * choices.length)];
   });
 }
-// Daily: 3 different missions inside ONE daily-mode run, picked from the date
+// Daily: 3 different mission categories, picked from the date.
 const DAILY_POOL = [
   ['meters', [800, 900, 1000]], ['coins', [60, 70, 80]], ['runSeconds', [40, 50, 60]], ['chain', [2, 3]],
   ['wallKicks', [15, 20, 25]], ['kills', [3, 5, 8]], ['blueKills', [2, 4, 6]], ['powerups', [5, 7, 10]]
@@ -84,8 +85,6 @@ function dailyMissionsFor(day) {
   }
   return out;
 }
-function dailySeed() { return dayNumber() * 7919 + 11; }
-
 function loadJson(key) { try { const v = JSON.parse(store.get(key) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } }
 function dailyState() {
   let s = loadJson(LS_DAILY);
@@ -105,6 +104,7 @@ function loadRanking() {
 function modesResetRun() {
   modeRun.kills = 0; modeRun.blueKills = 0; modeRun.ufoKills = 0; modeRun.powerups = 0;
   modeRun.chainMax = 0; modeRun.bossHits = 0; modeRun.fireKills = 0;
+  modeCompletionLines = [];
   taDist = -1;
   modeHudShown = '';
 }
@@ -117,10 +117,10 @@ function modesKill(hz) {
 // Every frame while playing: the 60 s mark and the small timer under the progress bar
 function modesTick() {
   if (taDist < 0 && runMission.frames >= MODE_TA_SECONDS * 60) taDist = Math.floor(bestHeight);
+  if (frame % 10 === 0) updateModeMissions(false);
   if (frame % 6 !== 0) return;
   let txt = '';
   if (gameMode === 'normal') txt = taDist >= 0 ? '⏱ ' + taDist + ' m' : '⏱ ' + (MODE_TA_SECONDS - Math.floor(runMission.frames / 60));
-  else if (gameMode === 'daily') txt = '📅 Desafio diário';
   else if (gameMode === 'noelastic') txt = '🧗 Sem elástico';
   if (txt === modeHudShown) return;
   modeHudShown = txt;
@@ -135,7 +135,48 @@ function modesHideHud() {
   if (el) { el.textContent = ''; el.classList.remove('active'); }
 }
 
-// End of a run: ranking, mission progress and coin rewards. Returns lines for the game-over screen.
+function completeModeMission(period, mi, reward) {
+  const label = period === 'day' ? 'Missão diária' : 'Missão semanal';
+  const line = '✅ ' + label + ': ' + mi.text + ' +' + reward + ' 🪙';
+  modeCompletionLines.push(line);
+  addWallet(reward);
+  showMissionToast('🎯 ' + label + ' concluída: ' + mi.text + ' · +' + reward + ' moedas');
+}
+function updateModeMissions(finalize) {
+  const d = dailyState();
+  let dailyChanged = false;
+  for (const mi of dailyMissionsFor(d.day)) {
+    const v = Math.floor(MODE_STATS[mi.stat].now());
+    const best = Math.max(d.best[mi.stat] || 0, v);
+    if (finalize && best > (d.best[mi.stat] || 0)) { d.best[mi.stat] = best; dailyChanged = true; }
+    if (!d.done[mi.id] && best >= mi.goal) {
+      d.best[mi.stat] = best;
+      d.done[mi.id] = 1;
+      dailyChanged = true;
+      completeModeMission('day', mi, DAILY_REWARD);
+    }
+  }
+  if (finalize || dailyChanged) store.set(LS_DAILY, JSON.stringify(d));
+
+  const w = weeklyState();
+  let weeklyChanged = false;
+  for (const mi of weeklyMissionsFor(w.week)) {
+    if (w.done[mi.id]) continue;
+    if (!finalize && mi.stat === 'runs') continue;
+    const st = MODE_STATS[mi.stat], current = Math.floor(st.now());
+    const previous = w.prog[mi.id] || 0;
+    const next = st.run ? Math.max(previous, current) : previous + current;
+    if (finalize || next >= mi.goal) { w.prog[mi.id] = next; weeklyChanged = true; }
+    if (next >= mi.goal) {
+      w.done[mi.id] = 1;
+      weeklyChanged = true;
+      completeModeMission('week', mi, WEEKLY_REWARD);
+    }
+  }
+  if (finalize || weeklyChanged) store.set(LS_WEEKLY, JSON.stringify(w));
+}
+
+// End of a run: save the ranking and any progress not already completed live.
 function modesEndRun() {
   const lines = [];
   if (gameMode === 'normal') {
@@ -149,25 +190,9 @@ function modesEndRun() {
       lines.push('⏱ Em 60 s: ' + m + ' m' + (pos >= 0 ? ' (ranking: ' + (pos + 1) + 'º)' : ''));
     }
   }
-  let paid = 0;
-  const reward = (label, coins) => { paid += coins; lines.push('✅ ' + label + ' +' + coins + ' 🪙'); };
-  if (gameMode === 'daily') {
-    const s = dailyState();
-    for (const mi of dailyMissionsFor(s.day)) {
-      const v = Math.floor(MODE_STATS[mi.stat].now());
-      if (v > (s.best[mi.stat] || 0)) s.best[mi.stat] = v;
-      if (!s.done[mi.id] && (s.best[mi.stat] || 0) >= mi.goal) { s.done[mi.id] = 1; reward('Missão do dia: ' + mi.text, DAILY_REWARD); }
-    }
-    store.set(LS_DAILY, JSON.stringify(s));
-  }
-  const w = weeklyState();
-  for (const mi of weeklyMissionsFor(w.week)) {
-    const st = MODE_STATS[mi.stat], v = Math.floor(st.now());
-    w.prog[mi.id] = st.run ? Math.max(w.prog[mi.id] || 0, v) : (w.prog[mi.id] || 0) + v;
-    if (!w.done[mi.id] && w.prog[mi.id] >= mi.goal) { w.done[mi.id] = 1; reward('Missão da semana: ' + mi.text, WEEKLY_REWARD); }
-  }
-  store.set(LS_WEEKLY, JSON.stringify(w));
-  if (paid) addWallet(paid);
+  updateModeMissions(true);
+  lines.push.apply(lines, modeCompletionLines);
+  modeCompletionLines = [];
   return lines;
 }
 

@@ -264,7 +264,7 @@ function update(dt) {
     updateMechanics(meters);
     noElasticTick();
     skinTrail(); // cosmetic particles of the chosen character
-    if (state === 'playing') { missionTick(); modesTick(); } // mission counters + unlocks (read-only), 60 s mark
+    if (state === 'playing') { missionTick(); modesTick(); } // mission counters, unlocks, rewards, and 60 s mark
   } else ninja.deathSpin += 0.22;
   let fw = 0; // in-place compaction (no splice per removed item, order kept)
   for (let i = 0; i < floaters.length; i++) {

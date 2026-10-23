@@ -66,8 +66,7 @@ function gameOver() {
   }
   const ge = document.getElementById('goExtra');
   if (ge) { ge.innerHTML = ''; for (const l of runExtraLines) { const d = document.createElement('div'); d.textContent = l; ge.appendChild(d); } ge.style.display = runExtraLines.length ? 'block' : 'none'; }
-  hideUnlockToast(); // the game-over screen lists them instead
-  playBtn.textContent = 'Jogar de novo';
+  playBtn.textContent = 'Jogar';
   titleEl.textContent = 'Fim de jogo';
   beep(150, 0.2, 'sawtooth', 0.08);
   beep(100, 0.3, 'square', 0.06);

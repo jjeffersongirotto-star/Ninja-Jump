@@ -526,22 +526,20 @@
       <div class="wallet" id="walletBox">🪙 <span id="walletVal">0</span></div>
       <div class="menu-btns" id="menuBtns">
         <button class="btn" id="playBtn">Jogar</button>
-        <button class="btn btn-sec" id="modesBtn">Modos e missões</button>
+        <button class="btn btn-sec" id="missionsMenuBtn">Missões</button>
         <button class="btn btn-sec" id="charsBtn">Personagens</button>
         <button class="btn btn-sec" id="optionsBtn">Opções</button>
+        <button class="btn btn-sec" id="rankingBtn">⏱ Ranking 60 s</button>
         <button class="btn btn-sec btn-install hidden" id="installBtn">📲 Instalar app</button>
         <div class="install-hint hidden" id="installHint">No Safari, toque em <b>Compartilhar</b> (□↑) e depois em <b>Adicionar à Tela de Início</b>.</div>
       </div>
     </div>
-    <div class="screen hidden" id="scrModes">
+    <div class="screen hidden" id="scrPlayOptions">
       <div class="menu-btns">
-        <button class="btn" id="dailyBtn">📅 Desafio diário</button>
+        <button class="btn" id="newGameBtn">Novo jogo</button>
         <button class="btn" id="noElasticBtn">🧗 Modo sem elástico</button>
-        <button class="btn btn-sec" id="missionsBtn">🎯 Missões</button>
-        <button class="btn btn-sec" id="rankingBtn">⏱ Ranking 60 s</button>
         <button class="btn btn-sec" data-back="1">Voltar</button>
       </div>
-      <div class="mode-info" id="modesInfo"></div>
     </div>
     <div class="screen hidden" id="scrRanking">
       <div class="mode-info">Distância alcançada em 60 segundos de partida normal (neste aparelho).</div>
@@ -756,8 +754,8 @@
   const soundToggle = document.getElementById('soundToggle');
   const soundLabel = document.getElementById('soundLabel');
   const countdownEl = document.getElementById('countdown');
-  const SCREENS = { main: 'scrMain', chars: 'scrChars', options: 'scrOptions', audio: 'scrAudio', controls: 'scrControls', pause: 'scrPause', modes: 'scrModes', ranking: 'scrRanking', missions: 'scrMissions' };
-  const SCREEN_TITLES = { chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado', modes: 'Modos e missões', ranking: 'Ranking 60 s', missions: 'Missões' };
+  const SCREENS = { main: 'scrMain', playOptions: 'scrPlayOptions', chars: 'scrChars', options: 'scrOptions', audio: 'scrAudio', controls: 'scrControls', pause: 'scrPause', ranking: 'scrRanking', missions: 'scrMissions' };
+  const SCREEN_TITLES = { playOptions: 'Jogar', chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado', ranking: 'Ranking 60 s', missions: 'Missões' };
   const LS_CONTROLS = 'ninjaJump_controls';  // 'auto' | 'touch' | 'mouse'
 
   // --- Audio ---
@@ -1473,7 +1471,7 @@
     shake = 0;
     stretch = 0;
     lastThemeName = '';
-    spawner = createSpawner(gameMode === 'daily' ? mulberry32(dailySeed()) : Math.random); // rows start at 25 m
+    spawner = createSpawner(Math.random); // rows start at 25 m
     bounceCooldown = 0;
     shortStreak = 0;
     rings = [];
@@ -3358,8 +3356,8 @@
   }
 
   // --- Game modes and rotating missions ---
-  // gameMode: 'normal' | 'daily' (same level for everybody each day + 3 missions) | 'noelastic' (wall jumps and stomps only).
-  // Every run also records "distance at 60 s" (time attack, local top-10 ranking). Day/week come from the device date.
+  // gameMode: 'normal' | 'noelastic' (wall jumps and stomps only).
+  // Normal runs record distance at 60 s; mission periods follow the device date.
   const MODE_TA_SECONDS = 60;
   const RANKING_SIZE = 10;
   const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
@@ -3370,6 +3368,7 @@
   let gameMode = 'normal';
   let taDist = -1;                // metres reached when the 60 s ran out (-1 = not yet)
   let modeHudShown = '';
+  let modeCompletionLines = [];
   const modeRun = { kills: 0, blueKills: 0, ufoKills: 0, powerups: 0, chainMax: 0, bossHits: 0, fireKills: 0 };
 
   function dayNumber() { const d = new Date(); return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000); }
@@ -3430,7 +3429,7 @@
       return choices[Math.floor(rng() * choices.length)];
     });
   }
-  // Daily: 3 different missions inside ONE daily-mode run, picked from the date
+  // Daily: 3 different mission categories, picked from the date.
   const DAILY_POOL = [
     ['meters', [800, 900, 1000]], ['coins', [60, 70, 80]], ['runSeconds', [40, 50, 60]], ['chain', [2, 3]],
     ['wallKicks', [15, 20, 25]], ['kills', [3, 5, 8]], ['blueKills', [2, 4, 6]], ['powerups', [5, 7, 10]]
@@ -3443,8 +3442,6 @@
     }
     return out;
   }
-  function dailySeed() { return dayNumber() * 7919 + 11; }
-
   function loadJson(key) { try { const v = JSON.parse(store.get(key) || 'null'); return v && typeof v === 'object' ? v : null; } catch (e) { return null; } }
   function dailyState() {
     let s = loadJson(LS_DAILY);
@@ -3464,6 +3461,7 @@
   function modesResetRun() {
     modeRun.kills = 0; modeRun.blueKills = 0; modeRun.ufoKills = 0; modeRun.powerups = 0;
     modeRun.chainMax = 0; modeRun.bossHits = 0; modeRun.fireKills = 0;
+    modeCompletionLines = [];
     taDist = -1;
     modeHudShown = '';
   }
@@ -3476,10 +3474,10 @@
   // Every frame while playing: the 60 s mark and the small timer under the progress bar
   function modesTick() {
     if (taDist < 0 && runMission.frames >= MODE_TA_SECONDS * 60) taDist = Math.floor(bestHeight);
+    if (frame % 10 === 0) updateModeMissions(false);
     if (frame % 6 !== 0) return;
     let txt = '';
     if (gameMode === 'normal') txt = taDist >= 0 ? '⏱ ' + taDist + ' m' : '⏱ ' + (MODE_TA_SECONDS - Math.floor(runMission.frames / 60));
-    else if (gameMode === 'daily') txt = '📅 Desafio diário';
     else if (gameMode === 'noelastic') txt = '🧗 Sem elástico';
     if (txt === modeHudShown) return;
     modeHudShown = txt;
@@ -3494,7 +3492,48 @@
     if (el) { el.textContent = ''; el.classList.remove('active'); }
   }
 
-  // End of a run: ranking, mission progress and coin rewards. Returns lines for the game-over screen.
+  function completeModeMission(period, mi, reward) {
+    const label = period === 'day' ? 'Missão diária' : 'Missão semanal';
+    const line = '✅ ' + label + ': ' + mi.text + ' +' + reward + ' 🪙';
+    modeCompletionLines.push(line);
+    addWallet(reward);
+    showMissionToast('🎯 ' + label + ' concluída: ' + mi.text + ' · +' + reward + ' moedas');
+  }
+  function updateModeMissions(finalize) {
+    const d = dailyState();
+    let dailyChanged = false;
+    for (const mi of dailyMissionsFor(d.day)) {
+      const v = Math.floor(MODE_STATS[mi.stat].now());
+      const best = Math.max(d.best[mi.stat] || 0, v);
+      if (finalize && best > (d.best[mi.stat] || 0)) { d.best[mi.stat] = best; dailyChanged = true; }
+      if (!d.done[mi.id] && best >= mi.goal) {
+        d.best[mi.stat] = best;
+        d.done[mi.id] = 1;
+        dailyChanged = true;
+        completeModeMission('day', mi, DAILY_REWARD);
+      }
+    }
+    if (finalize || dailyChanged) store.set(LS_DAILY, JSON.stringify(d));
+
+    const w = weeklyState();
+    let weeklyChanged = false;
+    for (const mi of weeklyMissionsFor(w.week)) {
+      if (w.done[mi.id]) continue;
+      if (!finalize && mi.stat === 'runs') continue;
+      const st = MODE_STATS[mi.stat], current = Math.floor(st.now());
+      const previous = w.prog[mi.id] || 0;
+      const next = st.run ? Math.max(previous, current) : previous + current;
+      if (finalize || next >= mi.goal) { w.prog[mi.id] = next; weeklyChanged = true; }
+      if (next >= mi.goal) {
+        w.done[mi.id] = 1;
+        weeklyChanged = true;
+        completeModeMission('week', mi, WEEKLY_REWARD);
+      }
+    }
+    if (finalize || weeklyChanged) store.set(LS_WEEKLY, JSON.stringify(w));
+  }
+
+  // End of a run: save the ranking and any progress not already completed live.
   function modesEndRun() {
     const lines = [];
     if (gameMode === 'normal') {
@@ -3508,25 +3547,9 @@
         lines.push('⏱ Em 60 s: ' + m + ' m' + (pos >= 0 ? ' (ranking: ' + (pos + 1) + 'º)' : ''));
       }
     }
-    let paid = 0;
-    const reward = (label, coins) => { paid += coins; lines.push('✅ ' + label + ' +' + coins + ' 🪙'); };
-    if (gameMode === 'daily') {
-      const s = dailyState();
-      for (const mi of dailyMissionsFor(s.day)) {
-        const v = Math.floor(MODE_STATS[mi.stat].now());
-        if (v > (s.best[mi.stat] || 0)) s.best[mi.stat] = v;
-        if (!s.done[mi.id] && (s.best[mi.stat] || 0) >= mi.goal) { s.done[mi.id] = 1; reward('Missão do dia: ' + mi.text, DAILY_REWARD); }
-      }
-      store.set(LS_DAILY, JSON.stringify(s));
-    }
-    const w = weeklyState();
-    for (const mi of weeklyMissionsFor(w.week)) {
-      const st = MODE_STATS[mi.stat], v = Math.floor(st.now());
-      w.prog[mi.id] = st.run ? Math.max(w.prog[mi.id] || 0, v) : (w.prog[mi.id] || 0) + v;
-      if (!w.done[mi.id] && w.prog[mi.id] >= mi.goal) { w.done[mi.id] = 1; reward('Missão da semana: ' + mi.text, WEEKLY_REWARD); }
-    }
-    store.set(LS_WEEKLY, JSON.stringify(w));
-    if (paid) addWallet(paid);
+    updateModeMissions(true);
+    lines.push.apply(lines, modeCompletionLines);
+    modeCompletionLines = [];
     return lines;
   }
 
@@ -3892,7 +3915,7 @@
       updateMechanics(meters);
       noElasticTick();
       skinTrail(); // cosmetic particles of the chosen character
-      if (state === 'playing') { missionTick(); modesTick(); } // mission counters + unlocks (read-only), 60 s mark
+      if (state === 'playing') { missionTick(); modesTick(); } // mission counters, unlocks, rewards, and 60 s mark
     } else ninja.deathSpin += 0.22;
     let fw = 0; // in-place compaction (no splice per removed item, order kept)
     for (let i = 0; i < floaters.length; i++) {
@@ -4064,8 +4087,7 @@
     }
     const ge = document.getElementById('goExtra');
     if (ge) { ge.innerHTML = ''; for (const l of runExtraLines) { const d = document.createElement('div'); d.textContent = l; ge.appendChild(d); } ge.style.display = runExtraLines.length ? 'block' : 'none'; }
-    hideUnlockToast(); // the game-over screen lists them instead
-    playBtn.textContent = 'Jogar de novo';
+    playBtn.textContent = 'Jogar';
     titleEl.textContent = 'Fim de jogo';
     beep(150, 0.2, 'sawtooth', 0.08);
     beep(100, 0.3, 'square', 0.06);
@@ -4117,7 +4139,6 @@
     if (name === 'main' || name === 'chars') refreshWallet();
     if (name === 'chars') renderChars();
     if (name === 'audio') refreshSoundUi();
-    if (name === 'modes') refreshModesInfo();
     if (name === 'ranking') renderRanking();
     if (name === 'missions') renderMissions();
     if (name === 'controls') refreshControlsUi();
@@ -4125,7 +4146,7 @@
   function goBack() {
     if (dlgIsOpen()) { dlgClose(); return; }
     if (screen === 'audio' || screen === 'controls') showScreen('options');
-    else if (screen === 'ranking' || screen === 'missions') showScreen('modes');
+    else if (screen === 'ranking' || screen === 'missions' || screen === 'playOptions') showScreen('main');
     else if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
     else showScreen('main');
   }
@@ -5767,7 +5788,6 @@
     runMission.apexY = ninja ? ninja.y : 0;
     runMission.streakId = null; runMission.streakN = 0; runMission.launched = false;
     runMission.night = false; runMission.unlocked = [];
-    hideUnlockToast();
   }
   function runValue(stat) {
     if (stat === 'meters') return bestHeight;
@@ -5857,20 +5877,30 @@
     missionCheck(false);
   }
 
-  // --- "Novo personagem liberado" notice (in game; also listed on the game-over screen) ---
-  let toastTimer = 0;
-  function showUnlockToast(sk) {
-    const el = document.getElementById('unlockToast');
-    if (!el) return;
-    el.textContent = '🎉 Novo personagem liberado: ' + sk.name + '!';
+  // --- In-game notices for character unlocks and completed mode missions ---
+  let toastTimer = 0, toastBusy = false, toastQueue = [];
+  function showGameToast(text) {
+    if (!document.getElementById('unlockToast')) return;
+    toastQueue.push(text);
+    if (toastBusy) return;
+    showNextGameToast();
+  }
+  function showNextGameToast() {
+    const el = document.getElementById('unlockToast'), text = toastQueue.shift();
+    if (!el || !text) { toastBusy = false; return; }
+    toastBusy = true;
+    el.textContent = text;
     el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(hideUnlockToast, 3600);
+    toastTimer = setTimeout(function () {
+      el.classList.remove('show');
+      toastTimer = setTimeout(function () { toastBusy = false; showNextGameToast(); }, 250);
+    }, 3600);
   }
-  function hideUnlockToast() {
-    const el = document.getElementById('unlockToast');
-    if (el) el.classList.remove('show');
+  function showUnlockToast(sk) {
+    showGameToast('🎉 Novo personagem liberado: ' + sk.name + '!');
   }
+  function showMissionToast(text) { showGameToast(text); }
 
   // --- Character accessories (procedural, drawn with the sprite; config/skins.js says what each one wears) ---
   // All parts are a few small paths in sprite space (+x = the way he faces, head centre (0, headY),
@@ -8718,7 +8748,7 @@
     }, false);
   }
 
-  // --- Modes menu: start a mode, 60 s ranking, daily/weekly missions ---
+  // --- Start choices, 60 s ranking and daily/weekly missions ---
   function startMode(mode) {
     if (state === 'playing') return;
     const t = nowMs();
@@ -8740,13 +8770,6 @@
     row.appendChild(a); row.appendChild(b);
     return row;
   }
-  function refreshModesInfo() {
-    const el = document.getElementById('modesInfo');
-    if (!el) return;
-    const d = dailyState(), n = Object.keys(d.done).length;
-    el.textContent = 'Desafio diário: mesma fase para todos hoje · missões de hoje ' + n + '/3 (+' + DAILY_REWARD + ' 🪙 cada). ' +
-      'Sem elástico: só pulos (toque) na parede, no chão, nas plataformas e nos inimigos.';
-  }
   function renderRanking() {
     const box = document.getElementById('rankingList');
     if (!box) return;
@@ -8760,13 +8783,13 @@
     if (!box) return;
     box.innerHTML = '';
     const d = dailyState(), w = weeklyState();
-    const h1 = document.createElement('h4'); h1.textContent = 'Desafio diário (jogue o modo diário) · ' + DAILY_REWARD + ' 🪙 cada';
+    const h1 = document.createElement('h4'); h1.textContent = 'Missões diárias · ' + DAILY_REWARD + ' 🪙 cada';
     box.appendChild(h1);
     for (const mi of dailyMissionsFor(d.day)) {
       const cur = Math.min(mi.goal, Math.floor(d.best[mi.stat] || 0));
       box.appendChild(modeRow(mi.text, d.done[mi.id] ? '✅' : cur + '/' + mi.goal, !!d.done[mi.id]));
     }
-    const h2 = document.createElement('h4'); h2.textContent = 'Missões da semana · ' + WEEKLY_REWARD + ' 🪙 cada';
+    const h2 = document.createElement('h4'); h2.textContent = 'Missões semanais · ' + WEEKLY_REWARD + ' 🪙 cada';
     box.appendChild(h2);
     for (const mi of weeklyMissionsFor(w.week)) {
       const cur = Math.min(mi.goal, Math.floor(w.prog[mi.id] || 0));
@@ -8783,6 +8806,7 @@
       try { e.stopPropagation(); } catch (err) {}
     }
     if (state === 'playing') return;
+    if (state === 'gameover') { showScreen('playOptions'); return; }
     const t = nowMs();
     if (t - lastStartAt < 500) return;
     lastStartAt = t;
@@ -8804,11 +8828,10 @@
   }
   function bindMenus() {
     onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
-    onBtn('modesBtn', function () { showScreen('modes'); });
-    onBtn('dailyBtn', function () { startMode('daily'); });
-    onBtn('noElasticBtn', function () { startMode('noelastic'); });
-    onBtn('missionsBtn', function () { showScreen('missions'); });
+    onBtn('missionsMenuBtn', function () { showScreen('missions'); });
     onBtn('rankingBtn', function () { showScreen('ranking'); });
+    onBtn('newGameBtn', function () { startMode('normal'); });
+    onBtn('noElasticBtn', function () { startMode('noelastic'); });
     initDialog();
     initCharsFilter();
     onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });

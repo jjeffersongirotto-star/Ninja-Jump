@@ -1,4 +1,4 @@
-// --- Modes menu: start a mode, 60 s ranking, daily/weekly missions ---
+// --- Start choices, 60 s ranking and daily/weekly missions ---
 function startMode(mode) {
   if (state === 'playing') return;
   const t = nowMs();
@@ -20,13 +20,6 @@ function modeRow(text, val, done) {
   row.appendChild(a); row.appendChild(b);
   return row;
 }
-function refreshModesInfo() {
-  const el = document.getElementById('modesInfo');
-  if (!el) return;
-  const d = dailyState(), n = Object.keys(d.done).length;
-  el.textContent = 'Desafio diário: mesma fase para todos hoje · missões de hoje ' + n + '/3 (+' + DAILY_REWARD + ' 🪙 cada). ' +
-    'Sem elástico: só pulos (toque) na parede, no chão, nas plataformas e nos inimigos.';
-}
 function renderRanking() {
   const box = document.getElementById('rankingList');
   if (!box) return;
@@ -40,13 +33,13 @@ function renderMissions() {
   if (!box) return;
   box.innerHTML = '';
   const d = dailyState(), w = weeklyState();
-  const h1 = document.createElement('h4'); h1.textContent = 'Desafio diário (jogue o modo diário) · ' + DAILY_REWARD + ' 🪙 cada';
+  const h1 = document.createElement('h4'); h1.textContent = 'Missões diárias · ' + DAILY_REWARD + ' 🪙 cada';
   box.appendChild(h1);
   for (const mi of dailyMissionsFor(d.day)) {
     const cur = Math.min(mi.goal, Math.floor(d.best[mi.stat] || 0));
     box.appendChild(modeRow(mi.text, d.done[mi.id] ? '✅' : cur + '/' + mi.goal, !!d.done[mi.id]));
   }
-  const h2 = document.createElement('h4'); h2.textContent = 'Missões da semana · ' + WEEKLY_REWARD + ' 🪙 cada';
+  const h2 = document.createElement('h4'); h2.textContent = 'Missões semanais · ' + WEEKLY_REWARD + ' 🪙 cada';
   box.appendChild(h2);
   for (const mi of weeklyMissionsFor(w.week)) {
     const cur = Math.min(mi.goal, Math.floor(w.prog[mi.id] || 0));

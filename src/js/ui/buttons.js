@@ -7,6 +7,7 @@ function onPlayTap(e) {
     try { e.stopPropagation(); } catch (err) {}
   }
   if (state === 'playing') return;
+  if (state === 'gameover') { showScreen('playOptions'); return; }
   const t = nowMs();
   if (t - lastStartAt < 500) return;
   lastStartAt = t;
@@ -28,11 +29,10 @@ function onBtn(id, fn) {
 }
 function bindMenus() {
   onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
-  onBtn('modesBtn', function () { showScreen('modes'); });
-  onBtn('dailyBtn', function () { startMode('daily'); });
-  onBtn('noElasticBtn', function () { startMode('noelastic'); });
-  onBtn('missionsBtn', function () { showScreen('missions'); });
+  onBtn('missionsMenuBtn', function () { showScreen('missions'); });
   onBtn('rankingBtn', function () { showScreen('ranking'); });
+  onBtn('newGameBtn', function () { startMode('normal'); });
+  onBtn('noElasticBtn', function () { startMode('noelastic'); });
   initDialog();
   initCharsFilter();
   onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });
