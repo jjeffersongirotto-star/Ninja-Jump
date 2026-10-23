@@ -35,7 +35,11 @@ const MISSIONS = {
     text: 'Acerte a MESMA estrutura (parede, plataforma ou obstáculo) 5 vezes seguidas, com um elástico entre cada batida. Bater em outra estrutura recomeça a contagem.',
     card: 'Mesma estrutura 5x seguidas' },
   oniLua: { scope: 'run', stat: 'ufoKills', goal: 1,
-    text: 'Derrote um disco voador: o azul com pisão ou golpe por cima, o vermelho com um combo de escudo.', card: 'Derrote um disco voador' }
+    text: 'Derrote um disco voador: o azul com pisão ou golpe por cima, o vermelho com um combo de escudo.', card: 'Derrote um disco voador' },
+  mongeIma: { scope: 'life', stat: 'playMinutes', goal: 20, unit: ' min',
+    text: 'Jogue 20 minutos somando todas as partidas.', card: 'Jogue 20 minutos' },
+  kunoichiTempo: { scope: 'run', stat: 'runSeconds', goal: 60, unit: ' s',
+    text: 'Fique 1 minuto seguido sem perder, numa mesma partida.', card: '1 minuto sem perder' }
 };
 // Attach to the characters: mission characters have no price and are never bought
 for (const sk of SKINS) if (MISSIONS[sk.id]) { sk.mission = MISSIONS[sk.id]; sk.price = 0; }

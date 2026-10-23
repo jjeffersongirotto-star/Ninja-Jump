@@ -11,6 +11,7 @@ function syncDrawingWorld() {
 }
 function startDraw(x, y) {
   if (state !== 'playing' || paused || (ninja && ninja.dead)) return;
+  if (gameMode === 'noelastic') { noElasticTap(x); return; }
   drawing = {
     sx1: x, sy1: y, sx2: x, sy2: y,
     x1: x, y1: y + camera.y, x2: x, y2: y + camera.y
@@ -48,6 +49,7 @@ function endDraw() {
     phase: 'ready', sag: 0, hitT: 0.5,
     impactSpeed: 0, stretchFrames: 0, maxSag: 0
   };
+  if (ninja.fireElastic) { elastic.fire = true; ninja.fireElastic = false; } // fire elastic item: this one burns
   // Still inside an intangible platform: no room for an elastic, it snaps
   if (!settleGhostPlatforms()) snapElastic(elastic);
   drawing = null;

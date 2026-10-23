@@ -322,7 +322,7 @@ function planNext(sp, width) {
       } else {
         const w = {};
         for (const k in POWERUPS.weights) if (k !== sp.lastPower) w[k] = POWERUPS.weights[k];
-        const type = pickWeighted(rng, w);
+        const type = gameMode !== 'noelastic' && rng() < FIRE.chance ? 'fire' : pickWeighted(rng, w);
         sp.lastPower = type;
         row.power = { type: type, x: 0, yOff: 0 };
       }

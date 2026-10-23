@@ -264,6 +264,14 @@ function drawAccBodyTop(bodyY) {
       if (A.pads.neon) { ctx.strokeStyle = A.pads.neon; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.ellipse(x, y, 2.6, 1.5, sx * 0.35, Math.PI, Math.PI * 2); ctx.stroke(); }
     }
   }
+  if (A.pendant) { // hourglass on a cord
+    const P = A.pendant, y = bodyY - 0.5;
+    ctx.strokeStyle = shadeHex(P.col, -0.45); ctx.lineWidth = 0.9;
+    ctx.beginPath(); ctx.moveTo(-5.5, bodyY - 5.5); ctx.lineTo(0, y - 3); ctx.lineTo(5.5, bodyY - 5.5); ctx.stroke();
+    accPath([-3.2, y - 3, 3.2, y - 3, 0.5, y, 3.2, y + 3.2, -3.2, y + 3.2, -0.5, y]); accFill('rgba(220,245,255,0.85)');
+    accPath([-1.8, y + 3, 1.8, y + 3, 0, y + 1.2]); accFill(P.sand, false);
+    ctx.fillStyle = P.col; ctx.fillRect(-3.8, y - 4, 7.6, 1.2); ctx.fillRect(-3.8, y + 3.2, 7.6, 1.2);
+  }
   if (A.collar) {
     const h = A.collar.high ? 5 : 3;
     ctx.beginPath();
@@ -323,6 +331,15 @@ function drawAccHeadMid(headY, hr, visorX, vw, va) {
       ctx.fillStyle = skin.bandGrad[1]; ctx.beginPath(); ctx.arc(visorX * 0.8 + 1.4, headY - 7, 2.5, 0, Math.PI * 2); ctx.fill();
     } else if (C.style === 'blade') {
       accPath([-7, headY - 9.5, 2, headY - 20, 4.5, headY - 10.5]); accFill(C.col);
+    } else if (C.style === 'magnet' && va > 0.2) { // little horseshoe magnet on the forehead
+      const mx = visorX * 0.9, my = headY - 6.6;
+      ctx.lineCap = 'butt';
+      ctx.strokeStyle = skin.out; ctx.lineWidth = 4.6;
+      ctx.beginPath(); ctx.arc(mx, my, 2.6 * vw + 0.4, Math.PI, 0); ctx.stroke();
+      ctx.strokeStyle = C.col; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(mx, my, 2.6 * vw + 0.4, Math.PI, 0); ctx.stroke();
+      ctx.fillStyle = '#e8ecf4';
+      ctx.fillRect(mx - 4 * vw - 0.6, my - 0.4, 2.4, 2.2); ctx.fillRect(mx + 2 * vw - 0.6 + 0.6, my - 0.4, 2.4, 2.2);
     }
   }
 }

@@ -157,8 +157,11 @@ function resetGame() {
     floatT: 0, ghost: 0, still: 0, stillX: W / 2, stillY: groundY - NINJA_R, embedded: 0,
     bonks: 0, bonkedSinceLaunch: false, bonkT: 0,
     magnetT: 0, shield: false, shieldPop: 0, invulnT: 0, rocketT: 0, rocketExt: 0, combo: '', comboT: 0,
-    coinRemainder: 0, redKillsThisSuper: 0, reviveUsed: false, fatalDodgeUsed: false
+    coinRemainder: 0, redKillsThisSuper: 0, reviveUsed: false, fatalDodgeUsed: false,
+    tpT: 0, slowUsed: false, chain: 0, chainLaunches: 0, fireElastic: false, jumpT: 0, wallT: 0, wallDir: 1
   };
+  slowMoT = 0;
+  resetMechanics();
   resetDebugStats();
   camera = { y: 0 };
   elastic = null;
@@ -173,7 +176,7 @@ function resetGame() {
   shake = 0;
   stretch = 0;
   lastThemeName = '';
-  spawner = createSpawner(Math.random); // rows start at 25 m
+  spawner = createSpawner(gameMode === 'daily' ? mulberry32(dailySeed()) : Math.random); // rows start at 25 m
   bounceCooldown = 0;
   shortStreak = 0;
   rings = [];

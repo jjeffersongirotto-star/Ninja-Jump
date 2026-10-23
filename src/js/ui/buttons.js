@@ -11,6 +11,7 @@ function onPlayTap(e) {
   if (t - lastStartAt < 500) return;
   lastStartAt = t;
   try {
+    gameMode = 'normal';
     startPlay();
   } catch (err) {
     logErr('startPlay', err);
@@ -27,6 +28,11 @@ function onBtn(id, fn) {
 }
 function bindMenus() {
   onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
+  onBtn('modesBtn', function () { showScreen('modes'); });
+  onBtn('dailyBtn', function () { startMode('daily'); });
+  onBtn('noElasticBtn', function () { startMode('noelastic'); });
+  onBtn('missionsBtn', function () { showScreen('missions'); });
+  onBtn('rankingBtn', function () { showScreen('ranking'); });
   initDialog();
   initCharsFilter();
   onBtn('optionsBtn', function () { optionsBack = 'main'; showScreen('options'); });

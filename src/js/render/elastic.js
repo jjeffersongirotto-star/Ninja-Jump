@@ -42,7 +42,7 @@ function drawElastic(e, isDrawing) {
   const x1 = e.x1, y1 = e.y1 - cam;
   const x2 = e.x2, y2 = e.y2 - cam;
   const wob = (e.wobble || 0) * Math.sin(frame * 0.8) * 8;
-  const col = at.elastic;
+  const col = e.fire ? '#ff7a1f' : at.elastic;
   const sag = e.sag || 0;
   const { nx, ny } = elasticUpNormal(e);
   const tHit = (e.hitT != null) ? e.hitT : 0.5;

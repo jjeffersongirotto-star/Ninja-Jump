@@ -310,6 +310,7 @@ function stompHazard(hz, px, py) {
   ninja.spinning = 0;
   ninjaPose.launch = 1;
   hz.hit = 1;
+  if (gameMode === 'noelastic') ninja.jumpT = NOELASTIC_JUMP.coyote; // a stomp lets him jump again
   countHit(hz.kind + ':stomp');
   shake = Math.max(shake, 3);
   if (hz.color === 'red') {
@@ -333,11 +334,12 @@ function defeatEnemy(hz, coinReward, exact) {
   hz.dying = ST.poofFrames;
   hz.hit = 1;
   let earned;
-  if (exact) { earned = Math.max(0, coinReward); runCoins += earned; }
-  else earned = awardRunCoins(coinReward === undefined ? ST.coins : coinReward);
+  const mult = chainKill();
+  if (exact) { earned = Math.max(0, coinReward) * mult; runCoins += earned; }
+  else earned = awardRunCoins((coinReward === undefined ? ST.coins : coinReward) * mult);
   missionKill(hz);
   countHit(hz.kind + ':defeated');
-  floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + earned });
+  floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + earned + (mult > 1 ? ' x' + mult : '') });
   if (comboDrops()) dropComboCoins(hz); // magnet + shield combo: extra coins burst out
   burst(hz.x, hz.y, '#ffffff', 12, 3.2);
   burst(hz.x, hz.y, '#8fd3ff', 10, 3);
@@ -462,6 +464,7 @@ function bumpHazard(hz, lx, ly) {
       ninja.vy = 0;
       const dir = hz.attach === 'left' ? 1 : (hz.attach === 'right' ? -1 : (ninja.x >= hz.x ? 1 : -1));
       ninja.vx = dir * Math.min(5, Math.max(0.8, ninja.vx * dir) + 0.6);
+      if (gameMode === 'noelastic') { ninja.vx = 0; ninja.jumpT = NOELASTIC_JUMP.coyote; } // can stand on platforms here
     } else {
       // bounced on top of a flyer/UFO: small hop, pushed aside
       ninja.vy = -2.6;
