@@ -73,7 +73,7 @@
     position: absolute;
     left: 50%;
     top: 18px;
-    top: calc(env(safe-area-inset-top, 8px) + 10px);
+    top: calc(env(safe-area-inset-top, 8px) + 28px);
     transform: translateX(-50%);
     font-size: 28px;
     font-weight: 800;
@@ -87,7 +87,7 @@
   #progress {
     position: absolute;
     top: 54px;
-    top: calc(env(safe-area-inset-top, 8px) + 46px);
+    top: calc(env(safe-area-inset-top, 8px) + 64px);
     left: 50%;
     transform: translateX(-50%);
     width: 120px;
@@ -120,7 +120,7 @@
   #streak i.on { background: #ffd700; box-shadow: 0 0 6px rgba(255,215,0,.85); }
   #chainHud {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 8px) + 74px);
+    top: calc(env(safe-area-inset-top, 8px) + 92px);
     left: 50%;
     transform: translateX(-50%);
     display: none;
@@ -132,15 +132,15 @@
   #chainHud.active { display: block; }
   #modeHud {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 8px) + 100px);
+    top: calc(env(safe-area-inset-top, 8px) + 6px);
     left: 50%;
     transform: translateX(-50%);
     display: none;
-    font: 800 20px/1 system-ui, sans-serif;
+    font: 800 13px/1 system-ui, sans-serif;
     color: #fff;
     background: rgba(10,12,35,.4);
-    padding: 4px 12px;
-    border-radius: 14px;
+    padding: 3px 9px;
+    border-radius: 10px;
     pointer-events: none;
   }
   #modeHud.active { display: block; }
@@ -3779,7 +3779,7 @@
     // Update corner theme name only (no center popup)
     if (atmosCache.name !== lastThemeName) {
       lastThemeName = atmosCache.name;
-      themeName.textContent = atmosCache.name;
+      themeName.textContent = '';
     }
 
     // Elastic trampoline: ready → stretching (sag) → launch

@@ -113,7 +113,7 @@ function update(dt) {
   // Update corner theme name only (no center popup)
   if (atmosCache.name !== lastThemeName) {
     lastThemeName = atmosCache.name;
-    themeName.textContent = atmosCache.name;
+    themeName.textContent = '';
   }
 
   // Elastic trampoline: ready → stretching (sag) → launch
