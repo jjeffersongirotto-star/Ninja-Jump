@@ -11,9 +11,9 @@ let uiScale = 1, colLeft = 0, colWidth = 0;
 // QUALITY_SLOW_MS on average, the canvas resolution drops one step (sharpness first, smoothness wins).
 // Never below 1 canvas pixel per CSS pixel; starts again from full quality when the page reloads.
 const QUALITY_STEPS = [1, 0.8, 0.64, 0.5];
-const QUALITY_SLOW_MS = 18.2;        // ~55 FPS
+const QUALITY_SLOW_MS = 17.2;        // react when sustained rendering falls below ~58 FPS
 const QUALITY_VERY_SLOW_MS = 22;     // ~45 FPS
-const QUALITY_WINDOW = 90;           // frames per measurement window (1.5 s at 60 FPS)
+const QUALITY_WINDOW_MS = 1000;      // stable measurement window regardless of current FPS
 let qualityLevel = 0;
 let resizeRetries = 0;
 function resize() {

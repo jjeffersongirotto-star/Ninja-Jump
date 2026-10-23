@@ -63,19 +63,20 @@ function render() {
 const STEP_MS = 1000 / 60;
 const MAX_STEPS = 6;  // after a long hiccup (tab switch, slow frame) don't fast-forward more than this
 let loopErrors = 0, acc = 0;
-let qSum = 0, qCount = 0, qSlowWindows = 0;
+let qElapsed = 0, qCount = 0, qSlowWindows = 0;
 function watchFrameRate(elapsed) {
   if (STRESS.on || state !== 'playing' || paused || document.hidden || qualityLevel >= QUALITY_STEPS.length - 1) { // stress: measure at full resolution
-    qSum = 0; qCount = 0;
+    qElapsed = 0; qCount = 0; qSlowWindows = 0;
     return;
   }
-  if (elapsed > 250) { qSum = 0; qCount = 0; return; } // a hiccup (tab switch, GC), not the steady rate
-  qSum += elapsed;
-  if (++qCount < QUALITY_WINDOW) return;
-  const avg = qSum / qCount;
-  qSum = 0; qCount = 0;
+  if (elapsed > 250) { qElapsed = 0; qCount = 0; qSlowWindows = 0; return; } // a hiccup (tab switch, GC), not the steady rate
+  qElapsed += elapsed;
+  qCount++;
+  if (qElapsed < QUALITY_WINDOW_MS) return;
+  const avg = qElapsed / qCount;
+  qElapsed = 0; qCount = 0;
   qSlowWindows = avg > QUALITY_SLOW_MS ? qSlowWindows + 1 : 0;
-  // slow for ~3 s in a row (or very slow, under ~45 FPS, for 1.5 s): lower the resolution one step
+  // Slow for ~2 s in a row (or very slow): lower resolution to keep rendering smooth.
   if (qSlowWindows >= 2 || avg > QUALITY_VERY_SLOW_MS) {
     qSlowWindows = 0;
     qualityLevel++;
@@ -83,20 +84,26 @@ function watchFrameRate(elapsed) {
     resize();
   }
 }
+let renderAcc = STEP_MS, lastRenderTime = 0;
 function loop(ts) {
   if (typeof ts !== 'number') ts = nowMs();
   const elapsed = Math.max(0, ts - (lastTime || ts));
   lastTime = ts;
-  watchFrameRate(elapsed);
   acc = Math.min(acc + elapsed * timeScale(), STEP_MS * MAX_STEPS);
   // One bad frame must never freeze the game: log it and keep the loop alive
   while (acc >= STEP_MS) {
     acc -= STEP_MS;
     try { update(STEP_MS); } catch (err) { if (loopErrors++ < 5) logErr('update', err); }
   }
-  try { render(); } catch (err) {
-    if (loopErrors++ < 5) logErr('render', err);
-    try { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; } catch (e) {}
+  renderAcc += elapsed;
+  if (renderAcc >= STEP_MS) {
+    renderAcc %= STEP_MS;
+    watchFrameRate(lastRenderTime ? ts - lastRenderTime : STEP_MS);
+    lastRenderTime = ts;
+    try { render(); } catch (err) {
+      if (loopErrors++ < 5) logErr('render', err);
+      try { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.globalAlpha = 1; } catch (e) {}
+    }
   }
   requestFrame(loop);
 }
