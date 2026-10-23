@@ -18,8 +18,8 @@ const MISSION_NIGHT_M = 420; // where the "Noite" scenery starts
 const MISSIONS = {
   black: { scope: 'life', stat: 'nightRuns', goal: 10,
     text: 'Chegue à Noite (420 m) em 10 partidas diferentes.', card: 'Chegue à Noite em 10 partidas' },
-  red: { scope: 'life', stat: 'blueBirds', goal: 150,
-    text: 'Derrote 150 pássaros azuis (pisão, golpe por cima ou super pulo), somando todas as partidas.', card: 'Derrote 150 pássaros azuis' },
+  red: { scope: 'life', stat: 'blueBirds', goal: 20,
+    text: 'Derrote 20 pássaros azuis (pisão, golpe de cabeça ou de lado, super pulo), somando todas as partidas.', card: 'Derrote 20 pássaros azuis' },
   // the camera never scrolls down, so one drop is at most ~60% of the screen (~27 m on a short phone, 40 m at 844 px)
   oniAbismo: { scope: 'run', stat: 'fall', goal: 24, unit: ' m',
     text: 'Despenque 24 m de uma vez só (do alto do pulo) e se salve com um elástico lá embaixo.', card: 'Despenque 24 m e se salve' },

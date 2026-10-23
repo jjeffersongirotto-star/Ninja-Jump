@@ -197,7 +197,7 @@ function collideHazards(x0, y0, onBand) {
         if (hz.type === 'platform') ghostPlatform(hz);
         else if (hz.color === 'red' && specialRedKillAvailable()) {
           ninja.redKillsThisSuper++;
-          defeatEnemy(hz, abilityValue('redSpecialCoins', HAZARDS.stomp.redSpecialCoins));
+          defeatEnemy(hz, abilityValue('redSpecialCoins', HAZARDS.stomp.redSpecialCoins), abilityValue('redCoinsFinal', false));
         } else if (hz.color === 'red' && comboRams()) comboDefeat(hz);
         else if (hz.color === 'red') knockAside(hz);
         else defeatEnemy(hz);
@@ -219,6 +219,15 @@ function collideHazards(x0, y0, onBand) {
         continue;
       }
       if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
+      if (!onBand && isSideHit(hz, px, py)) {
+        // blue enemy hit on its SIDE (e.g. flying sideways off an elastic): defeated (+coins), he flies on
+        debugStats.sideHits = (debugStats.sideHits || 0) + 1;
+        countHit(hz.kind + ':side');
+        ninja.vx *= 0.85;
+        shake = Math.max(shake, 3);
+        defeatEnemy(hz);
+        continue;
+      }
       if (hz.fatal && STRESS.on) { stressHit(hz); continue; }
       if (hz.fatal && abilityValue('breakSpikes', false) && (hz.type === 'spikeMine' || hz.type === 'spikeBar' || hz.type === 'saw')) {
         smashSpikes(hz); // Mestre Dragão: the mechanism breaks, he flies on
@@ -271,6 +280,17 @@ function isUpperHit(hz, py) {
   if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
   return py <= hz.y;
 }
+// Side hit on a non-red flyer/UFO: anything except coming from (almost) straight underneath.
+// From below (within ~35 deg of vertical) it stays the old bump, so a jump up into a bird's belly
+// still bounces him back down instead of being a free kill.
+function isSideHit(hz, px, py) {
+  if (hz.color === 'red' || hz.fatal) return false;
+  if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
+  const ax = hz.shape === 'circle' ? hz.r : hz.rx, ay = hz.shape === 'circle' ? hz.r : hz.ry;
+  const dx = (px - hz.x) / (ax + NINJA_R), dy = (py - hz.y) / (ay + NINJA_R);
+  const d = Math.hypot(dx, dy) || 1;
+  return dy / d < HAZARDS.stomp.belowCos;
+}
 // Head stomp: coming down onto a flyer/UFO from above
 function isStomp(hz, px, py) {
   if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
@@ -306,12 +326,15 @@ function stompHazard(hz, px, py) {
   }
 }
 // Blue flyer/UFO defeated (head stomp or super jump): poof, +coins
-function defeatEnemy(hz, coinReward) {
+// `exact`: coinReward is the final amount (no coin multipliers), e.g. Imperador's 15 per red enemy
+function defeatEnemy(hz, coinReward, exact) {
   const ST = HAZARDS.stomp;
   if (hz.dying > 0) return;
   hz.dying = ST.poofFrames;
   hz.hit = 1;
-  const earned = awardRunCoins(coinReward === undefined ? ST.coins : coinReward);
+  let earned;
+  if (exact) { earned = Math.max(0, coinReward); runCoins += earned; }
+  else earned = awardRunCoins(coinReward === undefined ? ST.coins : coinReward);
   missionKill(hz);
   countHit(hz.kind + ':defeated');
   floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + earned });
