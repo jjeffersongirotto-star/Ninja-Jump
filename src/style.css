@@ -93,6 +93,7 @@ body { position: fixed; top: 0; left: 0; }
   border: 1px solid rgba(255,255,255,.16);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 2px 8px rgba(0,0,0,.15);
 }
+#themeName { display: none; }
 #meters {
   position: absolute;
   left: 50%;
