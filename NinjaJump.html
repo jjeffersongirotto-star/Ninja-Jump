@@ -1176,7 +1176,8 @@
   let lastTime = 0;
   let atmosCache = null;
   let shortStreak = 0;   // consecutive bounces on short elastics
-  let rings = [];        // shockwave rings (super jump)
+  let rings = [];
+  let shurikens = [], ninjaShurikenCd = 0; // Ninja Raposa: thrown stars (see world/powerups.js)        // shockwave rings (super jump)
   let floaters = [];     // '+10' coin pop after defeating an enemy
   let groundY = 0, originY = 0; // world y of the ground top / of meter 0 (fixed per run)
   // Per-run counters (reset at the start of every run by resetDebugStats)
@@ -1415,6 +1416,7 @@
     bounceCooldown = 0;
     shortStreak = 0;
     rings = [];
+    shurikens = []; ninjaShurikenCd = 0;
     floaters = [];
     ninjaPose.wallKick = 0;
     ninjaPose.hero = 0;
@@ -2281,6 +2283,15 @@
         }
         if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
         if (hz.fatal && STRESS.on) { stressHit(hz); continue; }
+        if (hz.fatal && abilityValue('breakSpikes', false) && (hz.type === 'spikeMine' || hz.type === 'spikeBar' || hz.type === 'saw')) {
+          smashSpikes(hz); // Mestre Dragão: the mechanism breaks, he flies on
+          continue;
+        }
+        if (hz.fatal && hz.color === 'red' && abilityValue('redImmune', false)) {
+          if (onBand) continue;
+          bumpHazard(hz, lx, ly); // Ninja Rubro / Mestre Dragão: a red enemy is only a bump
+          return;
+        }
         if (hz.fatal) { hitFatal(hz); return; }
         if (onBand) continue;
         bumpHazard(hz, lx, ly);
@@ -2559,6 +2570,20 @@
     beep(180, 0.12, 'triangle', 0.06);
   }
 
+  // Mestre Dragão breaks a spike / saw hazard on contact (debris + sparks)
+  function smashSpikes(hz) {
+    hz.alive = false;
+    debugStats.spikeBreaks = (debugStats.spikeBreaks || 0) + 1;
+    countHit(hz.kind + ':broken');
+    shake = Math.max(shake, 6);
+    burst(hz.x, hz.y, '#c9ced8', 16, 5);
+    burst(hz.x, hz.y, '#ffd23f', 10, 4);
+    fxSparks(hz.x, hz.y, '#fff6a8', 14, 7);
+    rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.7, color: '#ffd23f' });
+    floaters.push({ x: hz.x, y: hz.y - 18, life: 40, text: 'CRACK!' });
+    beep(240, 0.08, 'square', 0.07);
+    beep(140, 0.14, 'sawtooth', 0.05);
+  }
   function hitFatal(hz) {
     if (!(HAZARDS.shieldOnSuperJump && superActive()) && ninja.shield) { breakShield(hz); return; }
     if (HAZARDS.shieldOnSuperJump && superActive()) {
@@ -3061,6 +3086,44 @@
     if (ninja.shieldPop > 0) ninja.shieldPop = Math.max(0, ninja.shieldPop - 0.05);
   }
 
+  // --- Ninja Raposa: auto-throws a shuriken at the nearest blue enemy in range (cooldown); a hit defeats it ---
+  function updateShurikens() {
+    const SK = abilityValue('shuriken', null);
+    if (ninjaShurikenCd > 0) ninjaShurikenCd--;
+    if (SK && !ninja.dead && ninjaShurikenCd <= 0) {
+      let best = null, bd = SK.range;
+      for (const hz of hazards) {
+        if (!hz.alive || hz.dying > 0 || hz.ghost || hz.fatal || hz.color === 'red') continue;
+        if (hz.type !== 'flyer' && hz.type !== 'ufo') continue;
+        if (hz.y < camera.y || hz.y > camera.y + H) continue;
+        const d = Math.hypot(hz.x - ninja.x, hz.y - ninja.y);
+        if (d < bd && !shurikens.some(s => s.target === hz)) { bd = d; best = hz; }
+      }
+      if (best) {
+        const a = Math.atan2(best.y - ninja.y, best.x - ninja.x);
+        shurikens.push({ x: ninja.x, y: ninja.y, vx: Math.cos(a) * SK.speed, vy: Math.sin(a) * SK.speed, rot: 0, life: 60, target: best });
+        ninjaShurikenCd = SK.cooldown;
+        beep(1400, 0.04, 'triangle', 0.04);
+      }
+    }
+    for (let i = shurikens.length - 1; i >= 0; i--) {
+      const s = shurikens[i], t = s.target;
+      if (t && t.alive && !(t.dying > 0)) { // light homing so a moving bird is still hit
+        const a = Math.atan2(t.y - s.y, t.x - s.x), sp = Math.hypot(s.vx, s.vy);
+        s.vx += (Math.cos(a) * sp - s.vx) * 0.25; s.vy += (Math.sin(a) * sp - s.vy) * 0.25;
+      }
+      s.x += s.vx; s.y += s.vy; s.rot += 0.5; s.life--;
+      if (t && t.alive && !(t.dying > 0) && Math.hypot(t.x - s.x, t.y - s.y) < (t.r || t.rx || 14) + 6) {
+        debugStats.shurikenKills = (debugStats.shurikenKills || 0) + 1;
+        countHit(t.kind + ':shuriken');
+        defeatEnemy(t);
+        shurikens.splice(i, 1);
+        continue;
+      }
+      if (s.life <= 0 || (t && (!t.alive || t.dying > 0))) shurikens.splice(i, 1);
+    }
+  }
+
   function update(dt) {
     frame++;
     if (state !== 'playing' || paused) return;
@@ -3085,6 +3148,8 @@
       const BF = HAZARDS.bumpFloat;
       const floating = ninja.floatT > 0 && !ninja.dead;
       if (floating) { g *= 1 - (1 - BF.gravity) * (ninja.floatT / BF.frames); ninja.floatT--; }
+      const AF = abilityValue('apexFloat', null); // Shinobi da Maré: lighter near the top of every jump
+      if (AF && !ninja.dead && Math.abs(ninja.vy) < AF.band) g *= AF.gravity;
       ninja.vy += g;
       if (floating && ninja.vy > BF.maxFall) ninja.vy = BF.maxFall;
       ninja.x += ninja.vx;
@@ -3230,6 +3295,8 @@
             shortStreak = 0;
             strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN, strength * fallMult);
             if (STRESS.on) strength *= STRESS.superMult;
+            // Ninja do Trovão: launch speed x1.25 -> the ascent (the special) also lasts 25% longer (T = v0 / g)
+            strength *= abilityValue('superSpeedMultiplier', 1);
           }
           updateStreakHud();
           // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
@@ -3316,6 +3383,7 @@
       }
       pickupPowerups();
       if (STRESS.on) stressTick();
+      updateShurikens();
       updateCombo();
       skinTrail(); // cosmetic particles of the chosen character
       if (state === 'playing') missionTick(); // mission counters + unlocks (read-only)
@@ -4977,7 +5045,7 @@
       main: '#8a6a48', limb: '#4a3624', band: '#3a2a1a', eye: '#cfefff',
       acc: { hood: { col: '#6b4f33' }, back: [{ type: 'sword', col: '#3a3f4a', blade: '#4adfff', glow: true }], body: { pattern: 'robe', col: '#d9c9a8' } },
       trail: { kind: 'star', color: '#9fe8ff' }, aura: '#4adfff' }),
-    skinPal({ id: 'dragao', name: 'Mestre Dragão', price: 5000, rarity: 3,
+    skinPal({ id: 'dragao', name: 'Mestre Dragão', price: 6500, rarity: 3,
       desc: 'Guardião ancestral da montanha de jade. Raríssimo.',
       main: '#1f9a6a', limb: '#145a40', band: '#c9a227', eye: '#ffe14d', rim: 'rgba(255,230,140,0.9)',
       acc: { horns: { style: 'dragon', col: '#e8c048' }, whiskers: '#e8c048', eyeGlow: '#ffe14d',
@@ -5026,19 +5094,19 @@
   const CHARACTER_ABILITIES = {
     white: { desc: 'Sem habilidade especial.' },
     black: { elasticTolerance: 2, desc: 'Acerta elásticos com margem +2 px.' },
-    red: { coinMultiplier: 1.05, desc: 'Ganha 5% a mais de moedas.' },
+    red: { redImmune: true, desc: 'Inimigos vermelhos não o machucam: encostar neles vira só uma batida.' },
     oniAbismo: { bounceMultiplier: 1.03, desc: 'Impulso do elástico +3%.' },
     oniMontanha: { bonkFloatMultiplier: 1.08, desc: 'Cai 8% mais devagar após uma batida.' },
     oniVendaval: { horizontalMultiplier: 1.04, desc: 'Velocidade horizontal do impulso +4%.' },
     oniFloresta: { coinRadius: 4, desc: 'Recolhe moedas a +4 px de distância.' },
     oniChama: { bounceMultiplier: 1.06, desc: 'Impulso do elástico +6%.' },
-    oniMare: { powerupDuration: 1.15, desc: 'Ímã e foguete duram 15% mais.' },
-    oniTrovao: { horizontalMultiplier: 1.09, desc: 'Velocidade horizontal do impulso +9%.' },
+    oniMare: { apexFloat: { band: 3.5, gravity: 0.45 }, desc: 'Flutua no alto de cada pulo, como numa onda: ~30% mais tempo no ar.' },
+    oniTrovao: { superSpeedMultiplier: 1.25, superBolts: true, desc: 'Especial com raios: 25% mais rápido e 25% mais longo.' },
     oniAco: { bonkFloatMultiplier: 1.18, desc: 'Cai 18% mais devagar após uma batida.' },
     oniLua: { superStreakReduction: 1, desc: 'Ativa o especial com 1 elástico curto a menos.' },
     oniCeu: { coinMultiplier: 1.25, desc: 'Ganha 25% a mais de moedas.' },
-    oniImperador: { specialRedKills: Infinity, redSpecialCoins: 5, desc: 'No especial, derrota inimigos vermelhos e ganha 5 moedas por um.' },
-    raposa: { coinRadius: 8, desc: 'Recolhe moedas a +8 px de distância.' },
+    oniImperador: { specialRedKills: Infinity, redSpecialCoins: 5, coinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas. No especial, derrota inimigos vermelhos (+5 moedas cada).' },
+    raposa: { shuriken: { range: 170, cooldown: 75, speed: 9 }, desc: 'Atira shurikens nos inimigos azuis próximos e os derrota (+10 moedas).' },
     lotus: { elasticTolerance: 4, desc: 'Acerta elásticos com margem +4 px.' },
     luaRubra: { specialRedKills: 1, redSpecialCoins: 5, desc: 'No especial, derrota 1 inimigo vermelho e ganha 5 moedas.' },
     pirata: { coinMultiplier: 1.1, desc: 'Ganha 10% a mais de moedas.' },
@@ -5049,7 +5117,7 @@
     fantasma: { fatalDodge: true, desc: 'Uma vez por partida, escapa de um golpe fatal com impulso.' },
     ciber: { powerupDuration: 1.4, desc: 'Ímã e foguete duram 40% mais.' },
     monge: { superCoinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas durante o especial.' },
-    dragao: { bounceMultiplier: 1.15, desc: 'Impulso do elástico +15%.' },
+    dragao: { breakSpikes: true, redImmune: true, desc: 'Quebra espinhos e serras ao bater neles e não morre para inimigos vermelhos.' },
     lancaInfernal: { platformBreakHits: 2, desc: 'Quebra uma plataforma após acertá-la 2 vezes por baixo.' },
     geloEterno: { bonkFloatMultiplier: 1.3, desc: 'Cai 30% mais devagar após uma batida.' },
     pantano: { coinMultiplier: 1.2, desc: 'Ganha 20% a mais de moedas.' },
@@ -7479,6 +7547,7 @@
   // In front of the ninja: shield bubble (and the short immunity flicker after it breaks)
   function drawNinjaFxFront(x, y) {
     if (ninja.dead) return;
+    if (ninja.superSpin && abilityValue('superBolts', false)) drawSuperBolts(x, y);
     if (ninja.shield) {
       const wob = Math.sin(frame * 0.15) * 1.2, pop = ninja.shieldPop || 0;
       const r = NINJA_R + 10 + wob + pop * 8;
@@ -7549,6 +7618,51 @@
     }
   }
 
+  // Ninja do Trovão: crackling lightning bolts around him during the special (cosmetic, no Math.random)
+  function drawSuperBolts(x, y) {
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const n = 5, seed = Math.floor(frame / 3);
+    for (let b = 0; b < n; b++) {
+      const h = Math.sin((seed + 1) * 12.9898 + b * 78.233) * 43758.5453;
+      const rnd = k => { const v = Math.sin(h + k * 19.19) * 1000; return v - Math.floor(v); };
+      const a0 = (b / n) * Math.PI * 2 + frame * 0.07 + rnd(0) * 0.6;
+      const r0 = NINJA_R + 4, r1 = NINJA_R + 22 + rnd(1) * 12;
+      const pts = [];
+      for (let i = 0; i <= 4; i++) {
+        const t = i / 4, r = r0 + (r1 - r0) * t, a = a0 + (rnd(i + 2) - 0.5) * 0.5;
+        pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]);
+      }
+      for (const [w, col] of [[5, 'rgba(120,180,255,0.35)'], [2.2, '#fff6a8'], [1, '#ffffff']]) {
+        ctx.strokeStyle = col; ctx.lineWidth = w;
+        ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.globalAlpha = 0.25 + 0.15 * Math.sin(frame * 0.6);
+    ctx.strokeStyle = '#9fd0ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x, y, NINJA_R + 8, 0, Math.PI * 2); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Ninja Raposa: spinning four-point steel stars
+  function drawShurikens() {
+    for (const s of shurikens) {
+      ctx.save();
+      ctx.translate(s.x, s.y - camera.y); ctx.rotate(s.rot);
+      ctx.fillStyle = '#d9dee6'; ctx.strokeStyle = '#3a3f4a'; ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let i = 0; i < 8; i++) {
+        const r = i % 2 ? 2.6 : 8, a = i * Math.PI / 4;
+        if (i) ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.moveTo(r, 0);
+      }
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#3a3f4a'; ctx.beginPath(); ctx.arc(0, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+
   // --- Frame: render() draws everything; loop() runs the fixed-timestep game loop ---
   const MENU_METERS = 0;
   function render() {
@@ -7590,6 +7704,7 @@
       for (const hz of hazards) if (hz.alive) drawHazard(hz);
       for (const c of coins) drawCoin(c);
       if (powerups.length) drawPowerups();
+      if (shurikens.length) drawShurikens();
       drawParticles();
       if (floaters.length) drawFloaters();
       if (elastic) drawElastic(elastic, false);

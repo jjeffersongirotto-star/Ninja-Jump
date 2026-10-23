@@ -39,6 +39,7 @@ function render() {
     for (const hz of hazards) if (hz.alive) drawHazard(hz);
     for (const c of coins) drawCoin(c);
     if (powerups.length) drawPowerups();
+    if (shurikens.length) drawShurikens();
     drawParticles();
     if (floaters.length) drawFloaters();
     if (elastic) drawElastic(elastic, false);

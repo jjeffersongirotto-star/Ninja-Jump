@@ -22,6 +22,8 @@ function update(dt) {
     const BF = HAZARDS.bumpFloat;
     const floating = ninja.floatT > 0 && !ninja.dead;
     if (floating) { g *= 1 - (1 - BF.gravity) * (ninja.floatT / BF.frames); ninja.floatT--; }
+    const AF = abilityValue('apexFloat', null); // Shinobi da Maré: lighter near the top of every jump
+    if (AF && !ninja.dead && Math.abs(ninja.vy) < AF.band) g *= AF.gravity;
     ninja.vy += g;
     if (floating && ninja.vy > BF.maxFall) ninja.vy = BF.maxFall;
     ninja.x += ninja.vx;
@@ -167,6 +169,8 @@ function update(dt) {
           shortStreak = 0;
           strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN, strength * fallMult);
           if (STRESS.on) strength *= STRESS.superMult;
+          // Ninja do Trovão: launch speed x1.25 -> the ascent (the special) also lasts 25% longer (T = v0 / g)
+          strength *= abilityValue('superSpeedMultiplier', 1);
         }
         updateStreakHud();
         // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
@@ -253,6 +257,7 @@ function update(dt) {
     }
     pickupPowerups();
     if (STRESS.on) stressTick();
+    updateShurikens();
     updateCombo();
     skinTrail(); // cosmetic particles of the chosen character
     if (state === 'playing') missionTick(); // mission counters + unlocks (read-only)

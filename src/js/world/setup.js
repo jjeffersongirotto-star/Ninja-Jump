@@ -177,6 +177,7 @@ function resetGame() {
   bounceCooldown = 0;
   shortStreak = 0;
   rings = [];
+  shurikens = []; ninjaShurikenCd = 0;
   floaters = [];
   ninjaPose.wallKick = 0;
   ninjaPose.hero = 0;
