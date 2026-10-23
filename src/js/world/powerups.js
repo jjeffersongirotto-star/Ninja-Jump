@@ -69,29 +69,95 @@ function rocketStep() {
     }
   }
 }
-// Coin auto-path: aim for the nearest coin ahead that can still be reached; otherwise straighten up
+// Flight planner: marks every screen column a hazard's full area (sweep, wave, dive box + the ninja's radius
+// + a margin) blocks at each height step over the next `avoidAhead` px, then works backwards from the horizon to
+// find which columns he can still reach sideways (at most maxVx px per frame) without ever touching one.
+// Returns { n, steps, colW, step, depth } or null when nothing is ahead (fly freely).
+function rocketPlan() {
+  const CS = POWERUPS.rocket.coinSteer, R = NINJA_R, M = CS.avoidMargin;
+  const step = 10, colW = 2, steps = Math.ceil(CS.avoidAhead / step), n = Math.ceil(W / colW) + 1;
+  const blocked = new Uint8Array((steps + 1) * n);
+  let any = false;
+  for (const hz of hazards) {
+    if (!hz.alive || hz.dying) continue;
+    const up = (hz.vh || 20) + (hz.bobAmp || 0) + R + M, down = up + (hz.diveY || 0);
+    // one extra height step on each side: the plan is redone every frame and must never flip at a band's edge
+    const s0 = Math.max(0, Math.ceil((ninja.y - (hz.oy + down)) / step) - 1), s1 = Math.min(steps, Math.floor((ninja.y - (hz.oy - up)) / step) + 1);
+    if (s0 > s1) continue;
+    const hw = (hz.vw || 20) + (hz.range || 0) + (hz.diveX || 0) + R + M;
+    const c0 = Math.max(0, Math.ceil((hz.ox - hw) / colW)), c1 = Math.min(n - 1, Math.floor((hz.ox + hw) / colW));
+    for (let s = s0; s <= s1; s++) for (let c = c0; c <= c1; c++) blocked[s * n + c] = 1;
+    any = true;
+  }
+  if (!any) return null;
+  const lo = Math.ceil((R + CS.wallMargin) / colW), hi = Math.floor((W - R - CS.wallMargin) / colW);
+  const climb = Math.max(2, -ninja.vy), reach = Math.max(1, Math.floor(CS.avoidVx * 0.9 * step / climb / colW)); // columns he can shift per height step (planned with 10% to spare)
+  // depth[s][c] = how many height steps he survives from column c at step s (= steps: all the way). When every
+  // way is blocked he still takes the one that lasts longest (the margin is not a hit yet).
+  const depth = new Uint8Array((steps + 1) * n);
+  for (let c = lo; c <= hi; c++) depth[steps * n + c] = steps;
+  for (let s = steps - 1; s >= 0; s--) {
+    for (let c = lo; c <= hi; c++) {
+      if (blocked[s * n + c]) { depth[s * n + c] = s; continue; }
+      let b = 0;
+      for (let d = -reach; d <= reach; d++) {
+        const k = c + d;
+        if (k >= lo && k <= hi && depth[(s + 1) * n + k] > b) b = depth[(s + 1) * n + k];
+      }
+      depth[s * n + c] = b;
+    }
+  }
+  return { n: n, steps: steps, colW: colW, step: step, depth: depth, lo: lo, hi: hi, reach: reach };
+}
+// Is this spot (x, `dy` px above him) on a column he can pass through safely?
+function rocketPlanOk(plan, x, dy) {
+  if (!plan) return true;
+  const s = Math.round(dy / plan.step);
+  if (s > plan.steps) return true;
+  const c = Math.max(plan.lo, Math.min(plan.hi, Math.round(x / plan.colW)));
+  return plan.depth[Math.max(0, s) * plan.n + c] === plan.steps;
+}
+// Coin auto-path: aim for the nearest coin ahead that can still be reached, but never through a hazard:
+// the flight planner picks the sideways move toward it that keeps every later column escapable.
 function rocketCoinSteer() {
   const CS = POWERUPS.rocket.coinSteer, climb = Math.max(2, -ninja.vy);
   const pickR = NINJA_R + 14; // coin pickup distance (NINJA_R + coin r + 4)
+  const plan = rocketPlan();
   let best = null, bestDy = 1e9;
   for (const c of coins) {
     if (c.collected) continue;
     const dy = ninja.y - c.y; // > 0: above him
     if (dy < -CS.behind || dy > CS.lookahead) continue;
+    if (!rocketPlanOk(plan, c.x, dy)) continue; // behind an obstacle: not reachable safely
     const dx = Math.abs(c.x - ninja.x);
     // reachable before he passes it: side distance he can cover while climbing up to it (+ pickup radius)
     if (dx - pickR > CS.maxVx * Math.max(0, dy) / climb + 4) continue;
     if (dy < bestDy) { bestDy = dy; best = c; }
   }
+  let want = null;
   if (best) {
     const left = Math.max(1, bestDy / climb); // frames until he reaches its height
-    const want = Math.max(-CS.maxVx, Math.min(CS.maxVx, (best.x - ninja.x) / left));
-    ninja.vx += (want - ninja.vx) * CS.accel;
-    ninja.rocketCoin = best;
-  } else {
-    ninja.vx *= 0.9;
-    ninja.rocketCoin = null;
+    want = Math.max(-CS.maxVx, Math.min(CS.maxVx, (best.x - ninja.x) / left));
+  } else if (!plan) want = ninja.vx * 0.9;
+  ninja.rocketCoin = best;
+  if (plan) {
+    // sideways move for the next step: the safe column nearest to where he wants to be
+    const c0 = Math.round(ninja.x / plan.colW), goal = best ? best.x : ninja.x;
+    let pick = null, pickDepth = -1;
+    for (let d = -plan.reach; d <= plan.reach; d++) {
+      const k = c0 + d;
+      if (k < plan.lo || k > plan.hi) continue;
+      const dp = plan.depth[plan.n + k];
+      if (dp > pickDepth || (dp === pickDepth && Math.abs(k * plan.colW - goal) < Math.abs(pick * plan.colW - goal))) { pick = k; pickDepth = dp; }
+    }
+    if (pick !== null) {
+      const tx = pick * plan.colW;
+      want = Math.max(-CS.avoidVx, Math.min(CS.avoidVx, (tx - ninja.x) * climb / plan.step));
+    } else want = 0;
+    ninja.vx = want; // safety first: follow the plan exactly
+    return;
   }
+  ninja.vx += (want - ninja.vx) * (best ? CS.accel : 1);
 }
 // While extending: drift sideways toward the nearest free column (the guaranteed gap) at his height
 function rocketSteer() {
