@@ -50,6 +50,6 @@ function renderMissions() {
   box.appendChild(h2);
   for (const mi of weeklyMissionsFor(w.week)) {
     const cur = Math.min(mi.goal, Math.floor(w.prog[mi.id] || 0));
-    box.appendChild(modeRow(mi.text, w.done[mi.id] ? '✅' : cur + '/' + mi.goal, !!w.done[mi.id]));
+    box.appendChild(modeRow('Nível ' + mi.level + ' · ' + mi.text, w.done[mi.id] ? '✅' : cur + '/' + mi.goal, !!w.done[mi.id]));
   }
 }

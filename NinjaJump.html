@@ -3362,11 +3362,11 @@
   // Every run also records "distance at 60 s" (time attack, local top-10 ranking). Day/week come from the device date.
   const MODE_TA_SECONDS = 60;
   const RANKING_SIZE = 10;
-  const DAILY_REWARD = 100, WEEKLY_REWARD = 300, WEEKLY_PER_WEEK = 4;
+  const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
   const NOELASTIC_JUMP = { vy: 13.5, vx: 8.5, coyote: 12, buffer: 10 };
   const LS_RANKING = 'ninjaJump_ranking60';
-  const LS_DAILY = 'ninjaJump_daily';
-  const LS_WEEKLY = 'ninjaJump_weekly';
+  const LS_DAILY = 'ninjaJump_daily_v2';
+  const LS_WEEKLY = 'ninjaJump_weekly_v2';
   let gameMode = 'normal';
   let taDist = -1;                // metres reached when the 60 s ran out (-1 = not yet)
   let modeHudShown = '';
@@ -3380,6 +3380,7 @@
     meters:     { run: true, now: () => bestHeight,          text: g => 'Chegue a ' + g + ' m numa partida' },
     coins:      { run: true, now: () => runCoins,            text: g => 'Junte ' + g + ' moedas numa partida' },
     runSeconds: { run: true, now: () => runMission.frames / 60, text: g => 'Sobreviva ' + g + ' s numa partida' },
+    totalRunSeconds: { now: () => runMission.frames / 60, text: g => 'Sobreviva por ' + g + ' segundos no total' },
     chain:      { run: true, now: () => modeRun.chainMax,    text: g => 'Faça uma corrente de combos x' + g },
     wallKicks:  { run: true, now: () => debugStats.wallKicks, text: g => 'Dê ' + g + ' chutes na parede numa partida' },
     dist60:     { run: true, now: () => taDist >= 0 ? taDist : bestHeight, text: g => 'Chegue a ' + g + ' m em 60 segundos' },
@@ -3390,35 +3391,54 @@
     bossHits:   { now: () => modeRun.bossHits,   text: g => 'Acerte o chefão ' + g + ' vezes na cabeça' },
     fireKills:  { now: () => modeRun.fireKills,  text: g => 'Queime ' + g + ' inimigos com o elástico de fogo' },
     runs:       { now: () => 1,                  text: g => 'Jogue ' + g + ' partidas' },
-    totalMeters: { now: () => bestHeight,        text: g => 'Escale ' + g + ' m somando as partidas' },
-    totalCoins: { now: () => runCoins,           text: g => 'Junte ' + g + ' moedas somando as partidas' },
+    totalMeters: { now: () => bestHeight,        text: g => 'Acumule ' + g + ' m somando as partidas' },
+    totalCoins: { now: () => runCoins,           text: g => 'Acumule ' + g + ' moedas somando as partidas' },
     wallTotal:  { now: () => debugStats.wallKicks, text: g => 'Dê ' + g + ' chutes na parede somando as partidas' }
   };
-  // 16 families x 4 tiers = 64 weekly missions; a week shows 4 consecutive ones (a 16-week cycle)
-  const WEEKLY_FAMILIES = [
-    ['meters', [300, 600, 1000, 1600]], ['coins', [60, 120, 200, 320]], ['runSeconds', [40, 70, 100, 150]], ['chain', [2, 3, 4, 5]],
-    ['wallKicks', [10, 20, 35, 50]], ['dist60', [80, 150, 250, 350]], ['kills', [8, 20, 40, 80]], ['blueKills', [6, 15, 30, 60]],
-    ['wallTotal', [20, 60, 120, 200]], ['ufoKills', [1, 3, 6, 10]], ['powerups', [2, 5, 10, 18]], ['bossHits', [1, 3, 5, 8]],
-    ['fireKills', [1, 3, 5, 8]], ['runs', [3, 6, 10, 15]], ['totalMeters', [1500, 3500, 7000, 12000]], ['totalCoins', [150, 400, 800, 1500]]
+  // Goals in each group are ordered from difficulty level 1 to 4; groups with 3 goals have no level 4.
+  const WEEKLY_GROUPS = [
+    ['totalMeters', [5000, 7000, 9000, 12000]],
+    ['totalCoins', [800, 1000, 1200, 1500]],
+    ['totalRunSeconds', [500, 600, 700]],
+    ['chain', [2, 3, 4, 5]],
+    ['wallTotal', [150, 250, 350, 500]],
+    ['dist60', [900, 1000, 1100, 1200]],
+    ['kills', [15, 20, 40, 80]],
+    ['blueKills', [10, 15, 30, 60]],
+    ['wallKicks', [20, 35, 40, 50]],
+    ['ufoKills', [3, 4, 6, 10]],
+    ['powerups', [10, 18, 35, 60]],
+    ['bossHits', [5, 7, 9, 12]],
+    ['fireKills', [3, 5, 8, 10]],
+    ['runs', [10, 15, 20, 25]],
+    ['meters', [1300, 1500, 1600]],
+    ['coins', [120, 140, 160]],
+    ['runSeconds', [80, 90, 100]]
   ];
-  function weeklyMission(i) { // i: 0..63
-    const fam = WEEKLY_FAMILIES[i % 16], goal = fam[1][Math.floor(i / 16) % 4], st = MODE_STATS[fam[0]];
-    return { id: i, stat: fam[0], goal: goal, text: st.text(goal) };
+  const WEEKLY_MISSIONS = [];
+  for (const group of WEEKLY_GROUPS) {
+    const stat = group[0], goals = group[1], text = MODE_STATS[stat].text;
+    for (let i = 0; i < goals.length; i++) {
+      WEEKLY_MISSIONS.push({ id: WEEKLY_MISSIONS.length, stat: stat, goal: goals[i], level: i + 1, text: text(goals[i]) });
+    }
   }
   function weeklyMissionsFor(week) {
-    const out = [];
-    for (let k = 0; k < WEEKLY_PER_WEEK; k++) out.push(weeklyMission(((week * WEEKLY_PER_WEEK + k) % 64 + 64) % 64));
-    return out;
+    // The weekly seed keeps the random set identical for everyone throughout the week.
+    const rng = mulberry32(week * 2654435 + 29);
+    return [4, 3, 1, 2].map(level => {
+      const choices = WEEKLY_MISSIONS.filter(mi => mi.level === level);
+      return choices[Math.floor(rng() * choices.length)];
+    });
   }
   // Daily: 3 different missions inside ONE daily-mode run, picked from the date
   const DAILY_POOL = [
-    ['meters', [200, 320, 450]], ['coins', [30, 50, 80]], ['runSeconds', [30, 50, 75]], ['chain', [2, 3, 3]],
-    ['wallKicks', [6, 10, 16]], ['kills', [3, 5, 8]], ['blueKills', [2, 4, 6]], ['powerups', [1, 2, 3]]
+    ['meters', [800, 900, 1000]], ['coins', [60, 70, 80]], ['runSeconds', [40, 50, 60]], ['chain', [2, 3]],
+    ['wallKicks', [15, 20, 25]], ['kills', [3, 5, 8]], ['blueKills', [2, 4, 6]], ['powerups', [5, 7, 10]]
   ];
   function dailyMissionsFor(day) {
     const rng = mulberry32(day * 2654435 + 17), pool = DAILY_POOL.slice(), out = [];
     for (let k = 0; k < 3; k++) {
-      const fam = pool.splice(Math.floor(rng() * pool.length), 1)[0], goal = fam[1][Math.floor(rng() * 3)];
+      const fam = pool.splice(Math.floor(rng() * pool.length), 1)[0], goal = fam[1][Math.floor(rng() * fam[1].length)];
       out.push({ id: k, stat: fam[0], goal: goal, text: MODE_STATS[fam[0]].text(goal).replace(' numa partida', '') });
     }
     return out;
@@ -8750,7 +8770,7 @@
     box.appendChild(h2);
     for (const mi of weeklyMissionsFor(w.week)) {
       const cur = Math.min(mi.goal, Math.floor(w.prog[mi.id] || 0));
-      box.appendChild(modeRow(mi.text, w.done[mi.id] ? '✅' : cur + '/' + mi.goal, !!w.done[mi.id]));
+      box.appendChild(modeRow('Nível ' + mi.level + ' · ' + mi.text, w.done[mi.id] ? '✅' : cur + '/' + mi.goal, !!w.done[mi.id]));
     }
   }
 
