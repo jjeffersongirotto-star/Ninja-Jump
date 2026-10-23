@@ -4,7 +4,11 @@
 // none of this runs and the game works as before.
 const installBtn = document.getElementById('installBtn');
 const installHint = document.getElementById('installHint');
+const updateBtn = document.getElementById('updateBtn');
+const updateStatus = document.getElementById('updateStatus');
 let installPrompt = null; // Android/desktop Chrome: deferred "install" prompt
+let serviceWorkerRegistration = null;
+let updateReloadPending = false;
 
 function isStandalone() {
   try {
@@ -37,6 +41,38 @@ function onInstallTap() {
     installHint.classList.toggle('hidden'); // iPhone/iPad: Safari has no install prompt, show how to do it
   }
 }
+function updateMessage(message) {
+  if (updateStatus) updateStatus.textContent = message;
+}
+async function checkForUpdate() {
+  if (!updateBtn) return;
+  if (!navigator.onLine) {
+    updateMessage('Conecte-se à internet para procurar atualizações.');
+    return;
+  }
+  updateBtn.disabled = true;
+  updateBtn.classList.add('checking');
+  updateMessage('Procurando atualização...');
+  try {
+    const registration = serviceWorkerRegistration || await navigator.serviceWorker.ready;
+    serviceWorkerRegistration = registration;
+    updateReloadPending = true;
+    await registration.update();
+    if (registration.installing || registration.waiting) {
+      updateMessage('Atualização encontrada. Aplicando...');
+      return;
+    }
+    updateReloadPending = false;
+    updateMessage('O jogo já está atualizado.');
+  } catch (err) {
+    updateReloadPending = false;
+    logErr('update check', err);
+    updateMessage('Não foi possível procurar atualização. Tente novamente.');
+  } finally {
+    updateBtn.disabled = false;
+    updateBtn.classList.remove('checking');
+  }
+}
 function bindApp() {
   if (installBtn) {
     installBtn.addEventListener('click', function (e) { e.stopPropagation(); ensureAudio(); onInstallTap(); }, false);
@@ -50,6 +86,21 @@ function bindApp() {
   refreshInstallBtn();
   // not inside the Android app's WebView (it serves the game from its own assets, there is no sw.js)
   if ('serviceWorker' in navigator && isServed() && !/; wv\)/.test(navigator.userAgent || '')) {
-    navigator.serviceWorker.register('sw.js').catch(function (err) { logErr('service worker', err); });
+    if (updateBtn) {
+      updateBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        checkForUpdate();
+      });
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (updateReloadPending) location.reload();
+    });
+    navigator.serviceWorker.register('sw.js')
+      .then(function (registration) {
+        serviceWorkerRegistration = registration;
+        if (updateBtn) updateBtn.classList.remove('hidden');
+      })
+      .catch(function (err) { logErr('service worker', err); updateMessage('Atualizações não estão disponíveis.'); });
   }
 }

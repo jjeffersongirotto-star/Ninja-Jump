@@ -1,6 +1,6 @@
 // Service worker: lets the installed app open without internet.
 // Network first (so a new version shows up as soon as you are online), cache as the fallback.
-const CACHE = 'ninja-jump-v31';
+const CACHE = 'ninja-jump-v32';
 const ASSETS = [
   './',
   './NinjaJump.html',
