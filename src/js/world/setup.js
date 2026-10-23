@@ -176,7 +176,7 @@ function resetGame() {
   shake = 0;
   stretch = 0;
   lastThemeName = '';
-  spawner = createSpawner(gameMode === 'daily' ? mulberry32(dailySeed()) : Math.random); // rows start at 25 m
+  spawner = createSpawner(Math.random); // rows start at 25 m
   bounceCooldown = 0;
   shortStreak = 0;
   rings = [];

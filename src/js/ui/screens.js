@@ -14,7 +14,6 @@ function showScreen(name) {
   if (name === 'main' || name === 'chars') refreshWallet();
   if (name === 'chars') renderChars();
   if (name === 'audio') refreshSoundUi();
-  if (name === 'modes') refreshModesInfo();
   if (name === 'ranking') renderRanking();
   if (name === 'missions') renderMissions();
   if (name === 'controls') refreshControlsUi();
@@ -22,7 +21,7 @@ function showScreen(name) {
 function goBack() {
   if (dlgIsOpen()) { dlgClose(); return; }
   if (screen === 'audio' || screen === 'controls') showScreen('options');
-  else if (screen === 'ranking' || screen === 'missions') showScreen('modes');
+  else if (screen === 'ranking' || screen === 'missions' || screen === 'playOptions') showScreen('main');
   else if (screen === 'options' && optionsBack === 'pause') showScreen('pause');
   else showScreen('main');
 }

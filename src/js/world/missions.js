@@ -27,7 +27,6 @@ function missionResetRun() {
   runMission.apexY = ninja ? ninja.y : 0;
   runMission.streakId = null; runMission.streakN = 0; runMission.launched = false;
   runMission.night = false; runMission.unlocked = [];
-  hideUnlockToast();
 }
 function runValue(stat) {
   if (stat === 'meters') return bestHeight;
@@ -117,17 +116,27 @@ function missionEndRun() {
   missionCheck(false);
 }
 
-// --- "Novo personagem liberado" notice (in game; also listed on the game-over screen) ---
-let toastTimer = 0;
-function showUnlockToast(sk) {
-  const el = document.getElementById('unlockToast');
-  if (!el) return;
-  el.textContent = '🎉 Novo personagem liberado: ' + sk.name + '!';
+// --- In-game notices for character unlocks and completed mode missions ---
+let toastTimer = 0, toastBusy = false, toastQueue = [];
+function showGameToast(text) {
+  if (!document.getElementById('unlockToast')) return;
+  toastQueue.push(text);
+  if (toastBusy) return;
+  showNextGameToast();
+}
+function showNextGameToast() {
+  const el = document.getElementById('unlockToast'), text = toastQueue.shift();
+  if (!el || !text) { toastBusy = false; return; }
+  toastBusy = true;
+  el.textContent = text;
   el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideUnlockToast, 3600);
+  toastTimer = setTimeout(function () {
+    el.classList.remove('show');
+    toastTimer = setTimeout(function () { toastBusy = false; showNextGameToast(); }, 250);
+  }, 3600);
 }
-function hideUnlockToast() {
-  const el = document.getElementById('unlockToast');
-  if (el) el.classList.remove('show');
+function showUnlockToast(sk) {
+  showGameToast('🎉 Novo personagem liberado: ' + sk.name + '!');
 }
+function showMissionToast(text) { showGameToast(text); }
