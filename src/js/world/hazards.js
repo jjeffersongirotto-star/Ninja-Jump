@@ -219,6 +219,15 @@ function collideHazards(x0, y0, onBand) {
         continue;
       }
       if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
+      if (hz.fatal && abilityValue('breakSpikes', false) && (hz.type === 'spikeMine' || hz.type === 'spikeBar' || hz.type === 'saw')) {
+        smashSpikes(hz); // Mestre Dragão: the mechanism breaks, he flies on
+        continue;
+      }
+      if (hz.fatal && hz.color === 'red' && abilityValue('redImmune', false)) {
+        if (onBand) continue;
+        bumpHazard(hz, lx, ly); // Ninja Rubro / Mestre Dragão: a red enemy is only a bump
+        return;
+      }
       if (hz.fatal) { hitFatal(hz); return; }
       if (onBand) continue;
       bumpHazard(hz, lx, ly);
@@ -497,6 +506,20 @@ function snapElastic(e) {
   beep(180, 0.12, 'triangle', 0.06);
 }
 
+// Mestre Dragão breaks a spike / saw hazard on contact (debris + sparks)
+function smashSpikes(hz) {
+  hz.alive = false;
+  debugStats.spikeBreaks = (debugStats.spikeBreaks || 0) + 1;
+  countHit(hz.kind + ':broken');
+  shake = Math.max(shake, 6);
+  burst(hz.x, hz.y, '#c9ced8', 16, 5);
+  burst(hz.x, hz.y, '#ffd23f', 10, 4);
+  fxSparks(hz.x, hz.y, '#fff6a8', 14, 7);
+  rings.push({ x: hz.x, y: hz.y, r: 6, life: 0.7, color: '#ffd23f' });
+  floaters.push({ x: hz.x, y: hz.y - 18, life: 40, text: 'CRACK!' });
+  beep(240, 0.08, 'square', 0.07);
+  beep(140, 0.14, 'sawtooth', 0.05);
+}
 function hitFatal(hz) {
   if (!(HAZARDS.shieldOnSuperJump && superActive()) && ninja.shield) { breakShield(hz); return; }
   if (HAZARDS.shieldOnSuperJump && superActive()) {

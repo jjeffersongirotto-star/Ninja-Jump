@@ -255,3 +255,41 @@ function tickPowerTimers() {
   if (ninja.invulnT > 0) ninja.invulnT--;
   if (ninja.shieldPop > 0) ninja.shieldPop = Math.max(0, ninja.shieldPop - 0.05);
 }
+
+// --- Ninja Raposa: auto-throws a shuriken at the nearest blue enemy in range (cooldown); a hit defeats it ---
+function updateShurikens() {
+  const SK = abilityValue('shuriken', null);
+  if (ninjaShurikenCd > 0) ninjaShurikenCd--;
+  if (SK && !ninja.dead && ninjaShurikenCd <= 0) {
+    let best = null, bd = SK.range;
+    for (const hz of hazards) {
+      if (!hz.alive || hz.dying > 0 || hz.ghost || hz.fatal || hz.color === 'red') continue;
+      if (hz.type !== 'flyer' && hz.type !== 'ufo') continue;
+      if (hz.y < camera.y || hz.y > camera.y + H) continue;
+      const d = Math.hypot(hz.x - ninja.x, hz.y - ninja.y);
+      if (d < bd && !shurikens.some(s => s.target === hz)) { bd = d; best = hz; }
+    }
+    if (best) {
+      const a = Math.atan2(best.y - ninja.y, best.x - ninja.x);
+      shurikens.push({ x: ninja.x, y: ninja.y, vx: Math.cos(a) * SK.speed, vy: Math.sin(a) * SK.speed, rot: 0, life: 60, target: best });
+      ninjaShurikenCd = SK.cooldown;
+      beep(1400, 0.04, 'triangle', 0.04);
+    }
+  }
+  for (let i = shurikens.length - 1; i >= 0; i--) {
+    const s = shurikens[i], t = s.target;
+    if (t && t.alive && !(t.dying > 0)) { // light homing so a moving bird is still hit
+      const a = Math.atan2(t.y - s.y, t.x - s.x), sp = Math.hypot(s.vx, s.vy);
+      s.vx += (Math.cos(a) * sp - s.vx) * 0.25; s.vy += (Math.sin(a) * sp - s.vy) * 0.25;
+    }
+    s.x += s.vx; s.y += s.vy; s.rot += 0.5; s.life--;
+    if (t && t.alive && !(t.dying > 0) && Math.hypot(t.x - s.x, t.y - s.y) < (t.r || t.rx || 14) + 6) {
+      debugStats.shurikenKills = (debugStats.shurikenKills || 0) + 1;
+      countHit(t.kind + ':shuriken');
+      defeatEnemy(t);
+      shurikens.splice(i, 1);
+      continue;
+    }
+    if (s.life <= 0 || (t && (!t.alive || t.dying > 0))) shurikens.splice(i, 1);
+  }
+}

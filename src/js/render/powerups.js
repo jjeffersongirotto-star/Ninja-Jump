@@ -186,6 +186,7 @@ function drawNinjaFxBack(x, y) {
 // In front of the ninja: shield bubble (and the short immunity flicker after it breaks)
 function drawNinjaFxFront(x, y) {
   if (ninja.dead) return;
+  if (ninja.superSpin && abilityValue('superBolts', false)) drawSuperBolts(x, y);
   if (ninja.shield) {
     const wob = Math.sin(frame * 0.15) * 1.2, pop = ninja.shieldPop || 0;
     const r = NINJA_R + 10 + wob + pop * 8;
@@ -253,5 +254,50 @@ function drawPowerHud() {
     drawPowerBadge(it[0]);
     ctx.restore();
     x += 44;
+  }
+}
+
+// Ninja do Trovão: crackling lightning bolts around him during the special (cosmetic, no Math.random)
+function drawSuperBolts(x, y) {
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  const n = 5, seed = Math.floor(frame / 3);
+  for (let b = 0; b < n; b++) {
+    const h = Math.sin((seed + 1) * 12.9898 + b * 78.233) * 43758.5453;
+    const rnd = k => { const v = Math.sin(h + k * 19.19) * 1000; return v - Math.floor(v); };
+    const a0 = (b / n) * Math.PI * 2 + frame * 0.07 + rnd(0) * 0.6;
+    const r0 = NINJA_R + 4, r1 = NINJA_R + 22 + rnd(1) * 12;
+    const pts = [];
+    for (let i = 0; i <= 4; i++) {
+      const t = i / 4, r = r0 + (r1 - r0) * t, a = a0 + (rnd(i + 2) - 0.5) * 0.5;
+      pts.push([x + Math.cos(a) * r, y + Math.sin(a) * r]);
+    }
+    for (const [w, col] of [[5, 'rgba(120,180,255,0.35)'], [2.2, '#fff6a8'], [1, '#ffffff']]) {
+      ctx.strokeStyle = col; ctx.lineWidth = w;
+      ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+      ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 0.25 + 0.15 * Math.sin(frame * 0.6);
+  ctx.strokeStyle = '#9fd0ff'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(x, y, NINJA_R + 8, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+}
+
+// Ninja Raposa: spinning four-point steel stars
+function drawShurikens() {
+  for (const s of shurikens) {
+    ctx.save();
+    ctx.translate(s.x, s.y - camera.y); ctx.rotate(s.rot);
+    ctx.fillStyle = '#d9dee6'; ctx.strokeStyle = '#3a3f4a'; ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const r = i % 2 ? 2.6 : 8, a = i * Math.PI / 4;
+      if (i) ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.moveTo(r, 0);
+    }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = '#3a3f4a'; ctx.beginPath(); ctx.arc(0, 0, 1.6, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
   }
 }
