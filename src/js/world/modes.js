@@ -5,7 +5,7 @@ const MODE_TA_SECONDS = 60;
 const RANKING_SIZE = 10;
 const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
 // vy: strong jump (crosses the screen); weak: share of vy/vx used when nothing was tapped; coyote: frames a contact stays valid
-const NOELASTIC_JUMP = { dashSpeed: 12, dashMax: 70, climbSpeed: 4.2, wallZone: 70, vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
+const NOELASTIC_JUMP = { dashSpeed: 12, dashMax: 70, climbSpeed: 4.2, grace: 14, stamDrain: 1 / 130, stamRegen: 1 / 200, stamRegenGround: 1 / 70, stamResume: 0.4, wallZone: 70, vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
 const LS_RANKING = 'ninjaJump_ranking60';
 const LS_DAILY = 'ninjaJump_daily_v2';
 const LS_WEEKLY = 'ninjaJump_weekly_v2';
@@ -202,7 +202,10 @@ function modesEndRun() {
 function noElasticTap(x, y) {
   if (!ninja || ninja.dead || state !== 'playing' || paused) return;
   ninja.aimX = x; ninja.aimY = y + camera.y; ninja.holdX = x;
-  if (ninja.neIdle) { ninja.jumpT = NOELASTIC_JUMP.coyote; noElasticJump(); }
+  // a tap while the feet touch a structure, or just after leaving it, launches toward the tapped point
+  const J = NOELASTIC_JUMP;
+  if (ninja.neIdle) { ninja.jumpT = J.coyote; noElasticJump(); }
+  else if (ninja.jumpT > 0 || frame - ninja.lastJ <= J.grace) { ninja.jumpT = J.coyote; ninja.neCd = 0; noElasticJump(); }
 }
 function noElasticJump() {
   const J = NOELASTIC_JUMP;
@@ -222,7 +225,7 @@ function noElasticJump() {
     vx = dir * J.weakVx;
     vy = -J.vy * J.weak;
   }
-  ninja.vy = vy; ninja.vx = vx;
+  ninja.vy = vy; ninja.vx = vx; ninja.lastJ = frame;
   ninja.neDir = vx < 0 ? -1 : 1;
   ninja.aimX = null; ninja.neIdle = false;
   ninja.jumpT = 0; ninja.wallT = 0; ninja.climb = 0; ninja.neCd = J.cooldown;
@@ -257,7 +260,11 @@ function noElasticTick() {
     ninja.wallT = J.coyote;
     ninja.wallDir = left ? 1 : -1;
     // holding the screen at the wall edge: run up the wall
-    if (ninja.holdX !== null && (left ? ninja.holdX < J.wallZone : ninja.holdX > W - J.wallZone)) {
+    if (ninja.exh && ninja.stam >= J.stamResume) ninja.exh = false;
+    if (ninja.holdX !== null && !ninja.exh && (left ? ninja.holdX < J.wallZone : ninja.holdX > W - J.wallZone)) {
+      ninja.stam -= J.stamDrain;
+      if (ninja.stam <= 0) { ninja.stam = 0; ninja.exh = true; ninja.climb = 0; ninja.holdX = null; ninja.aimX = null; return; }
+      ninja.facing = left ? -1 : 1;
       ninja.climb = 1; ninja.dash = 0; ninja.aimX = null;
       ninja.vy = -J.climbSpeed; ninja.vx = left ? -1 : 1; ninja.floatT = 0;
       return;
@@ -265,5 +272,9 @@ function noElasticTick() {
     ninja.jumpT = J.coyote;
   }
   if (ninja.climb) ninja.climb = 0;
+  if (ninja.stam < 1) {
+    ninja.stam = Math.min(1, ninja.stam + (onGround ? J.stamRegenGround : J.stamRegen));
+    if (ninja.exh && ninja.stam >= J.stamResume) ninja.exh = false;
+  }
   if (ninja.jumpT > 0 && ninja.neCd <= 0 && !ninja.neIdle) noElasticJump();
 }
