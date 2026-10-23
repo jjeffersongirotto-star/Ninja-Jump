@@ -189,6 +189,7 @@ function update(dt) {
         ninja.bonkedSinceLaunch = false;
         debugStats.bounces++;
         missionLaunch();
+        chainOnLaunch();
         debugStats.last = { len: Math.round(rawLen), short: isShort, superJump: isSuper, vy: ninja.vy, streak: shortStreak,
           speedIn: +(elastic.speedIn || 0).toFixed(2), fallMult: +fm.toFixed(3), sag: +elastic.maxSag.toFixed(1) };
         if (isSuper) {
@@ -259,8 +260,11 @@ function update(dt) {
     if (STRESS.on) stressTick();
     updateShurikens();
     updateCombo();
+    updateCharacterAbilities();
+    updateMechanics(meters);
+    noElasticTick();
     skinTrail(); // cosmetic particles of the chosen character
-    if (state === 'playing') missionTick(); // mission counters + unlocks (read-only)
+    if (state === 'playing') { missionTick(); modesTick(); } // mission counters + unlocks (read-only), 60 s mark
   } else ninja.deathSpin += 0.22;
   let fw = 0; // in-place compaction (no splice per removed item, order kept)
   for (let i = 0; i < floaters.length; i++) {
@@ -277,6 +281,7 @@ function update(dt) {
     c.sparkle += 0.15;
     if (c.y > camera.y + H + 80) { c.collected = true; continue; }
     if (ninja.magnetT > 0 && !ninja.dead) magnetPull(c);
+    else if (!ninja.dead) monkPull(c);
     if (!ninja.dead && Math.hypot(ninja.x - c.x, ninja.y - c.y) < NINJA_R + c.r + 4 + abilityValue('coinRadius', 0)) {
       c.collected = true;
       awardRunCoins(1);

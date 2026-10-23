@@ -204,7 +204,21 @@ SKINS.push(
     desc: 'Volta de uma queda com um impulso sombrio e uma segunda chance.',
     main: '#718b55', headCol: '#91a96c', limb: '#38432d', band: '#352b22', eye: '#d8ff70',
     acc: { zombie: { skin: '#9bb873', rot: '#5d7436', bone: '#efe6c8', gum: '#8e3b3b', glow: '#c5ff55', drip: '#8fe03a', cloth: '#352b22', stitch: '#2a2018' } },
-    trail: { kind: 'smoke', color: '#a8d66d' }, aura: '#9bcf5b' })
+    trail: { kind: 'smoke', color: '#a8d66d' }, aura: '#9bcf5b' }),
+  skinPal({ id: 'relampagoSombrio', name: 'Ninja Relâmpago Sombrio', price: 3000, rarity: 2,
+    desc: 'Some num clarão e reaparece à frente, atravessando quem estiver no caminho.',
+    main: '#2a2446', headCol: '#3a3260', limb: '#1b1730', band: '#7a5cff', eye: '#b9a8ff', rim: 'rgba(160,140,255,0.9)',
+    acc: { horns: { style: 'bolt', col: '#b9a8ff' }, mask: { col: '#4a3a9a' } },
+    trail: { kind: 'spark', color: '#a58bff' }, aura: '#7a5cff' }),
+  skinPal({ id: 'mongeIma', name: 'Monge Imã', price: 0, rarity: 0,
+    desc: 'Um ímã na testa atrai as moedas por perto.',
+    main: '#d98a3c', headCol: '#f0c18a', limb: '#8a4f1f', band: '#e8323c', eye: '#ffffff',
+    acc: { crest: { style: 'magnet', col: '#e8323c' } } }),
+  skinPal({ id: 'kunoichiTempo', name: 'Kunoichi do Tempo', price: 0, rarity: 2,
+    desc: 'Uma ampulheta no peito desacelera o tempo quando a morte se aproxima.',
+    main: '#3b6a8f', headCol: '#e8c7a0', limb: '#1f3a52', band: '#f2c14e', eye: '#ffffff', rim: 'rgba(160,220,255,0.9)',
+    acc: { pendant: { col: '#f2c14e', sand: '#ffe9a8' }, back: [{ type: 'hair', col: '#1f3a52', tie: '#f2c14e' }] },
+    trail: { kind: 'star', color: '#ffe9a8' }, aura: '#7fd0ff' })
 );
 const CHARACTER_ABILITIES = {
   white: { desc: 'Sem habilidade especial.' },
@@ -239,7 +253,10 @@ const CHARACTER_ABILITIES = {
   nevoa: { elasticTolerance: 7, desc: 'Acerta elásticos com margem +7 px.' },
   veuVioleta: { superStreakReduction: 2, desc: 'Ativa o especial com 2 elásticos curtos a menos.' },
   esmeralda: { coinMultiplier: 2, desc: 'Ganha o dobro de moedas.' },
-  ninjaZumbi: { reviveOnce: true, desc: 'Revive uma vez por partida com um forte impulso.' }
+  ninjaZumbi: { reviveOnce: true, desc: 'Revive uma vez por partida com um forte impulso.' },
+  relampagoSombrio: { teleportEvery: 900, teleportDist: 170, desc: 'A cada 15 s dá um teleporte curto para frente e atravessa um inimigo.' },
+  mongeIma: { coinPull: 70, desc: 'Puxa moedas próximas o tempo todo (ímã fraco).' },
+  kunoichiTempo: { slowMoOnce: true, desc: 'Uma vez por partida, o tempo fica lento quando você está prestes a morrer.' }
 };
 for (const sk of SKINS) {
   if (!CHARACTER_ABILITIES[sk.id]) throw new Error('Habilidade não definida para ' + sk.id);

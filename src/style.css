@@ -102,6 +102,32 @@ body { position: fixed; top: 0; left: 0; }
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.35);
 }
 #streak i.on { background: #ffd700; box-shadow: 0 0 6px rgba(255,215,0,.85); }
+#chainHud {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 8px) + 74px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  font: 900 26px/1 system-ui, sans-serif;
+  color: #ffd54a;
+  text-shadow: 0 2px 0 #7a3a00, 0 0 10px rgba(255,170,0,.8);
+  pointer-events: none;
+}
+#chainHud.active { display: block; }
+#modeHud {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 8px) + 100px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: none;
+  font: 800 20px/1 system-ui, sans-serif;
+  color: #fff;
+  background: rgba(10,12,35,.4);
+  padding: 4px 12px;
+  border-radius: 14px;
+  pointer-events: none;
+}
+#modeHud.active { display: block; }
 #progressBar {
   height: 100%;
   width: 0%;
@@ -429,3 +455,11 @@ html.game-failed #scrAudio, html.game-failed #scrControls { display: none !impor
   transition: opacity .25s, transform .25s;
 }
 .unlock-toast.show { opacity: 1; transform: translateY(0); }
+
+.go-extra { color: #fff; font-size: 14px; font-weight: 700; margin: 0 0 14px; line-height: 1.5; }
+.mode-info { color: #dfe6ff; font-size: 13px; text-align: center; margin: 8px 12px; line-height: 1.4; }
+.mode-list { width: 100%; max-width: 340px; margin: 6px auto 12px; max-height: 52vh; overflow-y: auto; text-align: left; }
+.mode-list h4 { margin: 10px 0 4px; color: #ffd54a; font-size: 14px; }
+.mode-row { display: flex; justify-content: space-between; gap: 10px; padding: 6px 10px; margin: 3px 0; background: rgba(255,255,255,.1); border-radius: 10px; font-size: 13px; color: #fff; }
+.mode-row.done { background: rgba(80,200,120,.3); }
+.mode-row .val { font-weight: 800; white-space: nowrap; }

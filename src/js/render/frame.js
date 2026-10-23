@@ -38,6 +38,7 @@ function render() {
     drawWallLight();
     for (const hz of hazards) if (hz.alive) drawHazard(hz);
     for (const c of coins) drawCoin(c);
+    if (boss) drawBoss();
     if (powerups.length) drawPowerups();
     if (shurikens.length) drawShurikens();
     drawParticles();
@@ -87,7 +88,7 @@ function loop(ts) {
   const elapsed = Math.max(0, ts - (lastTime || ts));
   lastTime = ts;
   watchFrameRate(elapsed);
-  acc = Math.min(acc + elapsed, STEP_MS * MAX_STEPS);
+  acc = Math.min(acc + elapsed * timeScale(), STEP_MS * MAX_STEPS);
   // One bad frame must never freeze the game: log it and keep the loop alive
   while (acc >= STEP_MS) {
     acc -= STEP_MS;

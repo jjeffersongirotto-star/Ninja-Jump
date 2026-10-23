@@ -13,7 +13,8 @@ function pickupPowerups() {
 function applyPowerup(p) {
   p.taken = true;
   debugStats.powerups[p.type]++;
-  const col = p.type === 'magnet' ? '#ff6b6b' : (p.type === 'shield' ? '#7fe3ff' : '#ffb347');
+  modeRun.powerups++;
+  const col = p.type === 'magnet' ? '#ff6b6b' : (p.type === 'shield' ? '#7fe3ff' : (p.type === 'fire' ? '#ff7a1f' : '#ffb347'));
   burst(p.x, p.y, col, 14, 3.4);
   burst(p.x, p.y, '#ffffff', 8, 2.4);
   rings.push({ x: p.x, y: p.y, r: 10, life: 0.6, color: col });
@@ -22,6 +23,7 @@ function applyPowerup(p) {
   beep(1320, 0.12, 'sine', 0.05);
   if (p.type === 'magnet') ninja.magnetT = timedPowerupFrames(POWERUPS.magnet.frames);
   else if (p.type === 'shield') { ninja.shield = true; ninja.shieldPop = 1; }
+  else if (p.type === 'fire') ninja.fireElastic = true;
   else if (p.type === 'rocket') startRocket();
 }
 

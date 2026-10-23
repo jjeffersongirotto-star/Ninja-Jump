@@ -2,7 +2,7 @@
 // Read-only hooks from the game (they never change gameplay): structure hits, elastic launches, kills,
 // and a check every few frames. Config in config/missions.js.
 const LS_STATS = 'ninjaJump_stats';
-const RUN_STATS = ['fall', 'meters', 'wallKicks', 'coins', 'sameHits', 'ufoKills'];
+const RUN_STATS = ['fall', 'meters', 'wallKicks', 'coins', 'sameHits', 'ufoKills', 'runSeconds'];
 let lifeStats = null;
 function loadLifeStats() {
   let s = null;
@@ -10,7 +10,7 @@ function loadLifeStats() {
   if (!s || typeof s !== 'object') s = {};
   const n = (v) => Math.max(0, +v || 0);
   const best = s.best && typeof s.best === 'object' ? s.best : {};
-  lifeStats = { runs: n(s.runs), totalMeters: n(s.totalMeters), blueBirds: n(s.blueBirds), nightRuns: n(s.nightRuns), ufoKills: n(s.ufoKills), best: {} };
+  lifeStats = { runs: n(s.runs), totalMeters: n(s.totalMeters), blueBirds: n(s.blueBirds), nightRuns: n(s.nightRuns), ufoKills: n(s.ufoKills), playFrames: n(s.playFrames), best: {} };
   for (const k of RUN_STATS) lifeStats.best[k] = n(best[k]);
   // records that existed before the missions count too
   lifeStats.best.meters = Math.max(lifeStats.best.meters, n(store.get(LS_METERS)));
@@ -20,10 +20,10 @@ function loadLifeStats() {
 function saveLifeStats() { if (lifeStats) store.set(LS_STATS, JSON.stringify(lifeStats)); }
 function stats() { return lifeStats || loadLifeStats(); }
 
-const runMission = { fall: 0, sameHits: 0, ufoKills: 0, apexY: 0, streakId: null, streakN: 0, launched: false, night: false, unlocked: [] };
+const runMission = { frames: 0, fall: 0, sameHits: 0, ufoKills: 0, apexY: 0, streakId: null, streakN: 0, launched: false, night: false, unlocked: [] };
 let hazardUid = 0;
 function missionResetRun() {
-  runMission.fall = 0; runMission.sameHits = 0; runMission.ufoKills = 0;
+  runMission.frames = 0; runMission.fall = 0; runMission.sameHits = 0; runMission.ufoKills = 0;
   runMission.apexY = ninja ? ninja.y : 0;
   runMission.streakId = null; runMission.streakN = 0; runMission.launched = false;
   runMission.night = false; runMission.unlocked = [];
@@ -33,12 +33,13 @@ function runValue(stat) {
   if (stat === 'meters') return bestHeight;
   if (stat === 'wallKicks') return debugStats.wallKicks;
   if (stat === 'coins') return runCoins;
+  if (stat === 'runSeconds') return runMission.frames / 60;
   return runMission[stat] || 0;
 }
 // Progress shown in the menu: lifetime total, or the best single run (including the one being played)
 function missionProgress(sk, live) {
   const M = sk.mission, s = stats();
-  let cur = M.scope === 'life' ? (s[M.stat] || 0) : Math.max(s.best[M.stat] || 0, live ? runValue(M.stat) : 0);
+  let cur = M.scope === 'life' ? (M.stat === 'playMinutes' ? s.playFrames / 3600 : (s[M.stat] || 0)) : Math.max(s.best[M.stat] || 0, live ? runValue(M.stat) : 0);
   cur = Math.floor(cur);
   return { cur: Math.min(cur, M.goal), goal: M.goal, done: cur >= M.goal };
 }
@@ -93,10 +94,14 @@ function missionLaunch() { // elastic launch: ends a fall (measured from the top
 }
 function missionKill(hz) {
   if (state !== 'playing') return;
+  modesKill(hz);
   if (hz.type === 'ufo') { runMission.ufoKills++; stats().ufoKills++; }
   else if (hz.type === 'flyer' && hz.color !== 'red') stats().blueBirds++;
 }
 function missionTick() { // every frame while playing: cheap; full check every 10 frames
+  runMission.frames++;
+  stats().playFrames++;
+  if (frame % 600 === 0) saveLifeStats();
   if (ninja.vy < 0 && !ninja.dead) runMission.apexY = ninja.y; // still rising: the fall starts at the top
   if (frame % 10 !== 0) return;
   if (!runMission.night && bestHeight >= MISSION_NIGHT_M) { runMission.night = true; stats().nightRuns++; }

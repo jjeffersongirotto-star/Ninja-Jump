@@ -37,6 +37,9 @@ const GAME_FILES = [
   'world/hazards.js',           // hazards in the world: collisions, bumps, stomps, ghost platforms
   'world/elastic.js',           // drawing the elastic, particle bursts
   'world/powerups.js',          // power-ups in the world: pickup and effects
+  'world/mechanics.js',         // kill chain, boss every 2000 m, fire elastic
+  'world/modes.js',             // game modes: daily, time-attack ranking, no-elastic, weekly missions
+  'world/characters.js',        // character abilities: teleport, slow motion, coin pull
   'world/update.js',            // per-frame game logic
   'world/stress.js',            // DEV stress test autopilot (?stress=1 only)
   'ui/hud.js',                  // HUD, game over, start of a run
@@ -51,10 +54,12 @@ const GAME_FILES = [
   'render/ninja.js',            // ninja sprite and pose
   'render/hazards.js',          // hazard sprites
   'render/coins-effects.js',    // coins, ground, floaters, particles
+  'render/boss.js',            // boss drawing
   'render/powerups.js',         // power-up items, shield bubble, rocket flame, HUD timers
   'render/frame.js',            // render() + fixed-timestep game loop
   'input/controls.js',          // control mode: touch / computer (mouse) / automatic, keyboard shortcuts
   'input/pointer.js',           // touch / pointer / mouse input
+  'ui/modes.js',              // modes menu, ranking, missions screens
   'ui/buttons.js',              // button and page bindings
   'ui/fullscreen.js',           // fullscreen button (top-right) + keeping the game fullscreen
   'core/app.js',                // installable app (PWA): offline service worker + "Instalar app" button

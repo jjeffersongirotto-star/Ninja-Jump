@@ -31,6 +31,7 @@ function updateStreakHud() {
 }
 
 // End of a run (game over or "Sair"): save records and bank the coins
+let runExtraLines = [];
 function endRun() {
   shortStreak = 0;
   updateStreakHud();
@@ -39,6 +40,9 @@ function endRun() {
   drawing = null;
   addWallet(runCoins);
   try { missionEndRun(); } catch (e) { logErr('missions', e); }
+  runExtraLines = [];
+  try { runExtraLines = modesEndRun(); } catch (e) { logErr('modes', e); }
+  modesHideHud();
   metersEl.classList.remove('active');
   progressEl.classList.remove('active');
   hud.classList.remove('active');
@@ -60,6 +64,8 @@ function gameOver() {
     gu.textContent = runMission.unlocked.length ? '🎉 Novo personagem liberado: ' + runMission.unlocked.join(', ') + '!' : '';
     gu.style.display = runMission.unlocked.length ? 'block' : 'none';
   }
+  const ge = document.getElementById('goExtra');
+  if (ge) { ge.innerHTML = ''; for (const l of runExtraLines) { const d = document.createElement('div'); d.textContent = l; ge.appendChild(d); } ge.style.display = runExtraLines.length ? 'block' : 'none'; }
   hideUnlockToast(); // the game-over screen lists them instead
   playBtn.textContent = 'Jogar de novo';
   titleEl.textContent = 'Fim de jogo';
@@ -73,6 +79,7 @@ function startPlay() {
   state = 'playing';
   atmosCache = atmosphereAt(0); // never start a run with the menu's (or last run's) cached stage look
   missionResetRun();
+  modesResetRun();
   streakShown = -1;
   resetHudCache();
   lastThemeName = '';

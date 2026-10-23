@@ -3,7 +3,8 @@
 const POWER_COLORS = {
   magnet: ['#ffd0d0', '#ff5a5a', '#9c1622'],
   shield: ['#e2fbff', '#3fc7f0', '#135f8f'],
-  rocket: ['#fff1cf', '#ffa53a', '#a8510c']
+  rocket: ['#fff1cf', '#ffa53a', '#a8510c'],
+  fire: ['#fff0b0', '#ff7a1f', '#a02a08']
 };
 // Badge with the icon, centered at (0,0) in a translated/scaled context; radius 15
 function drawPowerBadge(type) {
@@ -49,6 +50,13 @@ function drawPowerBadge(type) {
     ctx.fillStyle = '#ffe14a';
     drawStarShape(0, 0, 3.6, 5, 0.45, 0);
     ctx.fill();
+  } else if (type === 'fire') {
+    ctx.fillStyle = '#ffffff';                   // flame
+    ctx.beginPath(); ctx.moveTo(0, -11); ctx.quadraticCurveTo(9, -2, 6, 5); ctx.quadraticCurveTo(0, 12, -6, 5); ctx.quadraticCurveTo(-8, -2, 0, -11); ctx.fill();
+    ctx.fillStyle = '#ff7a1f';
+    ctx.beginPath(); ctx.moveTo(0, -8); ctx.quadraticCurveTo(6, -1, 4, 5); ctx.quadraticCurveTo(0, 9, -4, 5); ctx.quadraticCurveTo(-5.5, -1, 0, -8); ctx.fill();
+    ctx.fillStyle = '#ffd54a';
+    ctx.beginPath(); ctx.moveTo(0, -2); ctx.quadraticCurveTo(3, 2, 2, 5); ctx.quadraticCurveTo(0, 7, -2, 5); ctx.quadraticCurveTo(-3, 2, 0, -2); ctx.fill();
   } else {
     ctx.save();                                  // rocket, tilted up-right
     ctx.rotate(0.6);
@@ -224,6 +232,7 @@ function drawPowerHud() {
   if (ninja.rocketT > 0) list.push(['rocket', Math.min(1, ninja.rocketT / timedPowerupFrames(POWERUPS.rocket.frames))]);
   if (ninja.magnetT > 0) list.push(['magnet', Math.min(1, ninja.magnetT / timedPowerupFrames(POWERUPS.magnet.frames))]);
   if (ninja.shield) list.push(['shield', -1]);
+  if (ninja.fireElastic) list.push(['fire', -1]);
   if (!list.length) return;
   if (frame - powerHudCheck > 60 || !powerHudY) { // below the theme-name pill (follows the safe-area inset)
     powerHudCheck = frame;
