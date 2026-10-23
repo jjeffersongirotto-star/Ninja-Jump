@@ -7,7 +7,7 @@ function onPlayTap(e) {
     try { e.stopPropagation(); } catch (err) {}
   }
   if (state === 'playing') return;
-  if (state === 'gameover') { showScreen('playOptions'); return; }
+  if (state === 'gameover' || state === 'menu') { showScreen('playOptions'); return; }
   const t = nowMs();
   if (t - lastStartAt < 500) return;
   lastStartAt = t;
