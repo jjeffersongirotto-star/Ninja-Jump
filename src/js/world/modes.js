@@ -4,7 +4,8 @@
 const MODE_TA_SECONDS = 60;
 const RANKING_SIZE = 10;
 const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
-const NOELASTIC_JUMP = { vy: 13.5, vx: 8.5, coyote: 12, buffer: 10 };
+// vy: strong jump (crosses the screen); weak: share of vy/vx used when nothing was tapped; coyote: frames a contact stays valid
+const NOELASTIC_JUMP = { vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
 const LS_RANKING = 'ninjaJump_ranking60';
 const LS_DAILY = 'ninjaJump_daily_v2';
 const LS_WEEKLY = 'ninjaJump_weekly_v2';
@@ -196,20 +197,32 @@ function modesEndRun() {
   return lines;
 }
 
-// --- No-elastic mode: a tap jumps when standing on the ground / a platform, hugging a wall, or just after a stomp ---
-function noElasticTap(x) { // a tap a few frames before landing is remembered
+// --- No-elastic mode: while airborne a tap sets where the next jump goes; touching a surface (ground, platform,
+// wall, stomped enemy) jumps by itself toward it. No tap = a weaker jump to the opposite side. The first jump waits for a tap. ---
+function noElasticTap(x) {
   if (!ninja || ninja.dead || state !== 'playing' || paused) return;
-  ninja.tapBuf = NOELASTIC_JUMP.buffer; ninja.tapX = x;
-  tryNoElasticJump();
+  ninja.aimX = x;
+  if (ninja.neIdle) { ninja.jumpT = NOELASTIC_JUMP.coyote; noElasticJump(); }
 }
-function tryNoElasticJump() {
-  if (!(ninja.tapBuf > 0) || !(ninja.jumpT > 0)) return;
-  ninja.tapBuf = 0;
-  let dir = ninja.tapX < ninja.x ? -1 : 1;
-  if (ninja.wallT > 0) dir = ninja.wallDir; // kick off the wall he just touched
-  ninja.vy = -NOELASTIC_JUMP.vy;
-  ninja.vx = dir * NOELASTIC_JUMP.vx;
-  ninja.jumpT = 0; ninja.wallT = 0;
+function noElasticJump() {
+  const J = NOELASTIC_JUMP;
+  const g = GRAVITY_BASE * difficultyAt(worldToMeters(ninja.y)).gravityScale;
+  const travel = 2 * J.vy / g * 0.84; // horizontal reach per unit of vx over the whole flight (drag included)
+  let vy, vx;
+  if (ninja.aimX !== null) {
+    const dx = ninja.aimX - ninja.x;
+    const dir = dx < 0 ? -1 : 1;
+    vx = dir * Math.min(J.maxVx, Math.max(J.minVx, Math.abs(dx) / travel));
+    vy = -J.vy;
+  } else {
+    const dir = ninja.wallT > 0 ? ninja.wallDir : -ninja.neDir;
+    vx = dir * J.weakVx;
+    vy = -J.vy * J.weak;
+  }
+  ninja.vy = vy; ninja.vx = vx;
+  ninja.neDir = vx < 0 ? -1 : 1;
+  ninja.aimX = null; ninja.neIdle = false;
+  ninja.jumpT = 0; ninja.wallT = 0; ninja.neCd = J.cooldown;
   ninja.floatT = 0;
   ninja.spinning = 0;
   ninjaPose.launch = 1;
@@ -221,12 +234,12 @@ function noElasticTick() {
   if (gameMode !== 'noelastic' || ninja.dead) return;
   if (ninja.jumpT > 0) ninja.jumpT--;
   if (ninja.wallT > 0) ninja.wallT--;
-  if (ninja.tapBuf > 0) ninja.tapBuf--;
+  if (ninja.neCd > 0) ninja.neCd--;
   const onGround = groundY && ninja.vy > -4 && ninja.y + NINJA_R >= groundY - 60 && groundY - camera.y <= H; // also during the little idle hop
   if (onGround) ninja.jumpT = NOELASTIC_JUMP.coyote;
   if (ninja.x <= NINJA_R + 1 || ninja.x >= W - NINJA_R - 1) {
     ninja.jumpT = NOELASTIC_JUMP.coyote; ninja.wallT = NOELASTIC_JUMP.coyote;
     ninja.wallDir = ninja.x < W / 2 ? 1 : -1;
   }
-  tryNoElasticJump();
+  if (ninja.jumpT > 0 && ninja.neCd <= 0 && !ninja.neIdle) noElasticJump();
 }
