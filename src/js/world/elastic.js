@@ -11,7 +11,7 @@ function syncDrawingWorld() {
 }
 function startDraw(x, y) {
   if (state !== 'playing' || paused || (ninja && ninja.dead)) return;
-  if (gameMode === 'noelastic') { noElasticTap(x); return; }
+  if (gameMode === 'noelastic') { noElasticTap(x, y); return; }
   drawing = {
     sx1: x, sy1: y, sx2: x, sy2: y,
     x1: x, y1: y + camera.y, x2: x, y2: y + camera.y

@@ -158,7 +158,7 @@ function resetGame() {
     bonks: 0, bonkedSinceLaunch: false, bonkT: 0,
     magnetT: 0, shield: false, shieldPop: 0, invulnT: 0, rocketT: 0, rocketExt: 0, combo: '', comboT: 0,
     coinRemainder: 0, redKillsThisSuper: 0, reviveUsed: false, fatalDodgeUsed: false,
-    tpT: 0, slowUsed: false, chain: 0, chainLaunches: 0, fireElastic: false, jumpT: 0, wallT: 0, wallDir: 1, aimX: null, neDir: 1, neCd: 0, neIdle: true
+    tpT: 0, slowUsed: false, chain: 0, chainLaunches: 0, fireElastic: false, jumpT: 0, wallT: 0, wallDir: 1, aimX: null, aimY: 0, dash: 0, neDir: 1, neCd: 0, neIdle: true
   };
   slowMoT = 0;
   resetMechanics();

@@ -5,7 +5,7 @@ const MODE_TA_SECONDS = 60;
 const RANKING_SIZE = 10;
 const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
 // vy: strong jump (crosses the screen); weak: share of vy/vx used when nothing was tapped; coyote: frames a contact stays valid
-const NOELASTIC_JUMP = { vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
+const NOELASTIC_JUMP = { dashSpeed: 19, dashMax: 45, vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
 const LS_RANKING = 'ninjaJump_ranking60';
 const LS_DAILY = 'ninjaJump_daily_v2';
 const LS_WEEKLY = 'ninjaJump_weekly_v2';
@@ -199,9 +199,9 @@ function modesEndRun() {
 
 // --- No-elastic mode: while airborne a tap sets where the next jump goes; touching a surface (ground, platform,
 // wall, stomped enemy) jumps by itself toward it. No tap = a weaker jump to the opposite side. The first jump waits for a tap. ---
-function noElasticTap(x) {
+function noElasticTap(x, y) {
   if (!ninja || ninja.dead || state !== 'playing' || paused) return;
-  ninja.aimX = x;
+  ninja.aimX = x; ninja.aimY = y + camera.y;
   if (ninja.neIdle) { ninja.jumpT = NOELASTIC_JUMP.coyote; noElasticJump(); }
 }
 function noElasticJump() {
@@ -209,11 +209,13 @@ function noElasticJump() {
   const g = GRAVITY_BASE * difficultyAt(worldToMeters(ninja.y)).gravityScale;
   const travel = 2 * J.vy / g * 0.84; // horizontal reach per unit of vx over the whole flight (drag included)
   let vy, vx;
+  ninja.dash = 0;
   if (ninja.aimX !== null) {
-    const dx = ninja.aimX - ninja.x;
-    const dir = dx < 0 ? -1 : 1;
-    vx = dir * Math.min(J.maxVx, Math.max(J.minVx, Math.abs(dx) / travel));
-    vy = -J.vy;
+    // straight, fast dash to the tapped point; gravity only returns once he gets there (then the arc starts)
+    const tx = ninja.aimX, ty = Math.min(ninja.aimY, ninja.y - 60);
+    const dx = tx - ninja.x, dy = ty - ninja.y, d = Math.hypot(dx, dy) || 1;
+    vx = dx / d * J.dashSpeed; vy = dy / d * J.dashSpeed;
+    ninja.dash = Math.min(J.dashMax, Math.ceil(d / J.dashSpeed));
   } else {
     const dir = ninja.wallT > 0 ? ninja.wallDir : -ninja.neDir;
     vx = dir * J.weakVx;

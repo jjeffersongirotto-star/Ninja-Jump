@@ -1453,7 +1453,7 @@
       bonks: 0, bonkedSinceLaunch: false, bonkT: 0,
       magnetT: 0, shield: false, shieldPop: 0, invulnT: 0, rocketT: 0, rocketExt: 0, combo: '', comboT: 0,
       coinRemainder: 0, redKillsThisSuper: 0, reviveUsed: false, fatalDodgeUsed: false,
-      tpT: 0, slowUsed: false, chain: 0, chainLaunches: 0, fireElastic: false, jumpT: 0, wallT: 0, wallDir: 1, aimX: null, neDir: 1, neCd: 0, neIdle: true
+      tpT: 0, slowUsed: false, chain: 0, chainLaunches: 0, fireElastic: false, jumpT: 0, wallT: 0, wallDir: 1, aimX: null, aimY: 0, dash: 0, neDir: 1, neCd: 0, neIdle: true
     };
     slowMoT = 0;
     resetMechanics();
@@ -2783,7 +2783,7 @@
   }
   function startDraw(x, y) {
     if (state !== 'playing' || paused || (ninja && ninja.dead)) return;
-    if (gameMode === 'noelastic') { noElasticTap(x); return; }
+    if (gameMode === 'noelastic') { noElasticTap(x, y); return; }
     drawing = {
       sx1: x, sy1: y, sx2: x, sy2: y,
       x1: x, y1: y + camera.y, x2: x, y2: y + camera.y
@@ -3362,7 +3362,7 @@
   const RANKING_SIZE = 10;
   const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
   // vy: strong jump (crosses the screen); weak: share of vy/vx used when nothing was tapped; coyote: frames a contact stays valid
-  const NOELASTIC_JUMP = { vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
+  const NOELASTIC_JUMP = { dashSpeed: 19, dashMax: 45, vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
   const LS_RANKING = 'ninjaJump_ranking60';
   const LS_DAILY = 'ninjaJump_daily_v2';
   const LS_WEEKLY = 'ninjaJump_weekly_v2';
@@ -3556,9 +3556,9 @@
 
   // --- No-elastic mode: while airborne a tap sets where the next jump goes; touching a surface (ground, platform,
   // wall, stomped enemy) jumps by itself toward it. No tap = a weaker jump to the opposite side. The first jump waits for a tap. ---
-  function noElasticTap(x) {
+  function noElasticTap(x, y) {
     if (!ninja || ninja.dead || state !== 'playing' || paused) return;
-    ninja.aimX = x;
+    ninja.aimX = x; ninja.aimY = y + camera.y;
     if (ninja.neIdle) { ninja.jumpT = NOELASTIC_JUMP.coyote; noElasticJump(); }
   }
   function noElasticJump() {
@@ -3566,11 +3566,13 @@
     const g = GRAVITY_BASE * difficultyAt(worldToMeters(ninja.y)).gravityScale;
     const travel = 2 * J.vy / g * 0.84; // horizontal reach per unit of vx over the whole flight (drag included)
     let vy, vx;
+    ninja.dash = 0;
     if (ninja.aimX !== null) {
-      const dx = ninja.aimX - ninja.x;
-      const dir = dx < 0 ? -1 : 1;
-      vx = dir * Math.min(J.maxVx, Math.max(J.minVx, Math.abs(dx) / travel));
-      vy = -J.vy;
+      // straight, fast dash to the tapped point; gravity only returns once he gets there (then the arc starts)
+      const tx = ninja.aimX, ty = Math.min(ninja.aimY, ninja.y - 60);
+      const dx = tx - ninja.x, dy = ty - ninja.y, d = Math.hypot(dx, dy) || 1;
+      vx = dx / d * J.dashSpeed; vy = dy / d * J.dashSpeed;
+      ninja.dash = Math.min(J.dashMax, Math.ceil(d / J.dashSpeed));
     } else {
       const dir = ninja.wallT > 0 ? ninja.wallDir : -ninja.neDir;
       vx = dir * J.weakVx;
@@ -3688,11 +3690,12 @@
       if (floating) { g *= 1 - (1 - BF.gravity) * (ninja.floatT / BF.frames); ninja.floatT--; }
       const AF = abilityValue('apexFloat', null); // Shinobi da Maré: lighter near the top of every jump
       if (AF && !ninja.dead && Math.abs(ninja.vy) < AF.band) g *= AF.gravity;
+      if (ninja.dash > 0 && !ninja.dead) { ninja.dash--; g = 0; }
       ninja.vy += g;
       if (floating && ninja.vy > BF.maxFall) ninja.vy = BF.maxFall;
       ninja.x += ninja.vx;
       ninja.y += ninja.vy;
-      ninja.vx *= 0.995;
+      if (!(ninja.dash > 0)) ninja.vx *= 0.995;
     } else {
       ninja.vx *= 0.85;
       ninja.vy = 0;
@@ -3702,12 +3705,12 @@
 
     if (ninja.x < NINJA_R) {
       const into = -ninja.vx;
-      ninja.x = NINJA_R; ninja.vx = Math.abs(ninja.vx) * 0.5;
+      ninja.x = NINJA_R; ninja.vx = Math.abs(ninja.vx) * 0.5; ninja.dash = 0;
       if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(-1); fxWallDust(-1, ninja.y); }
     }
     if (ninja.x > W - NINJA_R) {
       const into = ninja.vx;
-      ninja.x = W - NINJA_R; ninja.vx = -Math.abs(ninja.vx) * 0.5;
+      ninja.x = W - NINJA_R; ninja.vx = -Math.abs(ninja.vx) * 0.5; ninja.dash = 0;
       if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(1); fxWallDust(1, ninja.y); }
     }
 
