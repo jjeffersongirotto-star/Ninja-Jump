@@ -148,6 +148,7 @@ function legGeom(hx, legTop, kneeDx, kneeY, ankleBack, footY, footDx, kick, isKi
 
 function drawLeg(g, width, col, footCol, rx, ry) {
   ninjaLimbC(g.hx, g.hy, g.kx, g.ky, g.ax, g.ay, width, col);
+  if (skin.acc && skin.acc.zombie && col === skin.limb) drawZombieShin(skin.acc.zombie, g, width);
   ninjaFoot(g.fx, g.fy, rx, ry, g.frot, footCol);
 }
 

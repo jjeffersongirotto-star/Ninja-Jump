@@ -71,6 +71,7 @@ function startPlay() {
   ensureAudio();
   resetGame();
   state = 'playing';
+  atmosCache = atmosphereAt(0); // never start a run with the menu's (or last run's) cached stage look
   missionResetRun();
   streakShown = -1;
   resetHudCache();

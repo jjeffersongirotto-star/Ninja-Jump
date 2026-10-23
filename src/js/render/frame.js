@@ -1,7 +1,9 @@
 // --- Frame: render() draws everything; loop() runs the fixed-timestep game loop ---
+const MENU_METERS = 0;
 function render() {
   const meters = ninja ? worldToMeters(ninja.y) : 0;
-  if (state === 'menu') atmosCache = atmosphereAt(30);
+  // menu shows exactly the run's opening scenery (0 m): pressing Jogar must not swap the stage look
+  if (state === 'menu') atmosCache = atmosphereAt(MENU_METERS);
   else if (!atmosCache) atmosCache = atmosphereAt(meters);
 
   ctx.save();
@@ -12,13 +14,13 @@ function render() {
     ctx.translate(shakeX, shakeY);
   }
 
-  renderBackground(state === 'playing' || state === 'gameover' ? meters : 30);
+  renderBackground(state === 'playing' || state === 'gameover' ? meters : MENU_METERS);
   paintSides(atmosCache);
 
   if (state === 'menu') {
     drawNinja(W / 2, H * 0.38 + Math.sin(frame * 0.04) * 10);
     const ey = H * 0.55;
-    const col = (atmosCache || atmosphereAt(30)).elastic;
+    const col = (atmosCache || atmosphereAt(MENU_METERS)).elastic;
     ctx.strokeStyle = col;
     ctx.globalAlpha = 0.55;
     ctx.lineWidth = 3.5;
@@ -37,6 +39,7 @@ function render() {
     for (const hz of hazards) if (hz.alive) drawHazard(hz);
     for (const c of coins) drawCoin(c);
     if (powerups.length) drawPowerups();
+    if (shurikens.length) drawShurikens();
     drawParticles();
     if (floaters.length) drawFloaters();
     if (elastic) drawElastic(elastic, false);
@@ -47,6 +50,7 @@ function render() {
       drawNinjaFxFront(ninja.x, ninja.y - camera.y);
     }
     if (state === 'playing') drawPowerHud();
+    if (STRESS.on) drawStressBadge();
   }
 
   ctx.restore();
@@ -60,7 +64,7 @@ const MAX_STEPS = 6;  // after a long hiccup (tab switch, slow frame) don't fast
 let loopErrors = 0, acc = 0;
 let qSum = 0, qCount = 0, qSlowWindows = 0;
 function watchFrameRate(elapsed) {
-  if (state !== 'playing' || paused || document.hidden || qualityLevel >= QUALITY_STEPS.length - 1) {
+  if (STRESS.on || state !== 'playing' || paused || document.hidden || qualityLevel >= QUALITY_STEPS.length - 1) { // stress: measure at full resolution
     qSum = 0; qCount = 0;
     return;
   }

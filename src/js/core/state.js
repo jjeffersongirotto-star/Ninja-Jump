@@ -13,7 +13,8 @@ let frame = 0;
 let lastTime = 0;
 let atmosCache = null;
 let shortStreak = 0;   // consecutive bounces on short elastics
-let rings = [];        // shockwave rings (super jump)
+let rings = [];
+let shurikens = [], ninjaShurikenCd = 0; // Ninja Raposa: thrown stars (see world/powerups.js)        // shockwave rings (super jump)
 let floaters = [];     // '+10' coin pop after defeating an enemy
 let groundY = 0, originY = 0; // world y of the ground top / of meter 0 (fixed per run)
 // Per-run counters (reset at the start of every run by resetDebugStats)
