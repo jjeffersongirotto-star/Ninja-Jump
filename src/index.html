@@ -18,6 +18,10 @@
 <body>
 <canvas id="game"></canvas>
 <div id="ui">
+  <button id="updateBtn" class="update-btn hidden" type="button" aria-label="Procurar atualização" title="Procurar atualização">
+    <svg class="update-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.76-4.24L13 11h7V4z"/></svg>
+    <span id="updateStatus" class="update-status" aria-live="polite"></span>
+  </button>
   <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
   <div id="progress"><div id="progressBar"></div></div>
   <div id="chainHud"></div>
