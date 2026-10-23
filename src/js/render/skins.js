@@ -169,6 +169,7 @@ function drawCrescent(x, y, r, col, dir) {
 // Body pattern, clipped to the body ellipse (drawn over the shaded body, under the belt)
 function drawAccBody(bodyY) {
   const A = skin.acc, B = A && A.body;
+  if (A && A.zombie) drawZombieBody(A.zombie, bodyY);
   if (!B) return;
   const c = B.col, y = bodyY;
   ctx.save();
@@ -253,6 +254,7 @@ function drawAccBody(bodyY) {
 function drawAccBodyTop(bodyY) {
   const A = skin.acc;
   if (!A) return;
+  if (A.zombie) drawZombieStrips(A.zombie, bodyY);
   if (A.pads) {
     for (const sx of [-1, 1]) {
       const x = sx * 6.8, y = bodyY - 4.6;
@@ -417,6 +419,7 @@ function drawAccHeadTop(headY, hr, visorX, vw, va) {
     }
     if (A.mask) drawFaceMask(A.mask, headY, hr, visorX, vw, va);
     if (A.fangs) drawFangs(A.fangs, headY, hr, visorX, vw, va);
+    if (A.zombie) drawZombieFace(A.zombie, headY, hr, visorX, vw, va);
     if (A.breath && FX.particles) { // little frost puffs in front of the mouth
       ctx.save();
       for (let i = 0; i < 3; i++) {
@@ -431,6 +434,7 @@ function drawAccHeadTop(headY, hr, visorX, vw, va) {
       ctx.strokeStyle = A.crest.col; ctx.lineWidth = 0.9;
       ctx.beginPath(); ctx.moveTo(visorX - 7 * vw, headY + 5.6); ctx.lineTo(visorX + 7 * vw, headY + 5.6); ctx.stroke();
     }
+    if (A.zombie) drawZombieEyes(A.zombie, headY, hr, visorX, vw, va);
     if (A.eyeGlow && FX.glow && !A.blind) {
       ctx.save(); ctx.globalCompositeOperation = 'lighter';
       const a = 0.55 * va * (0.85 + 0.15 * Math.sin(frame * 0.15));
@@ -552,5 +556,128 @@ function drawSkinAura(x, y) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   drawGlow(x, y + 2, 34, skin.aura, 0.32 + 0.08 * Math.sin(frame * 0.08));
+  ctx.restore();
+}
+
+// --- Ninja Zumbi (lendário): lipless half-mouth, odd glowing eye, stitches, rot, ribs, torn strips, shin bone, drips ---
+function zDrip(Z, x, y, len, phase) {
+  const t = ((frame * 0.02 + phase) % 1), l = len * (0.45 + 0.55 * t);
+  ctx.fillStyle = Z.drip;
+  ctx.beginPath(); ctx.moveTo(x - 0.7, y); ctx.lineTo(x + 0.7, y); ctx.lineTo(x + 0.45, y + l); ctx.arc(x, y + l, 0.85, 0, Math.PI); ctx.closePath(); ctx.fill();
+}
+function zStitches(Z, pts, ticks) {
+  ctx.strokeStyle = Z.stitch; ctx.lineCap = 'round'; ctx.lineWidth = 0.7;
+  ctx.beginPath(); ctx.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]); ctx.stroke();
+  ctx.lineWidth = 0.6; ctx.beginPath();
+  for (let i = 0; i + 3 < pts.length; i += 2) {
+    const x1 = pts[i], y1 = pts[i + 1], x2 = pts[i + 2], y2 = pts[i + 3], dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+    for (let k = 1; k <= ticks; k++) { const t = k / (ticks + 1), cx = x1 + dx * t, cy = y1 + dy * t, nx = -dy / L * 1.2, ny = dx / L * 1.2; ctx.moveTo(cx - nx, cy - ny); ctx.lineTo(cx + nx, cy + ny); }
+  }
+  ctx.stroke();
+}
+function zRot(Z, x, y, rx, ry, rot) {
+  ctx.fillStyle = Z.rot; ctx.globalAlpha *= 0.85;
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = shadeHex(Z.rot, -0.35);
+  ctx.beginPath(); ctx.arc(x - rx * 0.3, y, Math.min(rx, ry) * 0.35, 0, Math.PI * 2); ctx.arc(x + rx * 0.4, y + ry * 0.3, Math.min(rx, ry) * 0.22, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha /= 0.85;
+}
+function drawZombieFace(Z, headY, hr, visorX, vw, va) {
+  ctx.save();
+  ctx.globalAlpha *= Math.min(1, va * 1.3);
+  ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+  fillLowerFace(Z.skin, headY, hr, visorX, vw);
+  zRot(Z, visorX - 6.5 * vw, headY + 11, 2.6 * Math.max(0.5, vw), 1.8, 0.3); // rotten cheek
+  const my = headY + 9, w = 6 * vw;
+  // left half: sewn-shut lip
+  ctx.strokeStyle = shadeHex(Z.skin, -0.55); ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(visorX - w, my - 0.4); ctx.quadraticCurveTo(visorX - w * 0.5, my + 0.6, visorX, my); ctx.stroke();
+  zStitches(Z, [visorX - w, my - 0.4, visorX, my], 2);
+  // right half: no lip, gums + teeth bared
+  const gum = function () {
+    ctx.beginPath(); ctx.moveTo(visorX - 0.4, my - 2.2); ctx.lineTo(visorX + w + 0.8, my - 2.8);
+    ctx.quadraticCurveTo(visorX + w + 1.6, my, visorX + w + 0.6, my + 2.8); ctx.lineTo(visorX - 0.4, my + 2.3); ctx.closePath();
+  };
+  gum(); ctx.fillStyle = Z.gum; ctx.fill();
+  ctx.save(); gum(); ctx.clip();
+  ctx.fillStyle = '#1a0606'; ctx.fillRect(visorX - 1, my - 0.35, w + 3, 0.7);
+  ctx.fillStyle = Z.bone; ctx.strokeStyle = shadeHex(Z.bone, -0.5); ctx.lineWidth = 0.35;
+  for (let i = 0; i < 5; i++) {
+    const tx = visorX + 0.2 + i * (w / 4.6), tw = w / 5.4, lo = i === 3 ? 0.5 : 0;
+    roundRect(tx, my - 2.1, tw, 1.85 + lo, 0.4); ctx.fill(); ctx.stroke();
+    if (i !== 2) { roundRect(tx + tw * 0.2, my + 0.3, tw, 1.7, 0.4); ctx.fill(); ctx.stroke(); }
+  }
+  ctx.restore();
+  gum(); ctx.strokeStyle = skin.out; ctx.lineWidth = 0.7; ctx.stroke();
+  ctx.restore();
+  zDrip(Z, visorX + w * 0.7, my + 2.6, 3.4, 0);
+  zDrip(Z, visorX - 2.5 * vw, headY + hr - 1.2, 2.2, 0.5);
+}
+// after the visor: one huge glowing eye, the other dull and clouded; skull stitches + rot on the cranium
+function drawZombieEyes(Z, headY, hr, visorX, vw, va) {
+  if (va < 0.2) return;
+  const vyc = headY + 2.2, ex = visorX - 3 * vw, dx = visorX + 3.2 * vw, sw = Math.min(1, 0.4 + vw * 0.6);
+  ctx.save(); ctx.globalAlpha *= va;
+  // dull clouded eye
+  ctx.fillStyle = '#c9cbb0'; ctx.beginPath(); ctx.ellipse(dx, vyc + 0.3, 1.5 * sw, 1.6, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = 'rgba(120,120,95,0.8)'; ctx.beginPath(); ctx.arc(dx + 0.3 * vw, vyc + 0.6, 0.55, 0, Math.PI * 2); ctx.fill();
+  // glowing eye
+  const pulse = 0.85 + 0.15 * Math.sin(frame * 0.15);
+  if (FX.glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; drawGlow(ex, vyc, 7, Z.glow, 0.7 * pulse); ctx.restore(); }
+  ctx.fillStyle = Z.glow; ctx.beginPath(); ctx.ellipse(ex, vyc, 2.3 * sw, 2.7, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#f8ffd8'; ctx.beginPath(); ctx.ellipse(ex - 0.4 * vw, vyc - 0.6, 0.9 * sw, 1, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#1b2a06'; ctx.beginPath(); ctx.ellipse(ex + 0.4 * vw, vyc + 0.4, 0.45 * sw, 1.2, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+  ctx.save();
+  ctx.beginPath(); ctx.arc(0, headY, hr - 0.9, 0, Math.PI * 2); ctx.clip();
+  zRot(Z, visorX * 0.4 + 6, headY - 11, 3, 1.8, -0.4);
+  zStitches(Z, [visorX * 0.5 - 7, headY - 3, visorX * 0.5 - 3, headY - 10, visorX * 0.5 + 3, headY - 12.5], 2);
+  ctx.restore();
+}
+function drawZombieBody(Z, y) {
+  ctx.save();
+  ctx.beginPath(); ctx.ellipse(0, y, 8.2, 7.4, 0, 0, Math.PI * 2); ctx.clip();
+  // torn hole in the gi with a hint of ribs
+  ctx.beginPath(); ctx.moveTo(-1, y - 5.5); ctx.lineTo(3.5, y - 4.8); ctx.lineTo(5.8, y - 2); ctx.lineTo(4.8, y + 1); ctx.lineTo(1.8, y - 0.2); ctx.lineTo(-1.6, y - 1.6); ctx.closePath();
+  ctx.fillStyle = shadeHex(Z.skin, -0.45); ctx.fill();
+  ctx.strokeStyle = Z.bone; ctx.lineWidth = 0.85; ctx.lineCap = 'round';
+  ctx.beginPath();
+  for (let i = 0; i < 3; i++) { const ry = y - 4.4 + i * 1.6; ctx.moveTo(-0.6 + i * 0.3, ry); ctx.quadraticCurveTo(2.3, ry - 0.9, 4.8 - i * 0.4, ry + 0.5); }
+  ctx.stroke();
+  ctx.strokeStyle = skin.out; ctx.lineWidth = 0.6;
+  ctx.beginPath(); ctx.moveTo(-1, y - 5.5); ctx.lineTo(3.5, y - 4.8); ctx.lineTo(5.8, y - 2); ctx.lineTo(4.8, y + 1); ctx.lineTo(1.8, y - 0.2); ctx.lineTo(-1.6, y - 1.6); ctx.closePath(); ctx.stroke();
+  zRot(Z, -4.5, y + 4.5, 2.6, 1.7, 0.5);
+  zStitches(Z, [-6.5, y - 4, -3, y + 1.2], 2);
+  ctx.restore();
+}
+function drawZombieStrips(Z, y) {
+  const sway = Math.sin(frame * 0.12) * 0.8;
+  ctx.fillStyle = shadeHex(skin.body[2] || Z.cloth, -0.1); ctx.strokeStyle = skin.out; ctx.lineWidth = 0.6;
+  const strips = [[-5.5, 4.2], [-1.5, 5.6], [4, 3.4]];
+  for (let i = 0; i < strips.length; i++) {
+    const x = strips[i][0], l = strips[i][1], s = sway * (i % 2 ? -1 : 1);
+    accPath([x - 1.2, y + 5.6, x + 1.3, y + 5.8, x + 0.8 + s, y + 6 + l, x + 0.1 + s, y + 5.2 + l, x - 0.6 + s, y + 6.3 + l]);
+    ctx.fill(); ctx.stroke();
+  }
+  zDrip(Z, 6, y + 4.2, 3, 0.25);
+}
+function drawZombieShin(Z, g, width) {
+  // torn trouser leg: lower part of the shin bare, rotten skin with the bone showing
+  const t0 = 0.12, x0 = g.kx + (g.ax - g.kx) * t0, y0 = g.ky + (g.ay - g.ky) * t0;
+  const dx = g.ax - x0, dy = g.ay - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L, hw = width * 0.5 - 0.3;
+  ctx.save();
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = Z.skin; ctx.lineWidth = width - 0.6;
+  ctx.beginPath(); ctx.moveTo(x0 + dx * 0.15, y0 + dy * 0.15); ctx.lineTo(g.ax, g.ay); ctx.stroke();
+  ctx.strokeStyle = Z.bone; ctx.lineWidth = 1.7;
+  ctx.beginPath(); ctx.moveTo(x0 + dx * 0.25 + nx * 0.4, y0 + dy * 0.25 + ny * 0.4); ctx.lineTo(x0 + dx * 0.85 + nx * 0.4, y0 + dy * 0.85 + ny * 0.4); ctx.stroke();
+  ctx.fillStyle = Z.bone;
+  ctx.beginPath(); ctx.arc(x0 + dx * 0.25 + nx * 0.4, y0 + dy * 0.25 + ny * 0.4, 1.15, 0, Math.PI * 2); ctx.arc(x0 + dx * 0.85 + nx * 0.4, y0 + dy * 0.85 + ny * 0.4, 1.15, 0, Math.PI * 2); ctx.fill();
+  // ragged cuff of the torn cloth
+  ctx.fillStyle = skin.limb; ctx.strokeStyle = skin.out; ctx.lineWidth = 0.5;
+  accPath([x0 + nx * (hw + 0.6), y0 + ny * (hw + 0.6), x0 - nx * (hw + 0.6), y0 - ny * (hw + 0.6),
+    x0 - nx * hw + dx * 0.22, y0 - ny * hw + dy * 0.22, x0 - nx * 0.6 + dx * 0.1, y0 - ny * 0.6 + dy * 0.1,
+    x0 + nx * 0.8 + dx * 0.28, y0 + ny * 0.8 + dy * 0.28, x0 + nx * hw + dx * 0.12, y0 + ny * hw + dy * 0.12]);
+  ctx.fill(); ctx.stroke();
   ctx.restore();
 }

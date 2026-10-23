@@ -58,10 +58,16 @@ function drawCoin(c) {
   const cam = camera.y;
   const x = c.x, y = c.y - cam;
   if (y < -30 || y > H + 30) return;
+  const pulse = 1 + Math.sin(c.sparkle) * 0.1;
+  // fast path (almost every coin, every frame): one scaled sprite copy, no save/translate/scale/restore
+  if (FX.glow && coinGlowSprite && Math.sin(c.sparkle * 0.5) <= 0.9) {
+    const s = coinGlowSprite.size * pulse;
+    ctx.drawImage(coinGlowSprite.cv, x - s / 2, y - s / 2, s, s);
+    return;
+  }
   const at = atmosCache || atmosphereAt(0);
   ctx.save();
   ctx.translate(x, y);
-  const pulse = 1 + Math.sin(c.sparkle) * 0.1;
   ctx.scale(pulse, pulse);
   if (!FX.glow) {
     ctx.fillStyle = at.accent;

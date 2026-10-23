@@ -247,6 +247,7 @@ function dropComboCoins(hz) {
   debugStats.comboDrops += MS.dropCoins;
 }
 function magnetRadius() {
+  if (STRESS.on) return W + H; // stress test: every coin on screen
   const C = POWERUPS.combos;
   return POWERUPS.magnet.radius * (ninja.rocketT > 0 ? C.magnetRocket.radiusMult : (ninja.superSpin ? C.magnetSuper.radiusMult : 1));
 }

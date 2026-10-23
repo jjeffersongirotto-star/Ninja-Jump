@@ -203,7 +203,7 @@ SKINS.push(
   skinPal({ id: 'ninjaZumbi', name: 'Ninja Zumbi', price: 5500, rarity: 3,
     desc: 'Volta de uma queda com um impulso sombrio e uma segunda chance.',
     main: '#718b55', headCol: '#91a96c', limb: '#38432d', band: '#352b22', eye: '#d8ff70',
-    acc: { body: { pattern: 'cracks', col: '#a4c56a' }, eyeGlow: '#c5ff55' },
+    acc: { zombie: { skin: '#9bb873', rot: '#5d7436', bone: '#efe6c8', gum: '#8e3b3b', glow: '#c5ff55', drip: '#8fe03a', cloth: '#352b22', stitch: '#2a2018' } },
     trail: { kind: 'smoke', color: '#a8d66d' }, aura: '#9bcf5b' })
 );
 const CHARACTER_ABILITIES = {
@@ -247,6 +247,7 @@ for (const sk of SKINS) {
 }
 
 function abilityValue(key, fallback) {
+  if (STRESS.on && STRESS.ability[key] !== undefined) return STRESS.ability[key];
   const ability = skin && skin.ability;
   return ability && ability[key] !== undefined ? ability[key] : fallback;
 }

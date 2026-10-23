@@ -28,6 +28,7 @@ const GAME_FILES = [
   'config/hazards.js',          // hazards & difficulty progression (all tuning)
   'config/powerups.js',         // power-ups: magnet, shield, rocket (all tuning)
   'config/fx.js',               // visual effects: glow, vignette, particles, textures (all tuning)
+  'config/stress.js',           // DEV stress test (?stress=1 only): everything on at once
   'core/state.js',              // game state variables, debug stats
   'core/storage.js',            // localStorage + records
   'world/setup.js',             // resize, scenery seeds, new run, meters <-> world
@@ -37,6 +38,7 @@ const GAME_FILES = [
   'world/elastic.js',           // drawing the elastic, particle bursts
   'world/powerups.js',          // power-ups in the world: pickup and effects
   'world/update.js',            // per-frame game logic
+  'world/stress.js',            // DEV stress test autopilot (?stress=1 only)
   'ui/hud.js',                  // HUD, game over, start of a run
   'ui/screens.js',              // menu screens, wallet & characters, options, pause
   'render/fx.js',               // cached glow sprites, vignette, stage textures, walls, far layers
