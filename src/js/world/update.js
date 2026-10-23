@@ -25,6 +25,7 @@ function update(dt) {
     const AF = abilityValue('apexFloat', null); // Shinobi da Maré: lighter near the top of every jump
     if (AF && !ninja.dead && Math.abs(ninja.vy) < AF.band) g *= AF.gravity;
     if (ninja.dash > 0 && !ninja.dead) { ninja.dash--; g = 0; }
+    if (ninja.climb && !ninja.dead) g = 0;
     ninja.vy += g;
     if (floating && ninja.vy > BF.maxFall) ninja.vy = BF.maxFall;
     ninja.x += ninja.vx;
