@@ -27,7 +27,10 @@ const POWERUPS = {
     // Side speed is planned to arrive right when he reaches the coin's height (gap / frames left, capped
     // at `maxVx`), eased in by `accel` per frame. No coin ahead: drifts back to straight up (side speed
     // x0.9 per frame). Always kept `wallMargin` px inside the screen.
-    coinSteer: { lookahead: 340, behind: 14, maxVx: 9, accel: 0.5, wallMargin: 4 } },
+    // Hazards: a flight planner looks `avoidAhead` px up the screen and keeps his full circle `avoidMargin` px
+    // clear of every hazard's full area (sweep, wave, dive box), dodging sideways at up to `avoidVx` px/frame,
+    // so the path to a coin never crosses a platform, enemy or spikes.
+    coinSteer: { lookahead: 340, behind: 14, maxVx: 9, accel: 0.5, wallMargin: 4, avoidAhead: 480, avoidMargin: 8, avoidVx: 12 } },
   // COMBOS: two effects active at the same time (rocket and super jump never overlap: the rocket replaces it).
   // Each combo shows a coloured aura while it lasts.
   combos: {
