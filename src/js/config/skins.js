@@ -101,7 +101,7 @@ SKINS.push(
       back: [{ type: 'cloak', col: '#6a0a18', lining: '#c9a227' }], body: { pattern: 'royal', col: '#e8c048' } },
     trail: { kind: 'fire', color: '#ff4a3a' }, aura: '#ff3a3a' }),
   // --- Ninjas de vila escondida (estilo anime de ninja) ---
-  skinPal({ id: 'raposa', name: 'Ninja Raposa', price: 1500, rarity: 1,
+  skinPal({ id: 'raposa', name: 'Ninja Raposa', price: 2500, rarity: 2,
     desc: 'Macacão laranja, coragem sem fim e um espírito de raposa guardado lá dentro.',
     main: '#ff8a1f', limb: '#f07a12', foot: '#1d2a4a', hand: '#f4d2a8', band: '#1f3a7a', eye: '#7fd0ff',
     acc: { ears: { style: 'fox', col: '#ff8a1f', inner: '#fff1d6' }, crest: { style: 'plate', col: '#c9d2e0', sym: 'swirl' },
@@ -220,7 +220,7 @@ const CHARACTER_ABILITIES = {
   oniAco: { bonkFloatMultiplier: 1.18, desc: 'Cai 18% mais devagar após uma batida.' },
   oniLua: { superStreakReduction: 1, desc: 'Ativa o especial com 1 elástico curto a menos.' },
   oniCeu: { coinMultiplier: 1.25, desc: 'Ganha 25% a mais de moedas.' },
-  oniImperador: { specialRedKills: Infinity, redSpecialCoins: 5, coinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas. No especial, derrota inimigos vermelhos (+5 moedas cada).' },
+  oniImperador: { specialRedKills: Infinity, redSpecialCoins: 15, redCoinsFinal: true, coinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas. No especial, derrota inimigos vermelhos (+15 moedas cada).' },
   raposa: { shuriken: { range: 170, cooldown: 75, speed: 9 }, desc: 'Atira shurikens nos inimigos azuis próximos e os derrota (+10 moedas).' },
   lotus: { elasticTolerance: 4, desc: 'Acerta elásticos com margem +4 px.' },
   luaRubra: { specialRedKills: 1, redSpecialCoins: 5, desc: 'No especial, derrota 1 inimigo vermelho e ganha 5 moedas.' },

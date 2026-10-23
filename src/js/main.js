@@ -5,6 +5,8 @@ function step(name, fn) {
 step('play button', bindPlayButton);
 step('menus', bindMenus);
 step('settings', function () { loadSound(); loadSkin(); refreshWallet(); });
+// a save that already meets a (lowered) mission goal gets the character right away, not only after the next run
+step('missions', function () { missionCheck(false); });
 step('app', bindApp);
 step('controls', bindControls);
 step('input', bindInput);

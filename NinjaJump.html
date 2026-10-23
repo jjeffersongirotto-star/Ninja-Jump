@@ -1045,7 +1045,8 @@
     // Upper-half hit (blue only, `upperHalf`): touching a blue flyer/UFO anywhere from its vertical middle up
     // defeats it too, from any direction (side, rising from below at an angle). Coming down: stomp rebound;
     // otherwise he keeps his momentum. Lower-half contacts keep the bump. Every defeat gives +`coins`.
-    stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 10, redSpecialCoins: 5, poofFrames: 22, upperHalf: true },
+    stomp: { blueImpulse: 8.5, redImpulse: 7.5, minDown: 0.5, zone: 0.5, coins: 10, redSpecialCoins: 5, poofFrames: 22, upperHalf: true,
+      belowCos: 0.82 }, // side hits defeat blue enemies; only contact from within ~35 deg of straight below bumps
     // Rooms (hand-built obstacle patterns, see world/rooms.js): the generator places one room at a time,
     // with a calm breather (coins only, `breather` m) between rooms. A room's difficulty (1-3) is allowed
     // once the altitude ramp reaches `roomDiffAt[d-1]` (0..1 of the ramp from platformLeft to maxDifficulty);
@@ -2260,7 +2261,7 @@
           if (hz.type === 'platform') ghostPlatform(hz);
           else if (hz.color === 'red' && specialRedKillAvailable()) {
             ninja.redKillsThisSuper++;
-            defeatEnemy(hz, abilityValue('redSpecialCoins', HAZARDS.stomp.redSpecialCoins));
+            defeatEnemy(hz, abilityValue('redSpecialCoins', HAZARDS.stomp.redSpecialCoins), abilityValue('redCoinsFinal', false));
           } else if (hz.color === 'red' && comboRams()) comboDefeat(hz);
           else if (hz.color === 'red') knockAside(hz);
           else defeatEnemy(hz);
@@ -2282,6 +2283,15 @@
           continue;
         }
         if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
+        if (!onBand && isSideHit(hz, px, py)) {
+          // blue enemy hit on its SIDE (e.g. flying sideways off an elastic): defeated (+coins), he flies on
+          debugStats.sideHits = (debugStats.sideHits || 0) + 1;
+          countHit(hz.kind + ':side');
+          ninja.vx *= 0.85;
+          shake = Math.max(shake, 3);
+          defeatEnemy(hz);
+          continue;
+        }
         if (hz.fatal && STRESS.on) { stressHit(hz); continue; }
         if (hz.fatal && abilityValue('breakSpikes', false) && (hz.type === 'spikeMine' || hz.type === 'spikeBar' || hz.type === 'saw')) {
           smashSpikes(hz); // Mestre Dragão: the mechanism breaks, he flies on
@@ -2334,6 +2344,17 @@
     if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
     return py <= hz.y;
   }
+  // Side hit on a non-red flyer/UFO: anything except coming from (almost) straight underneath.
+  // From below (within ~35 deg of vertical) it stays the old bump, so a jump up into a bird's belly
+  // still bounces him back down instead of being a free kill.
+  function isSideHit(hz, px, py) {
+    if (hz.color === 'red' || hz.fatal) return false;
+    if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
+    const ax = hz.shape === 'circle' ? hz.r : hz.rx, ay = hz.shape === 'circle' ? hz.r : hz.ry;
+    const dx = (px - hz.x) / (ax + NINJA_R), dy = (py - hz.y) / (ay + NINJA_R);
+    const d = Math.hypot(dx, dy) || 1;
+    return dy / d < HAZARDS.stomp.belowCos;
+  }
   // Head stomp: coming down onto a flyer/UFO from above
   function isStomp(hz, px, py) {
     if (hz.type !== 'flyer' && hz.type !== 'ufo') return false;
@@ -2369,12 +2390,15 @@
     }
   }
   // Blue flyer/UFO defeated (head stomp or super jump): poof, +coins
-  function defeatEnemy(hz, coinReward) {
+  // `exact`: coinReward is the final amount (no coin multipliers), e.g. Imperador's 15 per red enemy
+  function defeatEnemy(hz, coinReward, exact) {
     const ST = HAZARDS.stomp;
     if (hz.dying > 0) return;
     hz.dying = ST.poofFrames;
     hz.hit = 1;
-    const earned = awardRunCoins(coinReward === undefined ? ST.coins : coinReward);
+    let earned;
+    if (exact) { earned = Math.max(0, coinReward); runCoins += earned; }
+    else earned = awardRunCoins(coinReward === undefined ? ST.coins : coinReward);
     missionKill(hz);
     countHit(hz.kind + ':defeated');
     floaters.push({ x: hz.x, y: hz.y - 18, life: 48, text: '+' + earned });
@@ -4986,7 +5010,7 @@
         back: [{ type: 'cloak', col: '#6a0a18', lining: '#c9a227' }], body: { pattern: 'royal', col: '#e8c048' } },
       trail: { kind: 'fire', color: '#ff4a3a' }, aura: '#ff3a3a' }),
     // --- Ninjas de vila escondida (estilo anime de ninja) ---
-    skinPal({ id: 'raposa', name: 'Ninja Raposa', price: 1500, rarity: 1,
+    skinPal({ id: 'raposa', name: 'Ninja Raposa', price: 2500, rarity: 2,
       desc: 'Macacão laranja, coragem sem fim e um espírito de raposa guardado lá dentro.',
       main: '#ff8a1f', limb: '#f07a12', foot: '#1d2a4a', hand: '#f4d2a8', band: '#1f3a7a', eye: '#7fd0ff',
       acc: { ears: { style: 'fox', col: '#ff8a1f', inner: '#fff1d6' }, crest: { style: 'plate', col: '#c9d2e0', sym: 'swirl' },
@@ -5105,7 +5129,7 @@
     oniAco: { bonkFloatMultiplier: 1.18, desc: 'Cai 18% mais devagar após uma batida.' },
     oniLua: { superStreakReduction: 1, desc: 'Ativa o especial com 1 elástico curto a menos.' },
     oniCeu: { coinMultiplier: 1.25, desc: 'Ganha 25% a mais de moedas.' },
-    oniImperador: { specialRedKills: Infinity, redSpecialCoins: 5, coinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas. No especial, derrota inimigos vermelhos (+5 moedas cada).' },
+    oniImperador: { specialRedKills: Infinity, redSpecialCoins: 15, redCoinsFinal: true, coinMultiplier: 1.5, desc: 'Ganha 50% a mais de moedas. No especial, derrota inimigos vermelhos (+15 moedas cada).' },
     raposa: { shuriken: { range: 170, cooldown: 75, speed: 9 }, desc: 'Atira shurikens nos inimigos azuis próximos e os derrota (+10 moedas).' },
     lotus: { elasticTolerance: 4, desc: 'Acerta elásticos com margem +4 px.' },
     luaRubra: { specialRedKills: 1, redSpecialCoins: 5, desc: 'No especial, derrota 1 inimigo vermelho e ganha 5 moedas.' },
@@ -5177,8 +5201,8 @@
   const MISSIONS = {
     black: { scope: 'life', stat: 'nightRuns', goal: 10,
       text: 'Chegue à Noite (420 m) em 10 partidas diferentes.', card: 'Chegue à Noite em 10 partidas' },
-    red: { scope: 'life', stat: 'blueBirds', goal: 150,
-      text: 'Derrote 150 pássaros azuis (pisão, golpe por cima ou super pulo), somando todas as partidas.', card: 'Derrote 150 pássaros azuis' },
+    red: { scope: 'life', stat: 'blueBirds', goal: 20,
+      text: 'Derrote 20 pássaros azuis (pisão, golpe de cabeça ou de lado, super pulo), somando todas as partidas.', card: 'Derrote 20 pássaros azuis' },
     // the camera never scrolls down, so one drop is at most ~60% of the screen (~27 m on a short phone, 40 m at 844 px)
     oniAbismo: { scope: 'run', stat: 'fall', goal: 24, unit: ' m',
       text: 'Despenque 24 m de uma vez só (do alto do pulo) e se salve com um elástico lá embaixo.', card: 'Despenque 24 m e se salve' },
@@ -8341,6 +8365,8 @@
   step('play button', bindPlayButton);
   step('menus', bindMenus);
   step('settings', function () { loadSound(); loadSkin(); refreshWallet(); });
+  // a save that already meets a (lowered) mission goal gets the character right away, not only after the next run
+  step('missions', function () { missionCheck(false); });
   step('app', bindApp);
   step('controls', bindControls);
   step('input', bindInput);
