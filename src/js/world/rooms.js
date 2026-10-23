@@ -237,14 +237,93 @@ function pickRoom(sp, m) {
 }
 function roomById(id) { for (const r of ROOMS) if (r.id === id) return r; return null; }
 
+// --- Layout models: every scenery zone ("fase") has LAYOUT_MODELS ready-made layouts. The model is picked at random
+// the first time the run reaches the zone and fixes the seed of that zone's generator, so the same background
+// shows rooms, enemies, structures and coins in different places depending on the model. ---
+const LAYOUT_MODELS = 4;
+function zoneAt(m) { let z = 0; for (let i = 0; i < BANDS.length; i++) if (m >= BANDS[i].at) z = i; return z; }
+function layoutRng(sp, m) {
+  const z = zoneAt(m);
+  if (sp.model[z] === undefined) sp.model[z] = Math.floor(sp.pick() * LAYOUT_MODELS);
+  if (!sp.zoneRng[z]) sp.zoneRng[z] = mulberry32((z + 1) * 7919 + (sp.model[z] + 1) * 104729);
+  return sp.zoneRng[z];
+}
+
+// --- Clean layout rules ---
+// Structures (platforms, spike bars) never overlap anything, and two structures that share horizontal space are
+// kept a clear distance apart vertically (none right above/below another); side by side, one may start
+// exactly where the other ends. Every other item keeps LAYOUT_CLEAR.gap of air around it.
+const LAYOUT_CLEAR = { gap: 10, stackY: 140 };
+function isStructure(it) { return it.type === 'platform' || it.type === 'spikeBar'; }
+function itemsClash(ea, eb, a, b) {
+  const both = isStructure(a) && isStructure(b);
+  const g = both ? 0 : LAYOUT_CLEAR.gap;
+  if (ea.x0 < eb.x1 + g && eb.x0 < ea.x1 + g && ea.y0 < eb.y1 + g && eb.y0 < ea.y1 + g) return true;
+  if (both && ea.x0 < eb.x1 - 2 && eb.x0 < ea.x1 - 2 && Math.max(ea.y0 - eb.y1, eb.y0 - ea.y1) < LAYOUT_CLEAR.stackY) return true;
+  return false;
+}
+// list = [{ item, y }] with the already placed items first; returns the indexes (>= nPrev) that clash with an earlier one
+function layoutClashes(list, nPrev) {
+  const ex = list.map(function (e) { return itemExtent(e.item, e.y); }), bad = [];
+  for (let j = nPrev; j < list.length; j++) {
+    for (let i = 0; i < j; i++) if (itemsClash(ex[i], ex[j], list[i].item, list[j].item)) { bad.push(j); break; }
+  }
+  return bad;
+}
+function roomList(rows, m) {
+  const list = [];
+  for (const r of rows) for (const it of r.items) list.push({ item: it, y: -(m + r.dm) / METERS_PER_PX, row: r });
+  return list;
+}
+function roomIsClean(sp, rows, m, width) {
+  if (!roomSlices(rows, width).ok) return false;
+  const prev = sp.lastRows || [];
+  return !layoutClashes(prev.concat(roomList(rows, m)), prev.length).length;
+}
+function pruneClashes(sp, rows, m) {
+  const prev = sp.lastRows || [];
+  for (let guard = 0; guard < 30; guard++) {
+    const list = roomList(rows, m), bad = layoutClashes(prev.concat(list), prev.length);
+    if (!bad.length) return;
+    const e = list[bad[0] - prev.length];
+    e.row.items.splice(e.row.items.indexOf(e.item), 1);
+  }
+}
+
+// A coin must stay clear of every enemy/structure's full area (with a margin for the ninja flying through),
+// and so must the stretch of trail between it and the next coin: a coin path never leads into a hazard.
+const COIN_CLEAR = NINJA_R + 16;
+function pointClear(x, y, list) {
+  for (const e of list) {
+    const b = itemExtent(e.item, e.y);
+    if (x > b.x0 - COIN_CLEAR && x < b.x1 + COIN_CLEAR && y > b.y0 - COIN_CLEAR && y < b.y1 + COIN_CLEAR) return false;
+  }
+  return true;
+}
+// coins: [{ x, yOff }] on a row at absolute y `ry`; `list` = every nearby hazard [{ item, y }]
+function cleanCoins(coins, ry, list) {
+  const ok = coins.map(function (c) { return pointClear(c.x, ry + c.yOff, list); });
+  return coins.filter(function (c, i) {
+    if (!ok[i]) return false;
+    for (const j of [i - 1, i + 1]) { // the stretch between two neighbouring coins (closer than ~60 px = one trail)
+      const n = coins[j];
+      if (!n) continue;
+      if (Math.hypot(n.x - c.x, n.yOff - c.yOff) > 60) continue;
+      if (!pointClear((c.x + n.x) / 2, ry + (c.yOff + n.yOff) / 2, list)) return false;
+    }
+    return true;
+  });
+}
+
 // Build a room and make sure the gap rule holds at every height (retry, then thin it out)
 function buildRoom(sp, id, m, width, intro) {
   let rows = null;
-  for (let attempt = 0; attempt < 10; attempt++) {
+  for (let attempt = 0; attempt < 14; attempt++) {
     const c = roomCtx(sp.rng, m, width);
     rows = intro ? introRoom(c, intro) : (id === 'classic' ? classicRoom(c) : roomById(id).build(c));
-    if (roomSlices(rows, width).ok) return rows;
+    if (roomIsClean(sp, rows, m, width)) return rows;
   }
+  pruneClashes(sp, rows, m); // still crowded: drop whatever overlaps
   for (let guard = 0; guard < 20 && !roomSlices(rows, width).ok; guard++) {
     let big = null; // never block the way: drop an item from the busiest row
     for (const r of rows) if (r.items.length && (!big || r.items.length > big.items.length)) big = r;
@@ -277,7 +356,7 @@ function powerSpotClear(list, x, y) {
 }
 function createSpawner(rng) {
   return { rng: rng, m: 25, nextM: 25, queue: [], rows: 0, rooms: 0, intro: {}, recent: [],
-    toPower: 2, lastPower: '', roomLog: [] };
+    toPower: 2, lastPower: '', roomLog: [], pick: rng, model: {}, zoneRng: {} };
 }
 // Next row (in meters order); returns { m, kind, items, coins, power?, room? } and keeps sp.m = next row's m
 function spawnerNext(sp, width) {
@@ -287,7 +366,8 @@ function spawnerNext(sp, width) {
   return row;
 }
 function planNext(sp, width) {
-  const rng = sp.rng, m = sp.nextM;
+  const m = sp.nextM, rng = layoutRng(sp, m);
+  sp.rng = rng; // every position below comes from this zone's layout model
   if (m < HAZARDS.calmUntil) {
     sp.queue.push({ m: m, kind: 'calm', items: [], coins: rng() < 0.7 ? coinCluster(rng, width) : [] });
     sp.nextM = m + rr(rng, 16, 26);
@@ -303,6 +383,8 @@ function planNext(sp, width) {
   const breath = sp.rooms > 0 ? pairLerp(HAZARDS.breather, hzT(m)) : 0;
   const start = m + breath;
   const rows = buildRoom(sp, intro ? null : id, start, width, intro);
+  const near = (sp.lastRows || []).concat(roomList(rows, start)); // every hazard around this room
+  for (const r of rows) r.coins = cleanCoins(r.coins, -(start + r.dm) / METERS_PER_PX, near);
   if (breath > 0) {
     const bpx = breath / METERS_PER_PX, ex = entranceX(rows, width);
     const row = { m: m, kind: 'breather', items: [], coins: [] };
@@ -332,8 +414,6 @@ function planNext(sp, width) {
       const x0 = Math.max(40, Math.min(width - 40, ex + (rng() < 0.5 ? -1 : 1) * rr(rng, 50, 90)));
       const fr = [0.18, 0.32, 0.48, 0.64, 0.8];
       if (powerAt >= 0) { // the power-up takes a trail spot that is clear of every hazard's full area
-        const near = (sp.lastRows || []).slice();
-        for (const r of rows) for (const it of r.items) near.push({ item: it, y: -(start + r.dm) / METERS_PER_PX });
         const spotOk = i => powerSpotClear(near, lerp(x0, ex, i / (fr.length - 1)), -m / METERS_PER_PX - bpx * fr[i]);
         if (row.power2) {
           // pair: lower item on spot 0-2, the upper one at least two spots above it
@@ -359,6 +439,7 @@ function planNext(sp, width) {
         else row.coins.push({ x: x, yOff: yOff });
       }
     } else if (rng() < 0.6) row.coins = coinCluster(rng, width);
+    row.coins = cleanCoins(row.coins, -m / METERS_PER_PX, near);
     sp.queue.push(row);
   }
   sp.lastRows = [];
@@ -369,7 +450,7 @@ function planNext(sp, width) {
   }
   sp.rooms++;
   if (!intro) { sp.recent.push(id); while (sp.recent.length > HAZARDS.rooms.roomNoRepeat) sp.recent.shift(); }
-  if (sp.roomLog.length < 400) sp.roomLog.push({ id: id, m: Math.round(start) });
+  if (sp.roomLog.length < 400) sp.roomLog.push({ id: id, m: Math.round(start), model: sp.model[zoneAt(start)] });
   const last = rows[rows.length - 1];
   sp.nextM = start + (last ? last.dm : 0) + pairLerp(HAZARDS.rowSpacing, hzT(start)) * rr(rng, 0.92, 1.15);
 }
