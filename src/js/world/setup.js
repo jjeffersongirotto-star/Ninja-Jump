@@ -72,7 +72,9 @@ function paintSides(at) {
       shadeHex(at.sky[1], -0.6) + ' 60%, ' + shadeHex(at.sky[2], -0.65) + ')';
   } catch (e) {}
 }
+let sceneryW = 0;
 function seedScenery() {
+  sceneryW = W;
   hillsFar = [];
   hillsNear = [];
   mountains = [];
@@ -181,7 +183,9 @@ function resetGame() {
   ninjaPose.air = 0;
   ninjaPose.lean = 0;
   updateStreakHud();
-  seedScenery();
+  // keep the scenery seeded at load/resize (the menu shows it): re-randomising every hill, tree and
+  // cloud here made the whole landscape jump the moment Jogar was pressed
+  if (hillsFar.length === 0 || sceneryW !== W) seedScenery();
   spawnAhead();
 }
 

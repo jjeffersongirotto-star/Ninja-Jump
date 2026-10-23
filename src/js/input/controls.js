@@ -94,6 +94,12 @@ function bindControls() {
   loadControls();
   document.addEventListener('keydown', onKeyDown, false);
   if (window.PointerEvent) window.addEventListener('pointerdown', function (e) { noteInputType(e.pointerType); }, true);
+  // Creating the AudioContext costs 30-60 ms on phones. Do it on the FIRST finger-down anywhere
+  // (Jogar fires on touchend/click, ~100 ms later), so that cost never lands on the run's first frames.
+  const earlyAudio = function () { ensureAudio(); };
+  window.addEventListener('touchstart', earlyAudio, true);
+  window.addEventListener('mousedown', earlyAudio, true);
+  if (window.PointerEvent) window.addEventListener('pointerdown', earlyAudio, true);
   try { // device changes (e.g. a tablet's keyboard/mouse attached): re-detect when automatic
     const mq = window.matchMedia && window.matchMedia('(pointer: coarse)');
     const onChange = function () { if (controlsAuto) setControlMode(detectedControls()); };

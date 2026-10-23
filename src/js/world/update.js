@@ -166,6 +166,7 @@ function update(dt) {
         if (isSuper) {
           shortStreak = 0;
           strength = Math.max(strength * SUPER_JUMP_MULT, SUPER_JUMP_MIN, strength * fallMult);
+          if (STRESS.on) strength *= STRESS.superMult;
         }
         updateStreakHud();
         // Launch along upward normal — do NOT multiply by an extra -1. Short lines: straightened
@@ -251,16 +252,19 @@ function update(dt) {
       antiStuck();
     }
     pickupPowerups();
+    if (STRESS.on) stressTick();
     updateCombo();
     skinTrail(); // cosmetic particles of the chosen character
     if (state === 'playing') missionTick(); // mission counters + unlocks (read-only)
   } else ninja.deathSpin += 0.22;
-  for (let i = floaters.length - 1; i >= 0; i--) {
+  let fw = 0; // in-place compaction (no splice per removed item, order kept)
+  for (let i = 0; i < floaters.length; i++) {
     const f = floaters[i];
     f.y -= 0.9;
     f.life--;
-    if (f.life <= 0) floaters.splice(i, 1);
+    if (f.life > 0) floaters[fw++] = f;
   }
+  floaters.length = fw;
 
   // Coins
   for (const c of coins) {
@@ -278,7 +282,8 @@ function update(dt) {
     }
   }
 
-  for (let i = particles.length - 1; i >= 0; i--) {
+  let pw = 0; // in-place compaction: one pass, no splice (was O(n) per dead particle)
+  for (let i = 0; i < particles.length; i++) {
     const p = particles[i];
     p.x += p.vx; p.y += p.vy;
     if (p.star) { p.vy += 0.035; p.vx *= 0.975; p.vy *= 0.975; p.rot += p.vr; }
@@ -288,15 +293,18 @@ function update(dt) {
     else if (p.dust) { p.vx *= 0.9; p.vy = p.vy * 0.9 + 0.03; }
     else p.vy += 0.08;
     p.life--;
-    if (p.life <= 0) particles.splice(i, 1);
+    if (p.life > 0) particles[pw++] = p;
   }
+  particles.length = pw;
   fxCap(); // global particle budget (FX.maxParticles)
-  for (let i = rings.length - 1; i >= 0; i--) {
+  let rw = 0;
+  for (let i = 0; i < rings.length; i++) {
     const r = rings[i];
     r.r += 2 + 7 * r.life;
     r.life -= 0.045;
-    if (r.life <= 0) rings.splice(i, 1);
+    if (r.life > 0) rings[rw++] = r;
   }
+  rings.length = rw;
 
   // Drift clouds
   for (const c of cloudLayer) {
@@ -307,6 +315,7 @@ function update(dt) {
   spawnAhead();
 
   // Lose only after falling fully off the bottom of the (following) camera
+  if (ninja.y - camera.y > H + 80 && STRESS.on) { ninja.y = camera.y + H - 80; ninja.vy = -22; }
   if (ninja.y - camera.y > H + 80 && !tryCharacterRescue(null, true)) gameOver();
 
   updateHud(meters);

@@ -219,6 +219,7 @@ function collideHazards(x0, y0, onBand) {
         continue;
       }
       if (!onBand && isStomp(hz, px, py)) { stompHazard(hz, px, py); return; }
+      if (hz.fatal && STRESS.on) { stressHit(hz); continue; }
       if (hz.fatal) { hitFatal(hz); return; }
       if (onBand) continue;
       bumpHazard(hz, lx, ly);
@@ -556,6 +557,7 @@ function tryCharacterRescue(hz, falling) {
 }
 
 function killNinja(hz) {
+  if (STRESS.on) { ninja.vy = -22; ninja.y = Math.min(ninja.y, camera.y + H - 80); return; } // stress test never ends early
   if (tryCharacterRescue(hz, false)) return;
   ninja.dead = true;
   ninja.deathSpin = 0;
@@ -579,9 +581,18 @@ function killNinja(hz) {
 
 function spawnAhead() {
   const cullY = camera.y + H + 150;
-  hazards = hazards.filter(h => h.alive && h.oy - h.vh - (h.bobAmp || 0) < cullY);
-  coins = coins.filter(c => !c.collected && c.y < cullY);
-  if (powerups.length) powerups = powerups.filter(p => !p.taken && p.y < cullY);
+  // compact in place: before, three new arrays were allocated EVERY frame (garbage -> GC hiccups)
+  let w = 0;
+  for (let i = 0; i < hazards.length; i++) { const h = hazards[i]; if (h.alive && h.oy - h.vh - (h.bobAmp || 0) < cullY) hazards[w++] = h; }
+  hazards.length = w;
+  w = 0;
+  for (let i = 0; i < coins.length; i++) { const c = coins[i]; if (!c.collected && c.y < cullY) coins[w++] = c; }
+  coins.length = w;
+  if (powerups.length) {
+    w = 0;
+    for (let i = 0; i < powerups.length; i++) { const p = powerups[i]; if (!p.taken && p.y < cullY) powerups[w++] = p; }
+    powerups.length = w;
+  }
   if (!spawner) return;
   const aheadM = Math.max(worldToMeters(ninja.y), worldToMeters(camera.y)) + 200;
   let guard = 0;
