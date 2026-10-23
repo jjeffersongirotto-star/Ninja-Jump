@@ -524,10 +524,6 @@
 <body>
 <canvas id="game"></canvas>
 <div id="ui">
-  <button id="updateBtn" class="update-btn hidden" type="button" aria-label="Procurar atualização" title="Procurar atualização">
-    <svg class="update-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.76-4.24L13 11h7V4z"/></svg>
-    <span id="updateStatus" class="update-status" aria-live="polite"></span>
-  </button>
   <div id="meters"><span id="metersVal">0</span> <span>m</span></div>
   <div id="progress"><div id="progressBar"></div></div>
   <div id="chainHud"></div>
@@ -543,6 +539,10 @@
   <div id="countdown"></div>
   <div class="unlock-toast" id="unlockToast" aria-live="polite"></div>
   <div id="overlay">
+  <button id="updateBtn" class="update-btn" type="button" aria-label="Procurar atualização" title="Procurar atualização">
+    <svg class="update-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.65 6.35A8 8 0 1 0 20 12h-2a6 6 0 1 1-1.76-4.24L13 11h7V4z"/></svg>
+    <span id="updateStatus" class="update-status" aria-live="polite"></span>
+  </button>
     <div class="title">Ninja Jump</div>
     <div class="notice" id="nojsMsg">
       <h3>⚠️ Este visualizador não roda o jogo</h3>
@@ -9150,6 +9150,10 @@
   }
   async function checkForUpdate() {
     if (!updateBtn) return;
+    if (!('serviceWorker' in navigator) || !isServed() || /; wv\)/.test(navigator.userAgent || '')) {
+      updateMessage('Atualização automática só funciona no jogo aberto pelo link ou instalado.');
+      return;
+    }
     if (!navigator.onLine) {
       updateMessage('Conecte-se à internet para procurar atualizações.');
       return;
@@ -9188,23 +9192,20 @@
     });
     window.addEventListener('appinstalled', function () { installPrompt = null; refreshInstallBtn(); });
     refreshInstallBtn();
+    if (updateBtn) {
+      updateBtn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        checkForUpdate();
+      });
+    }
     // not inside the Android app's WebView (it serves the game from its own assets, there is no sw.js)
     if ('serviceWorker' in navigator && isServed() && !/; wv\)/.test(navigator.userAgent || '')) {
-      if (updateBtn) {
-        updateBtn.addEventListener('click', function (event) {
-          event.preventDefault();
-          event.stopPropagation();
-          checkForUpdate();
-        });
-      }
       navigator.serviceWorker.addEventListener('controllerchange', function () {
         if (updateReloadPending) location.reload();
       });
       navigator.serviceWorker.register('sw.js')
-        .then(function (registration) {
-          serviceWorkerRegistration = registration;
-          if (updateBtn) updateBtn.classList.remove('hidden');
-        })
+        .then(function (registration) { serviceWorkerRegistration = registration; })
         .catch(function (err) { logErr('service worker', err); updateMessage('Atualizações não estão disponíveis.'); });
     }
   }

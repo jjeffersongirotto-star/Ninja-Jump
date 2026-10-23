@@ -46,6 +46,10 @@ function updateMessage(message) {
 }
 async function checkForUpdate() {
   if (!updateBtn) return;
+  if (!('serviceWorker' in navigator) || !isServed() || /; wv\)/.test(navigator.userAgent || '')) {
+    updateMessage('Atualização automática só funciona no jogo aberto pelo link ou instalado.');
+    return;
+  }
   if (!navigator.onLine) {
     updateMessage('Conecte-se à internet para procurar atualizações.');
     return;
@@ -84,23 +88,20 @@ function bindApp() {
   });
   window.addEventListener('appinstalled', function () { installPrompt = null; refreshInstallBtn(); });
   refreshInstallBtn();
+  if (updateBtn) {
+    updateBtn.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      checkForUpdate();
+    });
+  }
   // not inside the Android app's WebView (it serves the game from its own assets, there is no sw.js)
   if ('serviceWorker' in navigator && isServed() && !/; wv\)/.test(navigator.userAgent || '')) {
-    if (updateBtn) {
-      updateBtn.addEventListener('click', function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        checkForUpdate();
-      });
-    }
     navigator.serviceWorker.addEventListener('controllerchange', function () {
       if (updateReloadPending) location.reload();
     });
     navigator.serviceWorker.register('sw.js')
-      .then(function (registration) {
-        serviceWorkerRegistration = registration;
-        if (updateBtn) updateBtn.classList.remove('hidden');
-      })
+      .then(function (registration) { serviceWorkerRegistration = registration; })
       .catch(function (err) { logErr('service worker', err); updateMessage('Atualizações não estão disponíveis.'); });
   }
 }
