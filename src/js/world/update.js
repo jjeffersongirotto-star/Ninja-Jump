@@ -24,11 +24,12 @@ function update(dt) {
     if (floating) { g *= 1 - (1 - BF.gravity) * (ninja.floatT / BF.frames); ninja.floatT--; }
     const AF = abilityValue('apexFloat', null); // Shinobi da Maré: lighter near the top of every jump
     if (AF && !ninja.dead && Math.abs(ninja.vy) < AF.band) g *= AF.gravity;
+    if (ninja.dash > 0 && !ninja.dead) { ninja.dash--; g = 0; }
     ninja.vy += g;
     if (floating && ninja.vy > BF.maxFall) ninja.vy = BF.maxFall;
     ninja.x += ninja.vx;
     ninja.y += ninja.vy;
-    ninja.vx *= 0.995;
+    if (!(ninja.dash > 0)) ninja.vx *= 0.995;
   } else {
     ninja.vx *= 0.85;
     ninja.vy = 0;
@@ -38,12 +39,12 @@ function update(dt) {
 
   if (ninja.x < NINJA_R) {
     const into = -ninja.vx;
-    ninja.x = NINJA_R; ninja.vx = Math.abs(ninja.vx) * 0.5;
+    ninja.x = NINJA_R; ninja.vx = Math.abs(ninja.vx) * 0.5; ninja.dash = 0;
     if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(-1); fxWallDust(-1, ninja.y); }
   }
   if (ninja.x > W - NINJA_R) {
     const into = ninja.vx;
-    ninja.x = W - NINJA_R; ninja.vx = -Math.abs(ninja.vx) * 0.5;
+    ninja.x = W - NINJA_R; ninja.vx = -Math.abs(ninja.vx) * 0.5; ninja.dash = 0;
     if (into > WALL_KICK_MIN_SPEED && !onBand) { startWallKick(1); fxWallDust(1, ninja.y); }
   }
 
