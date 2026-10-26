@@ -46,8 +46,9 @@ function rocketStep() {
   const target = r > RK.easeFrames ? -RK.speed : -(RK.releaseVy + (RK.speed - RK.releaseVy) * (r / RK.easeFrames));
   ninja.vy += (target - ninja.vy) * 0.25;
   rocketCoinSteer();
+  const hug = rocketWallHug(r);
   ninja.x += ninja.vx;
-  const wm = NINJA_R + RK.coinSteer.wallMargin;
+  const wm = hug ? NINJA_R : NINJA_R + RK.coinSteer.wallMargin;
   if (ninja.x < wm) { ninja.x = wm; if (ninja.vx < 0) ninja.vx = 0; }
   if (ninja.x > W - wm) { ninja.x = W - wm; if (ninja.vx > 0) ninja.vx = 0; }
   ninja.y += ninja.vy;
@@ -158,6 +159,24 @@ function rocketCoinSteer() {
     return;
   }
   ninja.vx += (want - ninja.vx) * (best ? CS.accel : 1);
+}
+// No-elastic mode: over its last `wallFrames` the rocket glides to the nearest side wall (when the way is clear of
+// hazards) and ends flush against it, so he can keep wall-jumping. Returns the wall x it is heading to, or null.
+function rocketWallHug(r) {
+  if (gameMode !== 'noelastic') return null;
+  const RK = POWERUPS.rocket;
+  if (r > RK.wallFrames) return null;
+  const R = NINJA_R, wx = ninja.x < W / 2 ? R : W - R;
+  for (const hz of hazards) {
+    if (!hz.alive || hz.dying) continue;
+    const hw = (hz.vw || 20) + (hz.range || 0) + (hz.diveX || 0) + R + 6;
+    const up = (hz.vh || 20) + (hz.bobAmp || 0) + R + RK.clearMargin, down = up + (hz.diveY || 0);
+    if (hz.oy + down < ninja.y - 220 || hz.oy - up > ninja.y + 20) continue;
+    if (wx > hz.ox - hw && wx < hz.ox + hw) return null;
+  }
+  const d = wx - ninja.x;
+  ninja.vx = Math.max(-RK.wallVx, Math.min(RK.wallVx, d));
+  return wx;
 }
 // While extending: drift sideways toward the nearest free column (the guaranteed gap) at his height
 function rocketSteer() {

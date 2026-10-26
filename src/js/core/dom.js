@@ -1,5 +1,6 @@
 // --- Storage keys, canvas and DOM element references ---
 const LS_METERS = 'ninjaJump_bestMeters';
+const LS_NOELASTIC_METERS = 'ninjaJump_noElasticBestMeters';
 const LS_COINS = 'ninjaJump_bestCoins';
 const LS_OLD_METERS = 'ninjaElastico_bestMeters';
 const LS_OLD_COINS = 'ninjaElastico_bestCoins';
@@ -39,6 +40,7 @@ const overlay = document.getElementById('overlay');
 const overlaySub = document.getElementById('overlaySub');
 const playBtn = document.getElementById('playBtn');
 const bestM = document.getElementById('bestM');
+const bestNoElasticM = document.getElementById('bestNoElasticM');
 const bestC = document.getElementById('bestC');
 const goStats = document.getElementById('goStats');
 const goMeters = document.getElementById('goMeters');
@@ -57,5 +59,5 @@ const soundToggle = document.getElementById('soundToggle');
 const soundLabel = document.getElementById('soundLabel');
 const countdownEl = document.getElementById('countdown');
 const SCREENS = { main: 'scrMain', playOptions: 'scrPlayOptions', chars: 'scrChars', options: 'scrOptions', audio: 'scrAudio', controls: 'scrControls', pause: 'scrPause', ranking: 'scrRanking', missions: 'scrMissions' };
-const SCREEN_TITLES = { playOptions: 'Jogar', chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado', ranking: 'Ranking 60 s', missions: 'Missões' };
+const SCREEN_TITLES = { playOptions: 'Jogar', chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado', ranking: 'Ranking', missions: 'Missões' };
 const LS_CONTROLS = 'ninjaJump_controls';  // 'auto' | 'touch' | 'mouse'

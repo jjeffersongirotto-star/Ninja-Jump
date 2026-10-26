@@ -20,11 +20,26 @@ function modeRow(text, val, done) {
   row.appendChild(a); row.appendChild(b);
   return row;
 }
+let rankingModeTab = 'normal';
+function setRankingMode(mode) {
+  rankingModeTab = mode;
+  renderRanking();
+}
 function renderRanking() {
   const box = document.getElementById('rankingList');
   if (!box) return;
   box.innerHTML = '';
-  const rank = loadRanking();
+  const normal = rankingModeTab === 'normal';
+  const rank = normal ? loadRanking() : loadNoElasticRanking();
+  const info = document.getElementById('rankingInfo');
+  if (info) info.textContent = normal
+    ? 'Distância alcançada em 60 segundos de partida normal (neste aparelho).'
+    : 'Melhores distâncias no modo sem elástico (neste aparelho).';
+  document.querySelectorAll('#rankingTabs .chip').forEach(function (tab) {
+    const active = tab.dataset.mode === rankingModeTab;
+    tab.classList.toggle('on', active);
+    tab.setAttribute('aria-selected', String(active));
+  });
   if (!rank.length) { box.appendChild(modeRow('Ainda sem partidas', '—', false)); return; }
   rank.forEach(function (e, i) { box.appendChild(modeRow((i + 1) + 'º', e.m + ' m', i === 0)); });
 }

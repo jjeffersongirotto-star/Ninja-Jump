@@ -31,6 +31,8 @@ function bindMenus() {
   onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
   onBtn('missionsMenuBtn', function () { showScreen('missions'); });
   onBtn('rankingBtn', function () { showScreen('ranking'); });
+  onBtn('rankingNormalTab', function () { setRankingMode('normal'); });
+  onBtn('rankingNoElasticTab', function () { setRankingMode('noelastic'); });
   onBtn('newGameBtn', function () { startMode('normal'); });
   onBtn('noElasticBtn', function () { startMode('noelastic'); });
   initDialog();
