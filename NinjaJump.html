@@ -4063,10 +4063,12 @@
 
     // Ratchet camera: only scrolls UP. When the ninja starts falling the view
     // locks at the highest point reached — no downward scroll, no recoil.
-    const followY = ninja.y - H * 0.4;
+    // No-elastic mode: the view is centred a little below his feet and keeps up with every climb
+    const noEl = gameMode === 'noelastic';
+    const followY = noEl ? ninja.y + NINJA_R + 40 - H / 2 : ninja.y - H * 0.4;
     if (followY < camera.y && !ninja.dead) {
       // Need to go higher (more negative camera.y) — chase while ascending
-      const riseLerp = ninja.vy < -4 ? 0.4 : 0.28;
+      const riseLerp = noEl ? 0.5 : (ninja.vy < -4 ? 0.4 : 0.28);
       camera.y += (followY - camera.y) * riseLerp;
       // Snap if still lagging upward so peak never "bounces" back
       if (followY < camera.y - 2) {
