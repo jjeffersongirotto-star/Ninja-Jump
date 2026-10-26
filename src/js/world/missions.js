@@ -20,12 +20,12 @@ function loadLifeStats() {
 function saveLifeStats() { if (lifeStats) store.set(LS_STATS, JSON.stringify(lifeStats)); }
 function stats() { return lifeStats || loadLifeStats(); }
 
-const runMission = { frames: 0, fall: 0, sameHits: 0, ufoKills: 0, apexY: 0, streakId: null, streakN: 0, launched: false, night: false, unlocked: [] };
+const runMission = { frames: 0, fall: 0, sameHits: 0, ufoKills: 0, apexY: 0, streakId: null, streakN: 0, launched: false, started: false, night: false, unlocked: [] };
 let hazardUid = 0;
 function missionResetRun() {
   runMission.frames = 0; runMission.fall = 0; runMission.sameHits = 0; runMission.ufoKills = 0;
   runMission.apexY = ninja ? ninja.y : 0;
-  runMission.streakId = null; runMission.streakN = 0; runMission.launched = false;
+  runMission.streakId = null; runMission.streakN = 0; runMission.launched = false; runMission.started = false;
   runMission.night = false; runMission.unlocked = [];
 }
 function runValue(stat) {
@@ -98,8 +98,9 @@ function missionKill(hz) {
   else if (hz.type === 'flyer' && hz.color !== 'red') stats().blueBirds++;
 }
 function missionTick() { // every frame while playing: cheap; full check every 10 frames
-  runMission.frames++;
-  stats().playFrames++;
+  // the clock starts when the ground has dropped out of view, so idling at the start earns nothing
+  if (!runMission.started && groundY && groundY - camera.y > H) runMission.started = true;
+  if (runMission.started) { runMission.frames++; stats().playFrames++; }
   if (frame % 600 === 0) saveLifeStats();
   if (ninja.vy < 0 && !ninja.dead) runMission.apexY = ninja.y; // still rising: the fall starts at the top
   if (frame % 10 !== 0) return;
