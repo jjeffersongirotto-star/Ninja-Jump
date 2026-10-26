@@ -7,6 +7,7 @@ const DAILY_REWARD = 100, WEEKLY_REWARD = 300;
 // vy: strong jump (crosses the screen); weak: share of vy/vx used when nothing was tapped; coyote: frames a contact stays valid
 const NOELASTIC_JUMP = { dashSpeed: 12, dashMax: 70, climbSpeed: 4.2, grace: 14, stamDrain: 1 / 130, stamRegen: 1 / 200, stamRegenGround: 1 / 70, stamResume: 0.4, wallZone: 70, vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
 const LS_RANKING = 'ninjaJump_ranking60';
+const LS_NOELASTIC_RANKING = 'ninjaJump_rankingNoElastic';
 const LS_DAILY = 'ninjaJump_daily_v2';
 const LS_WEEKLY = 'ninjaJump_weekly_v2';
 let gameMode = 'normal';
@@ -101,6 +102,10 @@ function loadRanking() {
   const r = loadJson(LS_RANKING);
   return Array.isArray(r) ? r.filter(e => e && +e.m >= 0).slice(0, RANKING_SIZE) : [];
 }
+function loadNoElasticRanking() {
+  const r = loadJson(LS_NOELASTIC_RANKING);
+  return Array.isArray(r) ? r.filter(e => e && +e.m >= 0).slice(0, RANKING_SIZE) : [];
+}
 
 function modesResetRun() {
   modeRun.kills = 0; modeRun.blueKills = 0; modeRun.ufoKills = 0; modeRun.powerups = 0;
@@ -189,6 +194,17 @@ function modesEndRun() {
       store.set(LS_RANKING, JSON.stringify(rank.slice(0, RANKING_SIZE)));
       const pos = rank.slice(0, RANKING_SIZE).findIndex(e => e.m === m && e.d === dayNumber());
       lines.push('⏱ Em 60 s: ' + m + ' m' + (pos >= 0 ? ' (ranking: ' + (pos + 1) + 'º)' : ''));
+    }
+  } else if (gameMode === 'noelastic') {
+    const m = Math.floor(bestHeight);
+    if (m > 0) {
+      const rank = loadNoElasticRanking();
+      rank.push({ m: m, d: dayNumber() });
+      rank.sort((a, b) => b.m - a.m);
+      const top = rank.slice(0, RANKING_SIZE);
+      store.set(LS_NOELASTIC_RANKING, JSON.stringify(top));
+      const pos = top.indexOf(rank.find(e => e.m === m && e.d === dayNumber()));
+      lines.push('🧗 Sem elástico: ' + m + ' m' + (pos >= 0 ? ' (ranking: ' + (pos + 1) + 'º)' : ''));
     }
   }
   updateModeMissions(true);

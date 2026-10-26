@@ -17,10 +17,12 @@ function migrateRecords() {
 function loadRecords() {
   migrateRecords();
   const bm = parseInt(store.get(LS_METERS) || '0', 10) || 0;
+  const bne = parseInt(store.get(LS_NOELASTIC_METERS) || '0', 10) || 0;
   const bc = parseInt(store.get(LS_COINS) || '0', 10) || 0;
   bestM.textContent = bm + ' m';
+  if (bestNoElasticM) bestNoElasticM.textContent = bne + ' m';
   bestC.textContent = String(bc);
-  return { meters: bm, coins: bc };
+  return { meters: bm, noElasticMeters: bne, coins: bc };
 }
 
 function saveRecords(meters, coinsCount) {
@@ -36,4 +38,12 @@ function saveRecords(meters, coinsCount) {
   }
   loadRecords();
   return isNew;
+}
+
+function saveNoElasticRecord(meters) {
+  const best = parseInt(store.get(LS_NOELASTIC_METERS) || '0', 10) || 0;
+  if (meters <= best) return false;
+  store.set(LS_NOELASTIC_METERS, String(Math.floor(meters)));
+  loadRecords();
+  return true;
 }

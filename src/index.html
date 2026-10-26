@@ -52,6 +52,7 @@
       <div class="records" id="recordsBox">
         <h3>Recordes</h3>
         <div class="rec-row"><span>Melhor altura</span><span class="val" id="bestM">0 m</span></div>
+        <div class="rec-row"><span>Modo sem elástico</span><span class="val" id="bestNoElasticM">0 m</span></div>
         <div class="rec-row"><span>Melhores moedas</span><span class="val" id="bestC">0</span></div>
       </div>
       <div id="goStats" style="display:none">
@@ -67,7 +68,7 @@
         <button class="btn btn-sec" id="missionsMenuBtn">Missões</button>
         <button class="btn btn-sec" id="charsBtn">Personagens</button>
         <button class="btn btn-sec" id="optionsBtn">Opções</button>
-        <button class="btn btn-sec" id="rankingBtn">⏱ Ranking 60 s</button>
+        <button class="btn btn-sec" id="rankingBtn">🏆 Ranking</button>
         <button class="btn btn-sec btn-install hidden" id="installBtn">📲 Instalar app</button>
         <div class="install-hint hidden" id="installHint">No Safari, toque em <b>Compartilhar</b> (□↑) e depois em <b>Adicionar à Tela de Início</b>.</div>
       </div>
@@ -80,7 +81,11 @@
       </div>
     </div>
     <div class="screen hidden" id="scrRanking">
-      <div class="mode-info">Distância alcançada em 60 segundos de partida normal (neste aparelho).</div>
+      <div class="chars-filter" id="rankingTabs" role="tablist">
+        <button class="chip on" id="rankingNormalTab" data-mode="normal" role="tab" aria-selected="true">Normal · 60 s</button>
+        <button class="chip" id="rankingNoElasticTab" data-mode="noelastic" role="tab" aria-selected="false">Sem elástico</button>
+      </div>
+      <div class="mode-info" id="rankingInfo"></div>
       <div class="mode-list" id="rankingList"></div>
       <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>

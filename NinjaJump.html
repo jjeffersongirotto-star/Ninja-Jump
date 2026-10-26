@@ -559,6 +559,7 @@
       <div class="records" id="recordsBox">
         <h3>Recordes</h3>
         <div class="rec-row"><span>Melhor altura</span><span class="val" id="bestM">0 m</span></div>
+        <div class="rec-row"><span>Modo sem elástico</span><span class="val" id="bestNoElasticM">0 m</span></div>
         <div class="rec-row"><span>Melhores moedas</span><span class="val" id="bestC">0</span></div>
       </div>
       <div id="goStats" style="display:none">
@@ -574,7 +575,7 @@
         <button class="btn btn-sec" id="missionsMenuBtn">Missões</button>
         <button class="btn btn-sec" id="charsBtn">Personagens</button>
         <button class="btn btn-sec" id="optionsBtn">Opções</button>
-        <button class="btn btn-sec" id="rankingBtn">⏱ Ranking 60 s</button>
+        <button class="btn btn-sec" id="rankingBtn">🏆 Ranking</button>
         <button class="btn btn-sec btn-install hidden" id="installBtn">📲 Instalar app</button>
         <div class="install-hint hidden" id="installHint">No Safari, toque em <b>Compartilhar</b> (□↑) e depois em <b>Adicionar à Tela de Início</b>.</div>
       </div>
@@ -587,7 +588,11 @@
       </div>
     </div>
     <div class="screen hidden" id="scrRanking">
-      <div class="mode-info">Distância alcançada em 60 segundos de partida normal (neste aparelho).</div>
+      <div class="chars-filter" id="rankingTabs" role="tablist">
+        <button class="chip on" id="rankingNormalTab" data-mode="normal" role="tab" aria-selected="true">Normal · 60 s</button>
+        <button class="chip" id="rankingNoElasticTab" data-mode="noelastic" role="tab" aria-selected="false">Sem elástico</button>
+      </div>
+      <div class="mode-info" id="rankingInfo"></div>
       <div class="mode-list" id="rankingList"></div>
       <button class="btn btn-sec" data-back="1">Voltar</button>
     </div>
@@ -743,6 +748,7 @@
 
   // --- Storage keys, canvas and DOM element references ---
   const LS_METERS = 'ninjaJump_bestMeters';
+  const LS_NOELASTIC_METERS = 'ninjaJump_noElasticBestMeters';
   const LS_COINS = 'ninjaJump_bestCoins';
   const LS_OLD_METERS = 'ninjaElastico_bestMeters';
   const LS_OLD_COINS = 'ninjaElastico_bestCoins';
@@ -782,6 +788,7 @@
   const overlaySub = document.getElementById('overlaySub');
   const playBtn = document.getElementById('playBtn');
   const bestM = document.getElementById('bestM');
+  const bestNoElasticM = document.getElementById('bestNoElasticM');
   const bestC = document.getElementById('bestC');
   const goStats = document.getElementById('goStats');
   const goMeters = document.getElementById('goMeters');
@@ -800,7 +807,7 @@
   const soundLabel = document.getElementById('soundLabel');
   const countdownEl = document.getElementById('countdown');
   const SCREENS = { main: 'scrMain', playOptions: 'scrPlayOptions', chars: 'scrChars', options: 'scrOptions', audio: 'scrAudio', controls: 'scrControls', pause: 'scrPause', ranking: 'scrRanking', missions: 'scrMissions' };
-  const SCREEN_TITLES = { playOptions: 'Jogar', chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado', ranking: 'Ranking 60 s', missions: 'Missões' };
+  const SCREEN_TITLES = { playOptions: 'Jogar', chars: 'Personagens', options: 'Opções', audio: 'Áudio', controls: 'Controles', pause: 'Pausado', ranking: 'Ranking', missions: 'Missões' };
   const LS_CONTROLS = 'ninjaJump_controls';  // 'auto' | 'touch' | 'mouse'
 
   // --- Audio ---
@@ -1197,6 +1204,8 @@
     // Super jump: a rocket picked during a super jump replaces it (spin ends, no stacking); no super jump can
     // start during a rocket (elastics are ignored while it flies). The short-elastic streak is kept.
     rocket: { frames: 150, speed: 10.5, easeFrames: 26, releaseVy: 5, extendMax: 90, clearMargin: 40,
+      // No-elastic mode: over its last `wallFrames` it glides (up to `wallVx` px/frame) flush against the nearest wall.
+      wallFrames: 45, wallVx: 8,
       // Coin auto-path: while climbing it steers sideways toward the next coin ahead (within `lookahead` px
       // above him, or up to `behind` px below) that it can still reach at `maxVx` px/frame sideways.
       // Side speed is planned to arrive right when he reaches the coin's height (gap / frames left, capped
@@ -1320,10 +1329,12 @@
   function loadRecords() {
     migrateRecords();
     const bm = parseInt(store.get(LS_METERS) || '0', 10) || 0;
+    const bne = parseInt(store.get(LS_NOELASTIC_METERS) || '0', 10) || 0;
     const bc = parseInt(store.get(LS_COINS) || '0', 10) || 0;
     bestM.textContent = bm + ' m';
+    if (bestNoElasticM) bestNoElasticM.textContent = bne + ' m';
     bestC.textContent = String(bc);
-    return { meters: bm, coins: bc };
+    return { meters: bm, noElasticMeters: bne, coins: bc };
   }
 
   function saveRecords(meters, coinsCount) {
@@ -1339,6 +1350,14 @@
     }
     loadRecords();
     return isNew;
+  }
+
+  function saveNoElasticRecord(meters) {
+    const best = parseInt(store.get(LS_NOELASTIC_METERS) || '0', 10) || 0;
+    if (meters <= best) return false;
+    store.set(LS_NOELASTIC_METERS, String(Math.floor(meters)));
+    loadRecords();
+    return true;
   }
 
   // --- Screen size, scenery seeds, new run, meters <-> world coordinates ---
@@ -3111,8 +3130,9 @@
     const target = r > RK.easeFrames ? -RK.speed : -(RK.releaseVy + (RK.speed - RK.releaseVy) * (r / RK.easeFrames));
     ninja.vy += (target - ninja.vy) * 0.25;
     rocketCoinSteer();
+    const hug = rocketWallHug(r);
     ninja.x += ninja.vx;
-    const wm = NINJA_R + RK.coinSteer.wallMargin;
+    const wm = hug ? NINJA_R : NINJA_R + RK.coinSteer.wallMargin;
     if (ninja.x < wm) { ninja.x = wm; if (ninja.vx < 0) ninja.vx = 0; }
     if (ninja.x > W - wm) { ninja.x = W - wm; if (ninja.vx > 0) ninja.vx = 0; }
     ninja.y += ninja.vy;
@@ -3223,6 +3243,24 @@
       return;
     }
     ninja.vx += (want - ninja.vx) * (best ? CS.accel : 1);
+  }
+  // No-elastic mode: over its last `wallFrames` the rocket glides to the nearest side wall (when the way is clear of
+  // hazards) and ends flush against it, so he can keep wall-jumping. Returns the wall x it is heading to, or null.
+  function rocketWallHug(r) {
+    if (gameMode !== 'noelastic') return null;
+    const RK = POWERUPS.rocket;
+    if (r > RK.wallFrames) return null;
+    const R = NINJA_R, wx = ninja.x < W / 2 ? R : W - R;
+    for (const hz of hazards) {
+      if (!hz.alive || hz.dying) continue;
+      const hw = (hz.vw || 20) + (hz.range || 0) + (hz.diveX || 0) + R + 6;
+      const up = (hz.vh || 20) + (hz.bobAmp || 0) + R + RK.clearMargin, down = up + (hz.diveY || 0);
+      if (hz.oy + down < ninja.y - 220 || hz.oy - up > ninja.y + 20) continue;
+      if (wx > hz.ox - hw && wx < hz.ox + hw) return null;
+    }
+    const d = wx - ninja.x;
+    ninja.vx = Math.max(-RK.wallVx, Math.min(RK.wallVx, d));
+    return wx;
   }
   // While extending: drift sideways toward the nearest free column (the guaranteed gap) at his height
   function rocketSteer() {
@@ -3579,6 +3617,7 @@
   // vy: strong jump (crosses the screen); weak: share of vy/vx used when nothing was tapped; coyote: frames a contact stays valid
   const NOELASTIC_JUMP = { dashSpeed: 12, dashMax: 70, climbSpeed: 4.2, grace: 14, stamDrain: 1 / 130, stamRegen: 1 / 200, stamRegenGround: 1 / 70, stamResume: 0.4, wallZone: 70, vy: 15.5, weak: 0.6, weakVx: 4, maxVx: 11, minVx: 2.5, coyote: 12, cooldown: 10 };
   const LS_RANKING = 'ninjaJump_ranking60';
+  const LS_NOELASTIC_RANKING = 'ninjaJump_rankingNoElastic';
   const LS_DAILY = 'ninjaJump_daily_v2';
   const LS_WEEKLY = 'ninjaJump_weekly_v2';
   let gameMode = 'normal';
@@ -3673,6 +3712,10 @@
     const r = loadJson(LS_RANKING);
     return Array.isArray(r) ? r.filter(e => e && +e.m >= 0).slice(0, RANKING_SIZE) : [];
   }
+  function loadNoElasticRanking() {
+    const r = loadJson(LS_NOELASTIC_RANKING);
+    return Array.isArray(r) ? r.filter(e => e && +e.m >= 0).slice(0, RANKING_SIZE) : [];
+  }
 
   function modesResetRun() {
     modeRun.kills = 0; modeRun.blueKills = 0; modeRun.ufoKills = 0; modeRun.powerups = 0;
@@ -3761,6 +3804,17 @@
         store.set(LS_RANKING, JSON.stringify(rank.slice(0, RANKING_SIZE)));
         const pos = rank.slice(0, RANKING_SIZE).findIndex(e => e.m === m && e.d === dayNumber());
         lines.push('⏱ Em 60 s: ' + m + ' m' + (pos >= 0 ? ' (ranking: ' + (pos + 1) + 'º)' : ''));
+      }
+    } else if (gameMode === 'noelastic') {
+      const m = Math.floor(bestHeight);
+      if (m > 0) {
+        const rank = loadNoElasticRanking();
+        rank.push({ m: m, d: dayNumber() });
+        rank.sort((a, b) => b.m - a.m);
+        const top = rank.slice(0, RANKING_SIZE);
+        store.set(LS_NOELASTIC_RANKING, JSON.stringify(top));
+        const pos = top.indexOf(rank.find(e => e.m === m && e.d === dayNumber()));
+        lines.push('🧗 Sem elástico: ' + m + ' m' + (pos >= 0 ? ' (ranking: ' + (pos + 1) + 'º)' : ''));
       }
     }
     updateModeMissions(true);
@@ -4332,6 +4386,10 @@
     metersEl.classList.remove('active');
     progressEl.classList.remove('active');
     hud.classList.remove('active');
+    if (gameMode === 'noelastic') {
+      const isNew = saveNoElasticRecord(bestHeight);
+      return saveRecords(0, runCoins) || isNew;
+    }
     return saveRecords(bestHeight, runCoins);
   }
 
@@ -9065,11 +9123,26 @@
     row.appendChild(a); row.appendChild(b);
     return row;
   }
+  let rankingModeTab = 'normal';
+  function setRankingMode(mode) {
+    rankingModeTab = mode;
+    renderRanking();
+  }
   function renderRanking() {
     const box = document.getElementById('rankingList');
     if (!box) return;
     box.innerHTML = '';
-    const rank = loadRanking();
+    const normal = rankingModeTab === 'normal';
+    const rank = normal ? loadRanking() : loadNoElasticRanking();
+    const info = document.getElementById('rankingInfo');
+    if (info) info.textContent = normal
+      ? 'Distância alcançada em 60 segundos de partida normal (neste aparelho).'
+      : 'Melhores distâncias no modo sem elástico (neste aparelho).';
+    document.querySelectorAll('#rankingTabs .chip').forEach(function (tab) {
+      const active = tab.dataset.mode === rankingModeTab;
+      tab.classList.toggle('on', active);
+      tab.setAttribute('aria-selected', String(active));
+    });
     if (!rank.length) { box.appendChild(modeRow('Ainda sem partidas', '—', false)); return; }
     rank.forEach(function (e, i) { box.appendChild(modeRow((i + 1) + 'º', e.m + ' m', i === 0)); });
   }
@@ -9125,6 +9198,8 @@
     onBtn('charsBtn', function () { dlgClose(); charsMsg.textContent = ''; charsMsg.className = 'chars-msg'; showScreen('chars'); });
     onBtn('missionsMenuBtn', function () { showScreen('missions'); });
     onBtn('rankingBtn', function () { showScreen('ranking'); });
+    onBtn('rankingNormalTab', function () { setRankingMode('normal'); });
+    onBtn('rankingNoElasticTab', function () { setRankingMode('noelastic'); });
     onBtn('newGameBtn', function () { startMode('normal'); });
     onBtn('noElasticBtn', function () { startMode('noelastic'); });
     initDialog();

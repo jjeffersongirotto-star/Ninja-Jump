@@ -46,6 +46,10 @@ function endRun() {
   metersEl.classList.remove('active');
   progressEl.classList.remove('active');
   hud.classList.remove('active');
+  if (gameMode === 'noelastic') {
+    const isNew = saveNoElasticRecord(bestHeight);
+    return saveRecords(0, runCoins) || isNew;
+  }
   return saveRecords(bestHeight, runCoins);
 }
 
